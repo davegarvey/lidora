@@ -9,6 +9,7 @@ import { parseTrustedProxyHops } from './server/proxy-guard.ts';
 import { createSelfHostedDatabases } from './server/sqlite-d1.ts';
 import { openNodeSqlite } from './server/node-sqlite.ts';
 import { startSelfHostedJobs } from './server/self-hosted-jobs.ts';
+import { SERVER_NAVIGATION_DENYLIST } from './server/navigation-routes.ts';
 
 loadEnv();
 
@@ -142,15 +143,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [
-          /^\/(?:about|privacy|terms)(?:\.html)?\/?$/,
-          /^\/oauth\//,
-          /^\/\.well-known\//,
-          /^\/mcp(?:\/|$)/,
-          /^\/sync\//,
-          /^\/llms\.txt$/,
-          /^\/openapi\.json$/,
-        ],
+        navigateFallbackDenylist: SERVER_NAVIGATION_DENYLIST,
       },
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-192.png', 'icon-maskable-512.png'],
     }),
