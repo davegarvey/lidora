@@ -1,11 +1,11 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openNodeSqlite } from '../server/node-sqlite';
 import { createSelfHostedDatabases } from '../server/sqlite-d1';
 import { createApp } from '../server/handle';
-import { APP_SHELL_ROUTES, FETCH_ONLY_ROUTES, SERVER_NAVIGATION_DENYLIST } from '../server/navigation-routes';
+import { APP_SHELL_ROUTES, FETCH_ONLY_ROUTES, SERVER_NAVIGATION_DENYLIST, WORKER_FIRST_ROUTES } from '../server/navigation-routes';
 
 let directory: string;
 let paths: string[];
@@ -52,5 +52,22 @@ describe('service worker navigation fallback', () => {
     for (const path of ['/oauth/authorize', '/oauth/c/abc/authorize', '/.well-known/oauth-authorization-server', '/mcp', '/mcp/c/abc']) {
       expect(denied(path)).toBe(true);
     }
+  });
+});
+
+function globMatches(pattern: string, path: string): boolean {
+  return pattern.endsWith('/*') ? path.startsWith(pattern.slice(0, -1)) : path === pattern;
+}
+
+describe('Cloudflare asset routing', () => {
+  it('runs the Worker before the single-page fallback for every server route a browser can navigate to', () => {
+    const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+    const match = /^run_worker_first = (\[.*\])$/m.exec(toml);
+    expect(match).not.toBeNull();
+    expect(JSON.parse(match![1]) as string[]).toEqual(WORKER_FIRST_ROUTES);
+
+    const navigable = paths.filter((path) => !FETCH_ONLY_ROUTES.includes(path) && !APP_SHELL_ROUTES.includes(path));
+    const uncovered = navigable.filter((path) => !WORKER_FIRST_ROUTES.some((pattern) => globMatches(pattern, concrete(path))));
+    expect(uncovered).toEqual([]);
   });
 });
