@@ -1,13 +1,23 @@
+import {
+  ProtocolError,
+  ProtocolErrorCode,
+  Server,
+  WebStandardStreamableHTTPServerTransport,
+  createMcpHandler,
+  fromJsonSchema,
+  isLegacyRequest,
+  type AuthInfo,
+  type CallToolResult,
+} from '@modelcontextprotocol/server';
 import { Hono, type Context } from 'hono';
 import pkg from '../../../package.json';
 import { assertNoKeyLog } from '../../log';
-import { authenticateToken, hasScope } from '../../sync/auth';
+import { authenticateToken, hasScope, type TokenAuth } from '../../sync/auth';
 import { RATE_LIMITS, checkRateLimit } from '../../sync/ratelimit';
 import { ensureSchema } from '../../sync/schema';
 import { publicOrigin } from '../origin';
 import { discoverTools } from './discover';
 import { readTools } from './read-tools';
-import { validateSchema } from './schema';
 import { ToolError, type ToolContext, type ToolDefinition } from './types';
 import { writeTools } from './write-tools';
 
@@ -17,7 +27,6 @@ export interface McpRoutesOptions {
   publicUrl?: string;
 }
 
-const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY_BYTES = 256 * 1024;
 
 const TOOLS: ToolDefinition[] = [...readTools, ...discoverTools, ...writeTools];
@@ -29,21 +38,6 @@ const CORS_HEADERS = {
   'Access-Control-Expose-Headers': 'WWW-Authenticate',
   'Access-Control-Max-Age': '86400',
 };
-
-type JsonRpcId = string | number | null;
-
-interface JsonRpcRequest {
-  jsonrpc: '2.0';
-  id?: JsonRpcId;
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-const PARSE_ERROR = -32700;
-const INVALID_REQUEST = -32600;
-const METHOD_NOT_FOUND = -32601;
-const INVALID_PARAMS = -32602;
-const INTERNAL_ERROR = -32603;
 
 function instructions(hasContent: boolean): string {
   const lines = [
@@ -74,26 +68,24 @@ function instructions(hasContent: boolean): string {
   return lines.join('\n');
 }
 
-function rpcResult(id: JsonRpcId, result: unknown) {
-  return { jsonrpc: '2.0' as const, id, result };
-}
+const REQUEST_TOO_LARGE = { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Request too large.' } };
 
-function rpcError(id: JsonRpcId, code: number, message: string) {
-  return { jsonrpc: '2.0' as const, id, error: { code, message } };
-}
-
-function isRequest(value: unknown): value is JsonRpcRequest {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  const message = value as Record<string, unknown>;
-  return message.jsonrpc === '2.0' && typeof message.method === 'string';
-}
-
-type ToolOutcome =
-  | { rpcError: { code: number; message: string }; result?: undefined }
-  | { result: unknown; rpcError?: undefined };
-
-function toolErrorResult(message: string) {
+function toolErrorResult(message: string): CallToolResult {
   return { content: [{ type: 'text', text: message }], isError: true };
+}
+
+const inputValidators = new Map(TOOLS.map((tool) => [tool.name, fromJsonSchema(tool.inputSchema as Record<string, unknown>)]));
+
+async function checkArguments(tool: ToolDefinition, args: unknown): Promise<string[]> {
+  const validator = inputValidators.get(tool.name);
+  if (!validator) return ['no schema'];
+  const result = await validator['~standard'].validate(args);
+  return result.issues ? result.issues.map((issue) => issue.message) : [];
+}
+
+function authFrom(info: AuthInfo | undefined): TokenAuth | null {
+  const auth = info?.extra?.auth;
+  return typeof auth === 'object' && auth !== null ? (auth as TokenAuth) : null;
 }
 
 export function createMcpRoutes(options: McpRoutesOptions): Hono {
@@ -116,62 +108,62 @@ export function createMcpRoutes(options: McpRoutesOptions): Hono {
     });
   }
 
-  async function callTool(ctx: ToolContext, params: Record<string, unknown> | undefined): Promise<ToolOutcome> {
-    const name = params?.name;
-    const tool = typeof name === 'string' ? TOOLS.find((candidate) => candidate.name === name) : undefined;
-    if (!tool || (tool.needsPoll && !hasContent)) return { rpcError: { code: INVALID_PARAMS, message: 'Unknown tool.' } };
+  async function callTool(ctx: ToolContext, name: string, args: unknown): Promise<CallToolResult> {
+    const tool = TOOLS.find((candidate) => candidate.name === name);
+    if (!tool || (tool.needsPoll && !hasContent)) throw new ProtocolError(ProtocolErrorCode.InvalidParams, 'Unknown tool.');
     if (!hasScope(ctx.scopes, tool.scope)) {
-      return { result: toolErrorResult(`insufficient_scope: this tool requires the ${tool.scope} scope, which this connection does not have.`) };
+      return toolErrorResult(`insufficient_scope: this tool requires the ${tool.scope} scope, which this connection does not have.`);
     }
     const limit = await checkRateLimit(db, `mcp:tok:${ctx.tokenId}`, RATE_LIMITS.mcp.windowSeconds, RATE_LIMITS.mcp.limit);
-    if (!limit.ok) {
-      return { result: toolErrorResult(`Rate limit reached. Retry in ${limit.retryAfter} seconds.`) };
-    }
-    const args = params?.arguments ?? {};
-    const errors = validateSchema(tool.inputSchema, args, 'arguments');
-    if (errors.length > 0) return { result: toolErrorResult(`Invalid arguments: ${errors.slice(0, 5).join('; ')}`) };
+    if (!limit.ok) return toolErrorResult(`Rate limit reached. Retry in ${limit.retryAfter} seconds.`);
+    const input = args ?? {};
+    const errors = await checkArguments(tool, input);
+    if (errors.length > 0) return toolErrorResult(`Invalid arguments: ${errors.slice(0, 5).join('; ')}`);
     try {
-      const output = await tool.run(ctx, args as Record<string, unknown>);
-      return { result: { content: [{ type: 'text', text: output.text }], structuredContent: output.data } };
+      const output = await tool.run(ctx, input as Record<string, unknown>);
+      return { content: [{ type: 'text', text: output.text }], structuredContent: output.data };
     } catch (error) {
-      return { result: toolErrorResult(error instanceof ToolError ? error.message : 'The tool failed unexpectedly. Try again.') };
+      return toolErrorResult(error instanceof ToolError ? error.message : 'The tool failed unexpectedly. Try again.');
     }
   }
 
-  async function handleMessage(ctx: ToolContext, message: JsonRpcRequest) {
-    const id = message.id ?? null;
-    switch (message.method) {
-      case 'initialize': {
-        const requested = message.params?.protocolVersion;
-        const protocolVersion =
-          typeof requested === 'string' && SUPPORTED_PROTOCOL_VERSIONS.includes(requested) ? requested : SUPPORTED_PROTOCOL_VERSIONS[0];
-        return rpcResult(id, {
-          protocolVersion,
-          capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: 'sift', title: 'Sift', version: pkg.version },
-          instructions: instructions(hasContent),
-        });
-      }
-      case 'ping':
-        return rpcResult(id, {});
-      case 'tools/list':
-        return rpcResult(id, {
-          tools: availableTools(ctx.scopes).map((tool) => ({
-            name: tool.name,
-            title: tool.title,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-            outputSchema: tool.outputSchema,
-            annotations: { title: tool.title, ...tool.annotations },
-          })),
-        });
-      case 'tools/call': {
-        const outcome = await callTool(ctx, message.params);
-        if (outcome.rpcError) return rpcError(id, outcome.rpcError.code, outcome.rpcError.message);
-        return rpcResult(id, outcome.result);
-      }
-      default:
-        return rpcError(id, METHOD_NOT_FOUND, 'Method not found.');
+  function createServer(auth: TokenAuth): Server {
+    const ctx: ToolContext = { db, pollDb, syncKey: auth.syncKey, tokenId: auth.tokenId, scopes: auth.scopes };
+    const server = new Server(
+      { name: 'sift', title: 'Sift', version: pkg.version },
+      { capabilities: { tools: { listChanged: false } }, instructions: instructions(hasContent) },
+    );
+    server.setRequestHandler('tools/list', () => ({
+      tools: availableTools(ctx.scopes).map((tool) => ({
+        name: tool.name,
+        title: tool.title,
+        description: tool.description,
+        inputSchema: tool.inputSchema as { type: 'object' },
+        outputSchema: tool.outputSchema as { type: 'object' },
+        annotations: { title: tool.title, ...tool.annotations },
+      })),
+    }));
+    server.setRequestHandler('tools/call', (request) => callTool(ctx, request.params.name, request.params.arguments));
+    return server;
+  }
+
+  const mcp = createMcpHandler(
+    (context) => {
+      const auth = authFrom(context.authInfo);
+      if (!auth) throw new Error('Unauthenticated MCP request.');
+      return createServer(auth);
+    },
+    { legacy: 'reject', responseMode: 'json', maxRequestBodySize: MAX_BODY_BYTES },
+  );
+
+  async function serveLegacy(request: Request, auth: TokenAuth, authInfo: AuthInfo): Promise<Response> {
+    const server = createServer(auth);
+    const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
+    await server.connect(transport);
+    try {
+      return await transport.handleRequest(request, { authInfo });
+    } finally {
+      await server.close();
     }
   }
 
@@ -187,47 +179,18 @@ export function createMcpRoutes(options: McpRoutesOptions): Hono {
     }
 
     const declared = Number(c.req.header('Content-Length'));
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-      return c.json(rpcError(null, INVALID_REQUEST, 'Request too large.'), 413, CORS_HEADERS);
-    }
-    let body: unknown;
-    try {
-      const raw = await c.req.text();
-      if (raw.length > MAX_BODY_BYTES) return c.json(rpcError(null, INVALID_REQUEST, 'Request too large.'), 413, CORS_HEADERS);
-      body = JSON.parse(raw);
-    } catch {
-      return c.json(rpcError(null, PARSE_ERROR, 'Parse error.'), 400, CORS_HEADERS);
-    }
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return c.json(REQUEST_TOO_LARGE, 413, CORS_HEADERS);
+    const raw = await c.req.text();
+    if (raw.length > MAX_BODY_BYTES) return c.json(REQUEST_TOO_LARGE, 413, CORS_HEADERS);
+    const request = new Request(c.req.url, { method: 'POST', headers: c.req.raw.headers, body: raw });
 
-    const ctx: ToolContext = {
-      db,
-      pollDb,
-      syncKey: auth.syncKey,
-      tokenId: auth.tokenId,
-      scopes: auth.scopes,
-    };
-    const headers = { ...CORS_HEADERS, 'Cache-Control': 'no-store' };
-    const batch = Array.isArray(body);
-    const messages: unknown[] = Array.isArray(body) ? body : [body];
-    if (messages.length === 0) return c.json(rpcError(null, INVALID_REQUEST, 'Invalid request.'), 400, headers);
-
-    const responses: unknown[] = [];
-    for (const message of messages) {
-      if (!isRequest(message)) {
-        const looksLikeResponse =
-          typeof message === 'object' && message !== null && 'jsonrpc' in message && !('method' in message) && ('result' in message || 'error' in message);
-        if (!looksLikeResponse) responses.push(rpcError(null, INVALID_REQUEST, 'Invalid request.'));
-        continue;
-      }
-      if (message.id === undefined) continue;
-      try {
-        responses.push(await handleMessage(ctx, message));
-      } catch {
-        responses.push(rpcError(message.id, INTERNAL_ERROR, 'Internal error.'));
-      }
-    }
-    if (responses.length === 0) return new Response(null, { status: 202, headers });
-    return c.json(batch ? responses : responses[0], 200, headers);
+    const authInfo: AuthInfo = { token: bearer[1], clientId: auth.tokenId, scopes: auth.scopes, extra: { auth } };
+    const response = (await isLegacyRequest(request))
+      ? await serveLegacy(request, auth, authInfo)
+      : await mcp.fetch(request, { authInfo });
+    const headers = new Headers(response.headers);
+    for (const [name, value] of Object.entries({ ...CORS_HEADERS, 'Cache-Control': 'no-store' })) headers.set(name, value);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   }
 
   const methodNotAllowed = (c: Context) =>

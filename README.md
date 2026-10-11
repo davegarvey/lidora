@@ -175,6 +175,8 @@ ignored because clients can supply it themselves.
 - `npm run lint` — eslint
 - `npm test` — vitest unit/integration tests
 - `npm run test:smoke` — Playwright smoke tests (requires `npm run dev`)
+- `npm run test:conformance` — runs the official MCP conformance suite against a local Node server
+  with a seeded test token (see `tests/conformance/`)
 - `npm run spec:validate` — strict OpenSpec validation of `openspec/specs/` (runs in CI)
 - `npm run deploy` — `git pull --ff-only && vite build && wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && wrangler deploy`
 - `npm run deploy:ci` — same, without `git pull` (Workers Builds deploy command)
@@ -499,4 +501,5 @@ short description of the connector.
 
 ## License
 
-MIT
+MIT. The MCP endpoint depends on the Apache-2.0 licensed
+`@modelcontextprotocol/server`, which is compatible with the MIT licence.

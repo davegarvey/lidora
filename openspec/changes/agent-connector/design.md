@@ -35,12 +35,15 @@ The chat-agent path fails because it depends on the agent's sandbox fetching Sif
 
 `/mcp` accepts JSON-RPC over `POST` and answers each request in the response. It keeps no MCP session state and does not offer the optional server-to-client SSE stream (`GET /mcp` returns 405). The handler is mounted in `server/handle.ts` beside the sync routes, so Workers, Node and Bun all serve it whenever sync storage is configured.
 
+The endpoint uses the official MCP TypeScript SDK (`@modelcontextprotocol/server`, Apache-2.0) for protocol handling: JSON-RPC parsing and batching, protocol-revision negotiation, `initialize`, `ping`, request dispatch and error codes. The SDK accepts web-standard `Request` objects and runs on Workers, Node and Bun. Sift keeps its own bearer authentication, `401` challenge, CORS, body cap, scope filtering and rate limits in Hono around it. The handler runs after authentication and builds a fresh SDK server for each request, so the tool list follows the token's scopes. 2025-era clients are served through a stateless streamable HTTP transport in JSON mode, and 2026-07-28 requests through `createMcpHandler` with `responseMode: 'json'`, so neither is SSE-framed. We adopted the SDK so that new protocol revisions and `server/discover` reach Sift as dependency updates rather than hand-written code, and so that the official conformance suite (`npm run test:conformance`) exercises the same code that real clients use.
+
 The tool calls originate from the agent's host (for example a vendor's connector infrastructure, or a desktop client's own process), not from a code sandbox. That host-side origin is what fixes the reported failure.
 
 Alternatives considered:
 
 - **A better prompt for the GET-URL approach.** This cannot fix sandbox egress or the PWA link problem.
 - **A stateful MCP session.** It would add storage and failure modes that this tool set does not need.
+- **A hand-written JSON-RPC subset.** This was the first implementation. It was small, but it left revision negotiation, batching and error mapping for Sift to maintain as the specification moves.
 
 ### 2. OAuth 2.1 following the MCP authorisation specification
 
@@ -165,7 +168,9 @@ When the poll database is absent, `list_items` and `get_item` are not listed, an
 
 The `initialize` result carries `instructions`: a short description of Sift, the ID conventions, and guidance for the common workflows. For example: "To recommend feeds, call `list_subscriptions` sorted by engagement, then verify every suggestion with `discover_feeds` before proposing it." Clients surface this text to the model, so it is how the expected workflows become discoverable without client-specific integration.
 
-The JSON-RPC subset (`initialize`, `notifications/initialized`, `ping`, `tools/list`, `tools/call`) is implemented directly in `server/agent/mcp/` rather than through `@modelcontextprotocol/server`. The tool set is fixed, the principal and scopes vary per request, and tool lists depend on scope and on the poll database, so a per-request SDK server would add schema-library and validator dependencies without removing any protocol work. The handler negotiates protocol revisions 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05, allows cross-origin `POST` with `Authorization`, and answers `OPTIONS` preflight, because some MCP clients run in browsers. `unsubscribe` succeeds with `removed: false` when the feed is already gone. `subscribe` returns `created: false` for an existing URL.
+The tools are defined in `server/agent/mcp/` with JSON Schema input and output schemas. The SDK's `fromJsonSchema` adapter validates arguments against them (Ajv on Node and Bun, `@cfworker/json-schema` on Workers), so the schemas the clients see are the schemas that are enforced. Tools are dispatched through low-level `tools/list` and `tools/call` handlers rather than `McpServer.registerTool`, because a tool hidden by scope must still answer a call with an `insufficient_scope` tool error, and `registerTool` can only hide a tool by making calls to it fail as protocol errors. The server negotiates protocol revisions 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05, as the SDK supports them, and requires the `Accept` and `Content-Type` headers that the Streamable HTTP transport specifies. It allows cross-origin `POST` with `Authorization` and answers `OPTIONS` preflight, because some MCP clients run in browsers. `unsubscribe` succeeds with `removed: false` when the feed is already gone. `subscribe` returns `created: false` for an existing URL.
+
+The official conformance suite runs in CI against the Node server. Its runner cannot send an `Authorization` header, so `tests/conformance/run.ts` starts the server with a seeded OAuth token and puts a small proxy in front that adds the bearer token; production authentication is unchanged. Scenarios that cannot apply (resources, prompts, suite fixture tools, server-initiated messages, unauthenticated-localhost rebinding) are listed with reasons in `tests/conformance/expected-failures.yml`.
 
 Write tools call the same server-side merge used by `POST /sync/push`, factored into a shared function, so the effect matches a device sync.
 
