@@ -1,7 +1,7 @@
 # agent-connector Specification
 
 ## Purpose
-TBD - created by archiving change standardize-oauth-provider. Update Purpose after archive.
+Define library-managed OAuth for Sift’s MCP connector across Cloudflare Workers and self-hosted deployments, preserving convenient explicit approval and immediate account control.
 
 ## Requirements
 
