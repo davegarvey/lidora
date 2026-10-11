@@ -121,6 +121,8 @@ describe('per-client limit', () => {
   });
 
   it('enforces the default budgets', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.UTC(2026, 0, 1, 0, 0, 0));
     const app = createApp();
     for (let i = 0; i < PROXY_LIMITS.fetch.limit; i += 1) {
       expect((await app.request('/feed?url=bad')).status).toBe(400);
