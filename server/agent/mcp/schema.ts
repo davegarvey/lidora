@@ -17,63 +17,48 @@ export interface Schema {
   default?: unknown;
 }
 
-function typeMatches(type: SchemaType, value: unknown): boolean {
-  switch (type) {
-    case 'null':
-      return value === null;
-    case 'array':
-      return Array.isArray(value);
-    case 'object':
-      return typeof value === 'object' && value !== null && !Array.isArray(value);
-    case 'integer':
-      return typeof value === 'number' && Number.isInteger(value);
-    case 'number':
-      return typeof value === 'number' && Number.isFinite(value);
-    case 'string':
-      return typeof value === 'string';
-    case 'boolean':
-      return typeof value === 'boolean';
-  }
+const AJV_LOCATION = /^data((?:\/[^\s]*)?)(?=\s)/;
+const CF_LOCATION = /^#((?:\/[^\s:]*)?):/;
+const REQUIRED_PROPERTY = /required property\s+['"]?([^'"\s.]+)/;
+
+function segments(location: string): string[] {
+  return location.split('/').filter((part) => part !== '').map((part) => part.replace(/~1/g, '/').replace(/~0/g, '~'));
 }
 
-export function validateSchema(schema: Schema, value: unknown, path = '$'): string[] {
-  const errors: string[] = [];
-  if (schema.type !== undefined) {
-    const types = Array.isArray(schema.type) ? schema.type : [schema.type];
-    if (!types.some((type) => typeMatches(type, value))) {
-      return [`${path} must be ${types.join(' or ')}`];
-    }
+function walk(schema: Schema, parts: string[]): Schema | undefined {
+  let current: Schema | undefined = schema;
+  for (const part of parts) {
+    current = /^\d+$/.test(part) && current?.items ? current.items : current?.properties?.[part];
+    if (!current) return undefined;
   }
-  if (schema.enum && !schema.enum.includes(value as string | number | boolean | null)) {
-    errors.push(`${path} must be one of ${schema.enum.join(', ')}`);
-  }
-  if (typeof value === 'number') {
-    if (schema.minimum !== undefined && value < schema.minimum) errors.push(`${path} must be at least ${schema.minimum}`);
-    if (schema.maximum !== undefined && value > schema.maximum) errors.push(`${path} must be at most ${schema.maximum}`);
-  }
-  if (typeof value === 'string') {
-    if (schema.minLength !== undefined && value.length < schema.minLength) errors.push(`${path} is too short`);
-    if (schema.maxLength !== undefined && value.length > schema.maxLength) errors.push(`${path} is too long`);
-  }
-  if (Array.isArray(value)) {
-    if (schema.minItems !== undefined && value.length < schema.minItems) errors.push(`${path} needs at least ${schema.minItems} items`);
-    if (schema.maxItems !== undefined && value.length > schema.maxItems) errors.push(`${path} allows at most ${schema.maxItems} items`);
-    const itemSchema = schema.items;
-    if (itemSchema) value.forEach((item, index) => errors.push(...validateSchema(itemSchema, item, `${path}[${index}]`)));
-  }
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    const record = value as Record<string, unknown>;
-    for (const key of schema.required ?? []) {
-      if (record[key] === undefined) errors.push(`${path}.${key} is required`);
-    }
-    for (const [key, child] of Object.entries(schema.properties ?? {})) {
-      if (record[key] !== undefined) errors.push(...validateSchema(child, record[key], `${path}.${key}`));
-    }
-    if (schema.additionalProperties === false) {
-      for (const key of Object.keys(record)) {
-        if (!schema.properties || !(key in schema.properties)) errors.push(`${path}.${key} is not allowed`);
-      }
-    }
-  }
-  return errors;
+  return current;
+}
+
+function name(parts: string[]): string {
+  if (parts.length === 0) return 'arguments';
+  return parts.reduce((out, part) => (/^\d+$/.test(part) ? `${out}[${part}]` : out ? `${out}.${part}` : part), '');
+}
+
+function expectation(schema: Schema | undefined): string {
+  if (!schema) return 'a value the tool accepts';
+  const bits: string[] = [];
+  if (schema.type && !schema.enum) bits.push((Array.isArray(schema.type) ? schema.type : [schema.type]).join(' or '));
+  if (schema.enum) bits.push(`one of ${schema.enum.join(', ')}`);
+  if (schema.minimum !== undefined) bits.push(`at least ${schema.minimum}`);
+  if (schema.maximum !== undefined) bits.push(`at most ${schema.maximum}`);
+  if (schema.minLength !== undefined) bits.push(`at least ${schema.minLength} characters`);
+  if (schema.maxLength !== undefined) bits.push(`at most ${schema.maxLength} characters`);
+  if (schema.minItems !== undefined) bits.push(`at least ${schema.minItems} items`);
+  if (schema.maxItems !== undefined) bits.push(`at most ${schema.maxItems} items`);
+  return bits.length > 0 ? bits.join(', ') : 'a value the tool accepts';
+}
+
+export function describeIssue(schema: Schema, messages: readonly string[]): string {
+  const message = messages.flatMap((entry) => entry.split(/;\s+(?=#)/)).at(-1) ?? '';
+  const location = AJV_LOCATION.exec(message)?.[1] ?? CF_LOCATION.exec(message)?.[1] ?? '';
+  const parts = segments(location);
+  const missing = REQUIRED_PROPERTY.exec(message)?.[1];
+  if (missing) return `${name([...parts, missing])} is required`;
+  if (/additional propert/i.test(message)) return `${name(parts)} has properties the tool does not accept`;
+  return `${name(parts)} must be ${expectation(walk(schema, parts))}`;
 }

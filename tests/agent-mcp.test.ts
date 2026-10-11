@@ -9,7 +9,8 @@ import { openNodeSqlite } from '../server/node-sqlite';
 import { createSelfHostedDatabases } from '../server/sqlite-d1';
 import { generateToken, generateTokenId, sha256Hex, tokenFingerprint } from '../server/sync/tokens';
 import { RATE_LIMITS } from '../server/sync/ratelimit';
-import { validateSchema, type Schema } from '../server/agent/mcp/schema';
+import { fromJsonSchema } from '@modelcontextprotocol/server';
+import { describeIssue, type Schema } from '../server/agent/mcp/schema';
 import { redactUrl } from '../server/agent/mcp/redact';
 import { htmlToMarkdown } from '../server/agent/mcp/markdown';
 import { publicOrigin } from '../server/agent/origin';
@@ -75,6 +76,10 @@ async function setup(options: { scopes?: string; polling?: boolean; publicUrl?: 
   });
   const { token, tokenId } = await addToken(sync, options.scopes ?? 'read write');
   return { app, sync, poll, token, tokenId };
+}
+
+function bytes(value: unknown): ArrayBuffer {
+  return new TextEncoder().encode(JSON.stringify(value)).buffer as ArrayBuffer;
 }
 
 interface RpcResponse {
@@ -275,7 +280,7 @@ describe('MCP endpoint', () => {
       const res = await rpc(h, 'initialize', { protocolVersion: version, capabilities: {}, clientInfo: { name: 't', version: '1' } });
       expect((res.result as { protocolVersion: string }).protocolVersion).toBe(version);
     }
-    const fallback = await rpc(h, 'initialize', { protocolVersion: '1999-01-01' });
+    const fallback = await rpc(h, 'initialize', { protocolVersion: '1999-01-01', capabilities: {}, clientInfo: { name: 't', version: '1' } });
     expect((fallback.result as { protocolVersion: string }).protocolVersion).toBe('2025-11-25');
     const result = fallback.result as { instructions: string; capabilities: { tools: object }; serverInfo: { name: string } };
     expect(result.capabilities.tools).toBeDefined();
@@ -291,16 +296,101 @@ describe('MCP endpoint', () => {
     const notification = await h.app.request('/mcp', {
       method: 'POST',
       headers: { Authorization: `Bearer ${h.token}` },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+      body: bytes({ jsonrpc: '2.0', method: 'notifications/initialized' }),
     });
     expect(notification.status).toBe(202);
     expect((await rpc(h, 'ping')).result).toEqual({});
     expect((await rpc(h, 'nope')).error?.code).toBe(-32601);
-    const bad = await h.app.request('/mcp', { method: 'POST', headers: { Authorization: `Bearer ${h.token}` }, body: '{' });
+    const bad = await h.app.request('/mcp', { method: 'POST', headers: { Authorization: `Bearer ${h.token}` }, body: new TextEncoder().encode('{').buffer as ArrayBuffer });
     expect(bad.status).toBe(400);
     expect(((await bad.json()) as RpcResponse).error?.code).toBe(-32700);
     const unknownTool = await rpc(h, 'tools/call', { name: 'nope', arguments: {} });
     expect(unknownTool.error?.code).toBe(-32602);
+  });
+});
+
+describe('argument error text', () => {
+  const schema: Schema = {
+    type: 'object',
+    required: ['url'],
+    properties: {
+      url: { type: 'string', minLength: 1 },
+      sort: { type: 'string', enum: ['a', 'b'] },
+      tags: { type: 'array', items: { type: 'string', maxLength: 64 } },
+    },
+  };
+
+  it('reads the same for Ajv and cfworker messages', () => {
+    expect(describeIssue(schema, ["data must have required property 'url'"])).toBe('url is required');
+    expect(describeIssue(schema, ['#: Instance does not have required property "url".'])).toBe('url is required');
+    expect(describeIssue(schema, ['data/sort must be equal to one of the allowed values'])).toBe('sort must be one of a, b');
+    expect(describeIssue(schema, ['#: Property "sort" does not match schema.', '#/sort: "z" does not match enum.'])).toBe('sort must be one of a, b');
+    expect(describeIssue(schema, ['data/tags/0 must NOT have more than 64 characters'])).toBe('tags[0] must be string, at most 64 characters');
+    expect(describeIssue(schema, ['#: Property "sort" does not match schema.; #/sort: "z" does not match enum.'])).toBe('sort must be one of a, b');
+    expect(describeIssue(schema, ['#/tags/0: String is too long.'])).toBe('tags[0] must be string, at most 64 characters');
+  });
+});
+
+describe('MCP transport', () => {
+  it('answers with plain JSON and tolerates missing or loose headers', async () => {
+    const h = await setup();
+    const body = bytes({ jsonrpc: '2.0', id: 1, method: 'ping' });
+    const authorization = `Bearer ${h.token}`;
+    const post = (headers: Record<string, string>) => h.app.request('/mcp', { method: 'POST', headers: { Authorization: authorization, ...headers }, body });
+    const strict = await post({ 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' });
+    expect(strict.headers.get('Content-Type')).toMatch(/^application\/json/);
+    expect(strict.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    const loose: Record<string, string>[] = [
+      { 'Content-Type': 'application/json', Accept: '*/*' },
+      { 'Content-Type': 'application/json' },
+      { Accept: 'application/json' },
+      {},
+    ];
+    for (const headers of loose) {
+      const res = await post(headers);
+      expect(res.status, JSON.stringify(headers)).toBe(200);
+      expect(((await res.json()) as RpcResponse).result).toEqual({});
+    }
+    expect((await post({ 'Content-Type': 'text/plain' })).status).toBe(415);
+    expect((await h.app.request('/mcp', { method: 'POST', headers: { Authorization: authorization }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }) })).status).toBe(415);
+  });
+
+  it('answers batches and rejects oversized bodies', async () => {
+    const h = await setup();
+    const headers = { Authorization: `Bearer ${h.token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' };
+    const batch = await h.app.request('/mcp', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify([{ jsonrpc: '2.0', id: 1, method: 'ping' }, { jsonrpc: '2.0', id: 2, method: 'ping' }]),
+    });
+    expect(((await batch.json()) as RpcResponse[]).map((entry) => entry.id)).toEqual([1, 2]);
+    const large = await h.app.request('/mcp', { method: 'POST', headers, body: 'x'.repeat(256 * 1024 + 1) });
+    expect(large.status).toBe(413);
+    expect(((await large.json()) as RpcResponse).error?.code).toBe(-32600);
+  });
+
+  it('serves 2026-07-28 requests with the same scope filtering', async () => {
+    const h = await setup({ scopes: 'read' });
+    const meta = {
+      'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+      'io.modelcontextprotocol/clientInfo': { name: 't', version: '1' },
+      'io.modelcontextprotocol/clientCapabilities': {},
+    };
+    const res = await h.app.request('/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${h.token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2026-07-28',
+        'Mcp-Method': 'tools/list',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: { _meta: meta } }),
+    });
+    expect(res.status).toBe(200);
+    const names = ((await res.json()) as { result: { tools: Array<{ name: string }> } }).result.tools.map((tool) => tool.name);
+    expect(names).toContain('list_subscriptions');
+    expect(names).not.toContain('subscribe');
   });
 });
 
@@ -346,7 +436,7 @@ describe('tool listing and scopes', () => {
     expect(names).not.toContain('list_items');
     expect(names).not.toContain('get_item');
     expect(names).toContain('list_subscriptions');
-    const init = await rpc(h, 'initialize', { protocolVersion: '2025-11-25' });
+    const init = await rpc(h, 'initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 't', version: '1' } });
     expect((init.result as { instructions: string }).instructions).toMatch(/unavailable on this deployment/);
     const refused = await rpc(h, 'tools/call', { name: 'list_items', arguments: {} });
     expect(refused.error?.code).toBe(-32602);
@@ -356,7 +446,7 @@ describe('tool listing and scopes', () => {
     const h = await setup();
     const result = await call(h, 'list_items', { limit: 500 });
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toMatch(/Invalid arguments/);
+    expect(result.content[0].text).toBe('Invalid arguments: limit must be integer, at least 1, at most 200.');
     expect((await call(h, 'set_item_state', { itemIds: [], read: true })).isError).toBe(true);
   });
 });
@@ -535,21 +625,6 @@ describe('Markdown conversion', () => {
     expect(htmlToMarkdown('<ol><li>a</li><li>b<ul><li>c</li></ul></li></ol>')).toBe('1. a\n2. b\n  - c');
     expect(htmlToMarkdown('<p>one<br>two</p><style>p{}</style><!-- hidden -->')).toBe('one\ntwo');
     expect(htmlToMarkdown('<a href="javascript:alert(1)">bad</a>')).toBe('bad');
-  });
-});
-
-describe('schema validation helper', () => {
-  it('reports type, required, enum and bound violations', () => {
-    const schema: Schema = {
-      type: 'object',
-      required: ['a'],
-      additionalProperties: false,
-      properties: { a: { type: 'integer', minimum: 1 }, b: { type: ['string', 'null'], enum: ['x', null] } },
-    };
-    expect(validateSchema(schema, { a: 1, b: null })).toEqual([]);
-    expect(validateSchema(schema, {})).toEqual(['$.a is required']);
-    expect(validateSchema(schema, { a: 0, b: 'y', c: 1 })).toHaveLength(3);
-    expect(validateSchema(schema, { a: 1.5 })).toEqual(['$.a must be integer']);
   });
 });
 
@@ -830,7 +905,8 @@ describe('output schema conformance', () => {
       expect(result.content[0].type).toBe('text');
       expect(result.content[0].text.length).toBeGreaterThan(0);
       const tool = tools.get(name) as ListedTool;
-      expect(validateSchema(tool.outputSchema, result.structuredContent), name).toEqual([]);
+      const checked = await fromJsonSchema(tool.outputSchema as Record<string, unknown>)['~standard'].validate(result.structuredContent);
+      expect(checked.issues, name).toBeUndefined();
       seen.add(name);
     }
     expect([...seen].sort()).toEqual([...tools.keys()].sort());
