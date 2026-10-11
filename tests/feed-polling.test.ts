@@ -228,7 +228,7 @@ describe('server feed polling', () => {
         await new Promise((resolve) => setTimeout(resolve, 20));
         lease = await db.prepare('SELECT next_poll_at, last_status FROM polled_feeds')
           .first<{ next_poll_at: number; last_status: number | null }>();
-        if (lease && lease.next_poll_at > startedAt) break;
+        if (lease && lease.next_poll_at > startedAt && feedRequests(upstream, '/lease.xml') === 1) break;
       }
       expect(feedRequests(upstream, '/lease.xml')).toBe(1);
       expect(lease?.last_status).toBeNull();

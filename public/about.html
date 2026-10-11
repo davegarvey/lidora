@@ -3,28 +3,54 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Sift is a quiet, browser-first RSS reader. Follow your feeds, keep your library in your browser, and self-host if you prefer.">
-  <meta name="theme-color" content="#eff1f5">
-  <title>About Sift</title>
+  <meta name="description" content="Sift is a free, open-source RSS reader that runs in your browser. No account, OPML import, offline reading and optional sync. Self-host with Docker, Node, Bun or Cloudflare Workers.">
+  <meta name="theme-color" content="#eff1f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1e1e2e" media="(prefers-color-scheme: dark)">
+  <link rel="canonical" href="https://sift.davegarvey.workers.dev/about">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <title>Sift: a free, open-source RSS reader you can self-host</title>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Sift",
+      "url": "https://sift.davegarvey.workers.dev/",
+      "description": "A free, open-source RSS and Atom reader that runs in your browser and can be self-hosted.",
+      "applicationCategory": "NewsApplication",
+      "operatingSystem": "Any",
+      "isAccessibleForFree": true,
+      "license": "https://opensource.org/licenses/MIT",
+      "codeRepository": "https://github.com/davegarvey/sift",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+  </script>
   <link rel="stylesheet" href="/pages.css">
 </head>
 <body>
+  <header class="page-header">
+    <div class="page-header-inner"><a class="wordmark" href="/" aria-label="Sift reader">sift</a><a class="open-reader" href="/">Open reader</a></div>
+  </header>
   <main>
-    <header>
-      <a class="wordmark" href="/">sift</a>
-      <nav aria-label="Site"><a href="/about" aria-current="page">About</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/">Open reader</a></nav>
-    </header>
     <article>
-      <h1>Read at your own pace.</h1>
-      <p class="lede">Sift is a small RSS reader for following the sites you choose, without a ranking feed or a required account.</p>
-      <h2>Your library stays with you</h2>
-      <p>Your subscriptions, reading state and saved articles live in your browser. You can export and import subscriptions with OPML. Optional sync shares subscriptions and reading state across your devices; you can delete that server-side data from Settings.</p>
-      <h2>Open source and self-hostable</h2>
-      <p>Sift is open source under the MIT License. You can run your own instance and keep its sync and polling data on storage you control.</p>
-      <p><a href="https://github.com/davegarvey/sift">View Sift on GitHub</a></p>
-      <div class="card"><strong>Just getting started?</strong><br><a href="/">Add your first feed in the reader</a>, or try the sample feeds.</div>
+      <h1>A free RSS reader that runs in your browser.</h1>
+      <p class="lede">Follow any website with an RSS or Atom feed and read new posts in one place. No account needed.</p>
+      <div class="actions"><a class="button primary" href="/">Open Sift</a></div>
+      <h2>Features</h2>
+      <ul class="features">
+        <li><strong>No account</strong>Your subscriptions and reading history are stored in your browser.</li>
+        <li><strong>Bring your feeds</strong>Import and export your subscriptions as OPML.</li>
+        <li><strong>Full articles</strong>Sift fetches the full text when a feed only includes a summary.</li>
+        <li><strong>Works offline</strong>Install it as an app on your phone or computer.</li>
+        <li><strong>Optional sync</strong>Pair your devices to keep subscriptions and read status in step.</li>
+        <li><strong>AI assistants</strong>Ask an AI assistant about your feeds, or have it add and remove them.</li>
+      </ul>
+      <h2>Self-host Sift</h2>
+      <p>Sift is open source under the MIT License. Run your own copy with Docker, Node, Bun or Cloudflare Workers.</p>
+      <div class="actions"><a class="button" href="https://github.com/davegarvey/sift#build--run">Setup instructions on GitHub</a></div>
     </article>
-    <footer><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/">Sift reader</a></footer>
   </main>
+  <footer class="page-footer">
+    <nav class="page-footer-inner" aria-label="Site"><a href="/about" aria-current="page">About</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="https://github.com/davegarvey/sift">GitHub</a></nav>
+  </footer>
 </body>
 </html>

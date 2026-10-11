@@ -132,7 +132,8 @@ export function SettingsDrawer() {
               <ExternalLink size={14} />
             </a>
           </span>
-          <nav class="settings-legal-links" aria-label="Legal information">
+          <nav class="settings-legal-links" aria-label="About Sift">
+            <a href="/about">About</a>
             <a href="/privacy">Privacy</a>
             <a href="/terms">Terms</a>
           </nav>
