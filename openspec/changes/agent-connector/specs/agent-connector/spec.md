@@ -92,7 +92,8 @@ The installed app SHALL be able to mint, using the master sync key, a connection
 
 #### Scenario: Mint a connection URL
 - **WHEN** the user taps Connect an agent
-- **THEN** the app SHALL copy `<origin>/mcp/c/<id>` to the clipboard and show a ten-minute countdown
+- **THEN** the app SHALL copy setup instructions containing `<origin>/mcp/c/<id>` to the clipboard
+- **AND** SHALL show the URL with its own copy action and its expiry
 
 #### Scenario: Spent URL still serves MCP
 - **WHEN** a client holding a valid access token calls `<origin>/mcp/c/<id>` after the ID has been used
@@ -251,7 +252,7 @@ Requests authenticated with an OAuth access token SHALL draw from per-token rate
 
 Settings → Sync → Agent access SHALL show only what connecting and managing agents needs:
 
-- one sentence of explanation and a Connect an agent button, which mints and copies a connection URL and shows its expiry
+- one sentence of explanation and a Connect an agent button (see Single-use connection URLs)
 - connected agents (see Connected agent identity), each with inline rename and a confirmed Revoke
 - a "Have an approval code?" link that reveals code entry with a QR scan option
 
@@ -268,6 +269,18 @@ It SHALL NOT show the plain `/mcp` address, links to machine-readable documents,
 #### Scenario: New connection appears
 - **WHEN** an agent completes authorisation and the user reopens the Agents screen
 - **THEN** the agent SHALL appear in the connected-agents list under its client name
+
+### Requirement: Client-neutral setup instructions
+
+The setup instructions SHALL describe Sift as a remote MCP server using the Streamable HTTP transport and OAuth, give the connection URL, ask the agent to add it as a server named "sift" available across the user's projects and to start the sign-in, and ask agents that cannot change their own configuration to say where the user should add the URL. They SHALL NOT name particular clients or ask the agent to fetch anything.
+
+#### Scenario: Agent with a shell
+- **WHEN** the user pastes the instructions into a coding agent that can manage its MCP configuration
+- **THEN** the instructions SHALL give it everything needed to add the server and start the OAuth sign-in
+
+#### Scenario: Chat-only agent
+- **WHEN** the user pastes the instructions into an agent that cannot change its configuration
+- **THEN** the instructions SHALL ask it to tell the user where to add the URL
 
 ### Requirement: Connected agent identity
 
