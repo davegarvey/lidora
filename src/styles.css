@@ -3116,6 +3116,9 @@ a:hover { text-decoration: underline; }
   color: var(--subtext);
 }
 .agents-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   align-self: flex-start;
 }
 .agents-url {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'solid-js/web';
 import { getDb } from '../src/db/open';
 import { setStoredSyncKey } from '../src/sync/key';
+import { agentSetupPrompt } from '../src/agents/setupPrompt';
 import { AgentsModal } from '../src/components/AgentsModal';
 import type { AppContext } from '../src/state';
 
@@ -138,12 +139,14 @@ describe('Agents screen', () => {
     await mount();
     button('Connect an agent').click();
     await vi.waitFor(() => expect(document.body.textContent).toContain('https://sift.example/mcp/c/c1'));
-    expect(writeText).toHaveBeenCalledWith('https://sift.example/mcp/c/c1');
+    expect(writeText).toHaveBeenCalledWith(agentSetupPrompt('https://sift.example/mcp/c/c1'));
     const mint = calls.find((c) => c.url === '/sync/connections');
     expect(mint?.method).toBe('POST');
     expect(mint?.headers['X-Sync-Key']).toBe(KEY);
     const text = document.body.textContent ?? '';
-    expect(text).toContain('Copied. Paste it into your agent, then tap Allow.');
+    expect(text).toContain("Setup instructions copied. Paste the setup instructions into your agent's chat, or the link into its connector settings, then tap Allow.");
+    button('Copy setup instructions').click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
     expect(text).toContain('Expires in 10 min');
   });
 

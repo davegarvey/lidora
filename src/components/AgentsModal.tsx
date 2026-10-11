@@ -18,6 +18,7 @@ import {
   type AccessView,
 } from '../agents/approval';
 import { ClientSummary } from '../agents/ClientSummary';
+import { agentSetupPrompt } from '../agents/setupPrompt';
 import { QrScannerOverlay } from './QrScannerOverlay';
 import { expiryLabel, humanRelativeTime } from '../util/time';
 
@@ -54,6 +55,7 @@ export function AgentsModal() {
   const [now, setNow] = createSignal(Date.now());
   const [connectBusy, setConnectBusy] = createSignal(false);
   const [copiedUrl, setCopiedUrl] = createSignal(false);
+  const [copiedPrompt, setCopiedPrompt] = createSignal(false);
   const [autoCopied, setAutoCopied] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
@@ -89,7 +91,7 @@ export function AgentsModal() {
       setExpiresAt(res.expiresAt);
       setNow(Date.now());
       try {
-        await navigator.clipboard.writeText(res.url);
+        await navigator.clipboard.writeText(agentSetupPrompt(res.url));
         setAutoCopied(true);
       } catch {
         setAutoCopied(false);
@@ -226,8 +228,12 @@ export function AgentsModal() {
                 </button>
               </div>
               <p class="agents-note">
-                {`${autoCopied() ? 'Copied. ' : ''}Paste it into your agent, then tap Allow. Expires in ${expiryLabel(expiresAt()!)}.`}
+                {`${autoCopied() ? 'Setup instructions copied. ' : ''}Paste the setup instructions into your agent's chat, or the link into its connector settings, then tap Allow. Expires in ${expiryLabel(expiresAt()!)}.`}
               </p>
+              <button class="btn agents-button" onClick={() => void copy(agentSetupPrompt(connectUrl()!), setCopiedPrompt)}>
+                {copiedPrompt() ? <Check size={14} /> : <Copy size={14} />}
+                {copiedPrompt() ? 'Copied' : 'Copy setup instructions'}
+              </button>
             </Show>
             <Show when={error()}>
               <p class="error" role="alert">{error()}</p>
