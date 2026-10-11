@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://sift.davegarvey.workers.dev/sitemap.xml

@@ -5,6 +5,7 @@ import { ConnectPage } from './connect/ConnectPage';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element #root not found');
+root.replaceChildren();
 
 if (window.location.pathname === '/connect') {
   render(() => <ConnectPage />, root);

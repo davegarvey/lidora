@@ -285,7 +285,7 @@ function EmptyState() {
     return (
       <div class="empty-state">
         <div class="headline">Welcome to Sift</div>
-        <p class="welcome-copy">A quiet place to read the sites you follow. Your library stays in this browser; no account is needed.</p>
+        <p class="welcome-copy">Follow the websites you like and read their new posts in one place. Everything stays in this browser; no account needed.</p>
         <div class="welcome-actions">
         <button type="button" class="primary-cta" onClick={() => ctx.openModal({ kind: 'add-feed' })}>
           Add your first feed
