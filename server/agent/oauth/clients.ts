@@ -131,10 +131,16 @@ async function fetchMetadataClient(ctx: OAuthContext, clientId: string): Promise
   if (record.client_id !== clientId) return null;
   const redirectUris = validRedirectUris(record.redirect_uris);
   if (!redirectUris) return null;
-  const method = record.token_endpoint_auth_method;
-  if (method !== undefined && method !== 'none') return null;
+  if (!supportsPublicClientAuth(record)) return null;
   const name = cleanName(record.client_name) ?? new URL(clientId).host;
   return { clientId, name, redirectUris, kind: 'metadata', clientUri: cleanClientUri(record.client_uri) };
+}
+
+function supportsPublicClientAuth(record: Record<string, unknown>): boolean {
+  const method = record.token_endpoint_auth_method;
+  if (method === undefined || method === 'none') return true;
+  const supported = record.token_endpoint_auth_methods_supported;
+  return Array.isArray(supported) && supported.includes('none');
 }
 
 export async function resolveClient(ctx: OAuthContext, clientId: string): Promise<OAuthClient | null> {

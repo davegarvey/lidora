@@ -10,7 +10,7 @@ command = "npm run build"
 binding = "ASSETS"
 directory = "./dist"
 not_found_handling = "single-page-application"
-run_worker_first = ["/oauth/*", "/.well-known/*", "/mcp", "/mcp/*", "/sync/*"]
+run_worker_first = ["/feed", "/article", "/img", "/oauth/*", "/.well-known/*", "/mcp", "/mcp/*", "/sync/*"]
 
 [[d1_databases]]
 binding = "DB"

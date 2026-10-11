@@ -60,14 +60,14 @@ function globMatches(pattern: string, path: string): boolean {
 }
 
 describe('Cloudflare asset routing', () => {
-  it('runs the Worker before the single-page fallback for every server route a browser can navigate to', () => {
+  it('runs the Worker before the single-page fallback for every server route', () => {
     const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
     const match = /^run_worker_first = (\[.*\])$/m.exec(toml);
     expect(match).not.toBeNull();
     expect(JSON.parse(match![1]) as string[]).toEqual(WORKER_FIRST_ROUTES);
 
-    const navigable = paths.filter((path) => !FETCH_ONLY_ROUTES.includes(path) && !APP_SHELL_ROUTES.includes(path));
-    const uncovered = navigable.filter((path) => !WORKER_FIRST_ROUTES.some((pattern) => globMatches(pattern, concrete(path))));
+    const serverRoutes = paths.filter((path) => !APP_SHELL_ROUTES.includes(path));
+    const uncovered = serverRoutes.filter((path) => !WORKER_FIRST_ROUTES.some((pattern) => globMatches(pattern, concrete(path))));
     expect(uncovered).toEqual([]);
   });
 });
