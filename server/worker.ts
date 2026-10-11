@@ -1,3 +1,4 @@
+import { fetchWorkerMetadata } from './agent/oauth/worker-transport';
 import { createApp, type AppEnv } from './handle.ts';
 import { runSyncCron } from './sync/cron.ts';
 import { DEFAULT_MAX_POLL_DB_BYTES, parsePollBatch, parsePositiveInt, pollFeeds } from './feed-poller.ts';
@@ -14,6 +15,7 @@ interface WorkerBindings {
   FEED_POLL_BATCH?: string;
   POLL_DB_MAX_BYTES?: string;
   PUBLIC_URL?: string;
+  BETTER_AUTH_SECRET?: string;
 }
 
 type WorkerEnv = AppEnv & { Bindings: WorkerBindings };
@@ -25,6 +27,8 @@ function pollDatabase(env: WorkerBindings): D1Database | undefined {
 function buildApp(env: WorkerBindings) {
   const app = createApp<WorkerEnv>({
     db: env.DB,
+    oauthSecret: env.BETTER_AUTH_SECRET,
+    oauthMetadataFetch: fetchWorkerMetadata,
     pollDb: pollDatabase(env),
     publicUrl: env.PUBLIC_URL?.trim() || undefined,
     proxy: {

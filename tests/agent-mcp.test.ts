@@ -43,8 +43,8 @@ async function addToken(sync: D1Database, scopes: string, expiresAt?: number | n
   await sync
     .prepare(
       `INSERT INTO tokens
-         (token_id, token_hash, sync_key, scope, fingerprint, created_at, origin, client_id, client_name, scopes, expires_at, refresh_hash, refresh_expires_at, family_id)
-       VALUES (?, ?, ?, 'rw', ?, ?, 'oauth', 'client-1', 'Test Agent', ?, ?, ?, ?, ?)`,
+         (token_id, token_hash, sync_key, scope, fingerprint, created_at, origin, client_id, client_name, scopes, expires_at)
+       VALUES (?, ?, ?, 'rw', ?, ?, 'paired', 'client-1', 'Test Agent', ?, ?)`,
     )
     .bind(
       tokenId,
@@ -54,9 +54,6 @@ async function addToken(sync: D1Database, scopes: string, expiresAt?: number | n
       now,
       scopes,
       expiresAt === undefined ? now + 3600 : expiresAt,
-      await sha256Hex(`refresh-${tokenId}`),
-      now + 86_400,
-      `family-${tokenId}`,
     )
     .run();
   return { token, tokenId };

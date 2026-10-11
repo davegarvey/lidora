@@ -45,26 +45,9 @@ Alternatives considered:
 - **A stateful MCP session.** It would add storage and failure modes that this tool set does not need.
 - **A hand-written JSON-RPC subset.** This was the first implementation. It was small, but it left revision negotiation, batching and error mapping for Sift to maintain as the specification moves.
 
-### 2. OAuth 2.1 following the MCP authorisation specification
+### 2. Library-managed OAuth 2.1
 
-Sift acts as both the protected resource and the authorisation server, on the same origin.
-
-- An unauthenticated `/mcp` request returns `401` with `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource"`.
-- `/.well-known/oauth-protected-resource` names the resource `<origin>/mcp`, the authorisation server `<origin>`, and the scopes `read` and `write`.
-- `/.well-known/oauth-authorization-server` advertises:
-  - `authorization_endpoint` `/oauth/authorize`
-  - `token_endpoint` `/oauth/token`
-  - `registration_endpoint` `/oauth/register`
-  - `revocation_endpoint` `/oauth/revoke`
-  - `code_challenge_methods_supported: ["S256"]`
-  - `grant_types_supported: ["authorization_code", "refresh_token"]`
-  - `token_endpoint_auth_methods_supported: ["none"]`
-  - `client_id_metadata_document_supported: true`
-- **Client identification.** If `client_id` is an HTTPS URL, Sift fetches it through the upstream fetch policy as a Client ID Metadata Document, validates that its `client_id` equals the URL, and caches it. A document must allow public-client authentication: its `token_endpoint_auth_method` is `none`, or `none` appears in `token_endpoint_auth_methods_supported`. ChatGPT's document prefers `private_key_jwt` but lists `none`, and Sift advertises only `none`, so it authenticates as a public client. The token endpoint reads only the form parameters it knows, so a request that also carries `client_assertion` and `client_assertion_type` is processed as a public-client request and the assertion is ignored, not rejected: ChatGPT may send one alongside PKCE, and a rejection would break a client the document otherwise permits. Verifying signed client assertions was rejected as extra key handling for no gain over PKCE and a redirect URI on the client's own domain. Unknown paths under `/oauth/`, `/.well-known/`, `/mcp/` and `/sync/` answer with a JSON 404, so discovery probes such as `/.well-known/openid-configuration` are not answered with the app. Otherwise the client must have registered at `/oauth/register` (Dynamic Client Registration), which stores the name, redirect URIs and optional `client_uri`. Metadata documents are cached for 24 hours, and the consent screen shows the client's website host from `client_uri` when given. The token, registration, revocation and metadata endpoints send `Access-Control-Allow-Origin: *` without credentials, because browser-based clients call them. `/sync/*` and the consent and decision endpoints stay same-origin. Supporting both covers current clients without favouring one.
-- **Redirect URIs.** These must be HTTPS, loopback HTTP, or a private-use scheme (RFC 8252 §7.1, for native apps such as `cursor://`), with no fragment, and must match exactly. Schemes that execute or fetch content (`javascript`, `data`, `file`, `blob`, `about`, `vbscript`, `ws`, `wss`) are refused. A private-use scheme proves less about the client's identity, so the consent view marks such clients unverified and shows the scheme as the redirect host; PKCE protects the code. Loopback redirects (`http://127.0.0.1`, `http://localhost`) may use any port, as RFC 8252 allows for native clients.
-- **Clients are public.** PKCE S256 is mandatory. The `resource` parameter, when present, must equal `<origin>/mcp` or a connection URL `<origin>/mcp/c/<id>`.
-
-An OAuth library was considered. The Workers-specific providers do not run on the Node and Bun adapters. The protocol subset above is small, and the token storage already exists. A focused implementation with a thorough test suite is preferred. See open questions.
+The implementation is superseded by `../standardize-oauth-provider/design.md`. Better Auth MCP, OAuth provider, JWT and CIMD plugins supply one authorization server on Workers/D1 and Node/Bun SQLite. The canonical issuer is `<origin>/oauth`, discovered at `/.well-known/oauth-authorization-server/oauth`. Protocol endpoints are `<issuer>/oauth2/authorize`, `/oauth2/token`, `/oauth2/register`, `/oauth2/revoke` and `/jwks`. Client authentication follows registered metadata, including public clients and verified `private_key_jwt` assertions. PKCE remains required. Provider account/session APIs are internal. Safe metadata transports retain origin pacing; Workers require `global_fetch_strictly_public` and self-hosted servers use DNS pinning.
 
 ### 3. Consent: adding the agent is the authorisation
 
@@ -75,15 +58,13 @@ The primary user is someone whose signed-in Sift is an installed PWA, often in a
 1. In the PWA, Settings → Sync → Agent access → **Connect an agent** mints a connection ID bound to the sync key, single-use, with a ten-minute expiry. The PWA shows and copies `<origin>/mcp/c/<id>`.
 2. The user pastes that URL into any MCP client as a custom connector or remote server. The client's unauthenticated request receives `401` with `resource_metadata` pointing at `/.well-known/oauth-protected-resource/mcp/c/<id>`. That document names `<origin>/mcp/c/<id>` as the resource and `<origin>/oauth/c/<id>` as the authorisation server. The authorisation-server metadata at `/.well-known/oauth-authorization-server/oauth/c/<id>` advertises endpoints that carry the connection ID. Sift therefore recovers the ID during authorisation whether or not the client sends the `resource` parameter.
 3. The consent page, in any browser, resolves the connection ID to the account and shows "Connect *client name* to your Sift?", the time the link was created, and one **Allow** button. Allow consumes the connection ID and completes the authorisation.
-4. After use, `/mcp/c/<id>` remains a working alias of `/mcp`, because clients store the URL in their configuration. Access is governed by the token, and the spent ID has no further effect.
+4. After use, `/mcp/c/<id>` remains a working MCP resource, because clients store the URL in their configuration. Access is governed by a JWT bound to that exact resource; the spent ID no longer authorizes anonymous approval.
 
 The connection URL is a bearer secret for its ten-minute life. That is the same exposure as the existing pairing code. It is limited by single use, the required tap on the consent page, and the new agent appearing in the PWA's connected-agents list with Revoke.
 
 #### Endpoint scheme and decision API
 
-The per-connection authorisation server's issuer is `<origin>/oauth/c/<id>`. Its endpoints are the origin-level paths with the ID inserted: `<origin>/oauth/c/<id>/authorize`, `/token`, `/register` and `/revoke`. The origin-level endpoints (`/oauth/authorize` and so on) remain, serve the same handlers, and recover the ID from `resource=<origin>/mcp/c/<id>` instead. Connection IDs are 192-bit URL-safe strings (32 characters). A `resource` that names a different connection from the path is refused with `invalid_target`.
-
-After validation, `GET /oauth/authorize` stores the request and redirects to the SPA route `/connect?request=<request_id>`. The request ID is a 256-bit secret. The server adds `frame-ancestors 'none'` to `/connect` responses.
+The per-connection issuer is `<origin>/oauth/c/<id>` and uses the same library endpoint suffixes as the canonical issuer. The library validates the request and signs the approval query. Its `/start` bridge verifies that signed query and the matching resource before storing an application approval and redirecting to `/connect?request=<request_id>`. When a client omits `resource`, routing supplies the issuer's own resource before library validation. Connection IDs are 192-bit URL-safe strings. Browser cookies are stripped from protocol requests, and provider session cookies remain server-side.
 
 The consent page and the app use JSON endpoints:
 
@@ -91,7 +72,7 @@ The consent page and the app use JSON endpoints:
 - `POST /oauth/requests/:id/decision` takes `{ "decision": "approve" | "deny" }`. It is authenticated by `X-Sync-Key` (master key) when that header is present, and otherwise by the request's usable connection ID, which an approval consumes and a denial leaves unused. It returns `{ "redirect": "<redirect_uri>?code=...&state=..." }`.
 - `GET /oauth/approvals/:code` and `POST /oauth/approvals/:code/decision` (master key) serve the app's *Approve a connection* screen. The app never receives the authorisation code. Lookups are rate-limited per IP and per sync key.
 
-Authorisation codes are stored hashed with a 60-second life. For a decision made in the app, the finished redirect (which contains the code) is held on the request row until the consent page collects it once, and is then cleared.
+The library manages single-use authorization codes with a ten-minute life. For a decision made in the app, the finished redirect (which contains the code) is held on the request row until the consent page collects it once, and is then cleared.
 
 #### Fallbacks
 
@@ -105,7 +86,7 @@ These apply when the connection ID is absent, expired or spent (for example, a c
 - **Full access by default.** The consent screen offers a single Allow that grants every scope the client requested. If the client requests no scope, the grant is `read write`. There are no per-scope checkboxes. The screen states plainly that the agent can read subscriptions, statistics and articles, and can change subscriptions and reading state. Clients that request only `read` receive only `read`.
 - **Identity on the screen.** The screen shows the client's name, marked "unverified" when the name is self-asserted through registration, and the redirect host.
 - **Hardening.** The consent page sends `Content-Security-Policy: frame-ancestors 'none'`. Decisions authenticated by sync key use the custom header, which cannot be sent by a cross-site form.
-- **Codes and denial.** On approval, Sift issues a one-time authorisation code with a 60-second expiry, bound to the client, redirect URI, PKCE challenge, scopes and sync key. A denial redirects with `error=access_denied`.
+- **Codes and denial.** On approval, the library issues a one-time authorisation code with a ten-minute expiry, bound to the client, redirect URI, PKCE challenge, scopes and sync key. A denial redirects with `error=access_denied`.
 - **No sync key anywhere.** The screen explains that sync must be turned on in Sift first.
 
 The approval-code fallback resembles device-code phishing. App-side display of the client name and redirect host, plus the ten-minute expiry, limits it.
@@ -117,36 +98,11 @@ Alternatives considered:
 - **Links back into the PWA** (`?approve=`, app links). These are unreliable across browsers, and impossible on iOS.
 - **Magic links or email.** These need accounts.
 
-### 4. Tokens: opaque, hashed, scoped, with rotating refresh
+### 4. Isolated grants and library credentials
 
-OAuth grants extend the existing `tokens` table rather than creating a parallel credential store. One migration adds:
+Each approval creates an isolated provider identity and session linked to the Sift account by `agent_grants`. The stable grant ID preserves listing, labels, fingerprints, last use and rate-limit buckets across token rotation. Provider identities never reveal the master sync key. JWT access tokens expire after one hour; rotating refresh tokens require `offline_access` and expire after at most 365 days. Sessions expire after 365 days. Refresh reuse invalidates the family with no overlap. Refresh credentials are hashed and signing keys encrypted with the persistent secret.
 
-- `origin` (`paired` | `oauth`)
-- `client_id`
-- `client_name`
-- `label` (user-chosen display name)
-- `scopes` (space-separated)
-- `refresh_hash`
-- `refresh_expires_at`
-- `expires_at` (access token expiry)
-- `family_id`
-- `prev_refresh_hash` (the hash just replaced, so that presenting it again is detected as reuse)
-- `label` (user-chosen display name)
-
-An OAuth grant is one row: a refresh rotates `token_hash` and `refresh_hash` in place and keeps `token_id` and `family_id`, so the connected-agents list, per-token rate-limit buckets and `last_seen` stay stable across rotation.
-
-Access tokens keep the existing opaque format and SHA-256 storage, with a one-hour lifetime. Refresh tokens expire after 365 days without use, on a sliding window, and rotate on every use. Reuse of a rotated refresh token revokes the whole family. The long idle limit is deliberate: a connection should survive ordinary gaps in use, so the user connects once. Rotation with reuse detection limits the value of a leaked refresh token, and the connected-agents list shows the last use, so stale grants can be revoked by hand.
-
-Tokens from `siftctl pair` become `origin = paired`, `scopes = read write`, with no expiry, until the final phase retires `siftctl` and deletes them (section 9).
-
-Authentication accepts `Authorization: Bearer <token>` as well as the existing `X-Sync-Key`. Scope enforcement:
-
-- `read`: `GET /sync/pull`, `GET /sync/stats/pull`, `GET /sync/items`, and read-only tools
-- `write`: additionally `POST /sync/push` and the write tools
-
-Statistics writes, token management, registration and device codes remain master-key-only. Revoking a grant in Settings deletes its access and refresh tokens together.
-
-Opaque tokens were chosen over JWTs because every request already performs a database lookup for revocation, so JWTs would add key management for no saving.
+Resource authentication verifies JWT signatures, issuer, resource audience and expiry, then checks the account, session, client, grant and active refresh family online. Removing an agent deletes its isolated identity and credentials immediately, without affecting another grant to the same client. Account rotation and deletion remove all provider identities for that account. Master-only operations reject OAuth credentials. Paired CLI credentials retain their existing storage and authentication.
 
 ### 5. Tools
 
@@ -252,7 +208,7 @@ That keeps one server surface and one credential system, with no duplicated logi
 
 ## Risks / Trade-offs
 
-- **Hand-written OAuth carries implementation risk.** Mitigation: a narrow surface (public clients, PKCE only, two grants), conformance tests for every validation branch, and a security review before merge.
+- **Provider integration risk.** Mitigation: one pinned library across all runtimes, allowlisted public routes, isolated grant identities and protocol integration tests.
 - **Leaked connection URL.** Anyone who obtains it within ten minutes could connect an agent. Mitigation: single use, a required tap on the consent page, and the connected-agents list with Revoke.
 - **Approval-code phishing** on the fallback path. Mitigation: app-side display of the client name and redirect host, short expiry, and per-grant revocation.
 - **Per-connection metadata paths.** Some clients may cache authorisation metadata per origin rather than per resource URL. Mitigation: the approval-code fallback still completes the flow, and testing with independent clients will show whether this occurs.
@@ -262,7 +218,7 @@ That keeps one server surface and one credential system, with no duplicated logi
 
 ## Migration Plan
 
-1. Sync-database migration: add the OAuth tables (`oauth_clients`, `oauth_connections`, `oauth_requests`, `oauth_codes`) and the new `tokens` columns. Backfill existing tokens as `origin = 'paired'`, `scopes = 'read write'`.
+1. Apply migration 0013 after configuring the persistent provider secret. It removes superseded OAuth tables and credentials, creates provider/application tables and requires agents to reconnect once. Paired CLI credentials and reading data are preserved.
 2. Ship the server endpoints, consent route and new Agents screen together with the removals in one release. There is no dual-path period.
 3. After task 7.3, a separate release retires `siftctl` and deletes paired tokens (section 10). This is irreversible for paired tokens; holders reconnect through OAuth.
 4. Rollback: revert the release. The added columns and tables are inert to the previous code.

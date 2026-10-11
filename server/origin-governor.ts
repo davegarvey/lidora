@@ -390,6 +390,7 @@ export async function fetchOriginRequest(
   url: string,
   init: RequestInit,
   options: OriginPolicyOptions,
+  transport: typeof fetch = fetch,
 ): Promise<Response> {
   const origin = new URL(url).origin;
   const reservation = await reserveOrigin(origin, options);
@@ -397,7 +398,7 @@ export async function fetchOriginRequest(
 
   let response: Response;
   try {
-    response = await fetch(url, init);
+    response = await transport(url, init);
   } catch (error) {
     reservation.release();
     throw error;

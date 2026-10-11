@@ -1,28 +1,9 @@
-/**
- * Scheduled cron handler — runs daily at 03:00 UTC.
- *
- * - Deletes tombstoned feeds older than 30 days.
- * - Deletes expired pairing codes (older than 1 day past expiry).
- * - Deletes expired OAuth connection IDs, authorisation requests and codes, and
- *   OAuth grants whose refresh token has expired, plus expired cached client
- *   metadata that no grant references, and registered clients older than 30
- *   days that no grant or pending request references.
- * - Deletes rate-limit rows outside the largest window.
- * - Deletes expired shared feed failure rows.
- * - Deletes idle origin reservation rows after their cooldown and retention expire.
- * - Deletes accounts, with all their rows, that were rotated away more than
- *   30 days ago or have had no sync activity for 365 days, at most
- *   RETENTION_MAX_ACCOUNTS_PER_RUN per run (rotated accounts first); a backlog
- *   is cleared over later runs.
- */
-
 import { deleteAccount } from './account';
 import { currentMonotonicTime } from './monotonic';
 import { STATE_RETENTION_MS } from '../origin-governor';
 
 const TOMBSTONE_RETENTION_DAYS = 30;
 const PAIRING_GRACE_DAYS = 1;
-const REGISTERED_CLIENT_RETENTION_DAYS = 30;
 const RATE_LIMIT_MAX_WINDOW_SECONDS = 24 * 60 * 60; // the daily register:global window
 export const ROTATED_ACCOUNT_RETENTION_DAYS = 30;
 export const INACTIVE_ACCOUNT_RETENTION_DAYS = 365;
@@ -69,22 +50,14 @@ export async function runSyncCron(db: D1Database, scheduledTime: number = Date.n
       .prepare('DELETE FROM feeds WHERE deleted = 1 AND deleted_at < ?')
       .bind(tombstoneCutoff),
     db.prepare('DELETE FROM pairing_codes WHERE expires_at < ?').bind(pairingCutoff),
-    db.prepare('DELETE FROM oauth_connections WHERE expires_at < ?').bind(nowSeconds),
-    db.prepare('DELETE FROM oauth_requests WHERE expires_at < ?').bind(nowSeconds),
-    db.prepare('DELETE FROM oauth_codes WHERE expires_at < ?').bind(nowSeconds),
-    db
-      .prepare('DELETE FROM oauth_clients WHERE expires_at IS NOT NULL AND expires_at < ? AND client_id NOT IN (SELECT client_id FROM tokens WHERE client_id IS NOT NULL)')
-      .bind(nowSeconds),
-    db
-      .prepare(
-        "DELETE FROM oauth_clients WHERE kind = 'registered' AND created_at < ? " +
-          'AND client_id NOT IN (SELECT client_id FROM tokens WHERE client_id IS NOT NULL) ' +
-          'AND client_id NOT IN (SELECT client_id FROM oauth_requests)',
-      )
-      .bind(nowSeconds - REGISTERED_CLIENT_RETENTION_DAYS * 24 * 60 * 60),
-    db
-      .prepare("DELETE FROM tokens WHERE origin = 'oauth' AND refresh_expires_at IS NOT NULL AND refresh_expires_at < ?")
-      .bind(nowSeconds),
+    db.prepare('DELETE FROM agent_connections WHERE expires_at < ?').bind(nowSeconds),
+    db.prepare('DELETE FROM agent_approvals WHERE expires_at < ?').bind(nowSeconds),
+    db.prepare('DELETE FROM verification WHERE expiresAt < ?').bind(new Date(now).toISOString()),
+    db.prepare('DELETE FROM oauthClientAssertion WHERE expiresAt < ?').bind(new Date(now).toISOString()),
+    db.prepare('DELETE FROM "user" WHERE id IN (SELECT g.user_id FROM agent_grants g JOIN "session" s ON s.userId = g.user_id WHERE s.expiresAt < ?)').bind(new Date(now).toISOString()),
+    db.prepare('DELETE FROM agent_grants WHERE user_id NOT IN (SELECT id FROM "user")'),
+    db.prepare('DELETE FROM oauthClient WHERE clientId NOT IN (SELECT client_id FROM agent_grants) AND clientId NOT IN (SELECT client_id FROM agent_approvals) AND createdAt < ?').bind(new Date(now - 30 * 86_400_000).toISOString()),
+    db.prepare('DELETE FROM oauthResource WHERE identifier NOT IN (SELECT resource FROM agent_grants) AND identifier LIKE ? AND identifier NOT IN (SELECT resourceId FROM oauthClientResource)').bind('%/mcp/c/%'),
     db
       .prepare('DELETE FROM rate_limits WHERE window_start < ?')
       .bind(rateLimitCutoff),

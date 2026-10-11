@@ -8,6 +8,16 @@
 
 import { KEYED_RATE_LIMIT_PREFIXES } from './ratelimit';
 
+export function agentDeletionStatements(db: D1Database, syncKey: string): D1PreparedStatement[] {
+  return [
+    db.prepare('DELETE FROM agent_approvals WHERE sync_key = ? OR connection_id IN (SELECT connection_id FROM agent_connections WHERE sync_key = ?)').bind(syncKey, syncKey),
+    db.prepare('DELETE FROM agent_connections WHERE sync_key = ?').bind(syncKey),
+    db.prepare('DELETE FROM verification WHERE CASE WHEN json_valid(value) THEN json_extract(value, \'$.userId\') END IN (SELECT user_id FROM agent_grants WHERE sync_key = ?)').bind(syncKey),
+    db.prepare('DELETE FROM "user" WHERE id IN (SELECT user_id FROM agent_grants WHERE sync_key = ?)').bind(syncKey),
+    db.prepare('DELETE FROM agent_grants WHERE sync_key = ?').bind(syncKey),
+  ];
+}
+
 export function accountDeletionStatements(
   db: D1Database,
   syncKey: string,
@@ -19,9 +29,7 @@ export function accountDeletionStatements(
     db.prepare('DELETE FROM feeds WHERE sync_key = ?').bind(syncKey),
     db.prepare('DELETE FROM tokens WHERE sync_key = ?').bind(syncKey),
     db.prepare('DELETE FROM pairing_codes WHERE sync_key = ?').bind(syncKey),
-    db.prepare('DELETE FROM oauth_connections WHERE sync_key = ?').bind(syncKey),
-    db.prepare('DELETE FROM oauth_requests WHERE sync_key = ?').bind(syncKey),
-    db.prepare('DELETE FROM oauth_codes WHERE sync_key = ?').bind(syncKey),
+    ...agentDeletionStatements(db, syncKey),
   ];
   if (options.rateLimits) {
     for (const prefix of KEYED_RATE_LIMIT_PREFIXES) {

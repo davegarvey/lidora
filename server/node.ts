@@ -1,3 +1,4 @@
+import { fetchClientMetadataResource } from '@better-auth/cimd/node';
 import { createApp } from './handle.ts';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
@@ -24,6 +25,8 @@ const app = createApp({
   db: databases?.sync as unknown as D1Database | undefined,
   pollDb: process.env.FEED_POLLING === 'true' ? databases?.poll as unknown as D1Database | undefined : undefined,
   publicUrl: process.env.PUBLIC_URL?.trim() || undefined,
+  oauthSecret: process.env.BETTER_AUTH_SECRET,
+  oauthMetadataFetch: fetchClientMetadataResource,
   proxy: { clientIp: nodeClientIp(parseTrustedProxyHops(process.env.TRUST_PROXY_HOPS)) },
 });
 for (const page of ['about', 'privacy', 'terms']) {

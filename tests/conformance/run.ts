@@ -22,8 +22,8 @@ async function seed(directory: string): Promise<string> {
   await sync
     .prepare(
       `INSERT INTO tokens
-         (token_id, token_hash, sync_key, scope, fingerprint, created_at, origin, client_id, client_name, scopes, expires_at, refresh_hash, refresh_expires_at, family_id)
-       VALUES (?, ?, ?, 'rw', ?, ?, 'oauth', 'conformance', 'Conformance', 'read write', ?, ?, ?, ?)`,
+         (token_id, token_hash, sync_key, scope, fingerprint, created_at, origin, client_id, client_name, scopes, expires_at)
+       VALUES (?, ?, ?, 'rw', ?, ?, 'paired', 'conformance', 'Conformance', 'read write', ?)`,
     )
     .bind(
       tokenId,
@@ -32,9 +32,6 @@ async function seed(directory: string): Promise<string> {
       await tokenFingerprint(token),
       now,
       now + 3600,
-      await sha256Hex(`refresh-${tokenId}`),
-      now + 86_400,
-      `family-${tokenId}`,
     )
     .run();
   return token;

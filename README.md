@@ -35,7 +35,7 @@ bun server/bun.ts   # bun runtime
 ```
 
 Node and Bun can store sync data in local SQLite files when `SIFT_DATA_DIR` is
-set. Node requires 22.13 or later for `node:sqlite`. The sync and polling
+set. Node requires 22.13 or later for `node:sqlite`; Bun requires 1.3 or later. The sync and polling
 databases are separate files; both runtimes apply the shared SQL migrations at
 startup. Set `FEED_POLLING=true` to enable polling and daily maintenance.
 Self-hosted SQLite supports one running Sift server process per data directory;
@@ -119,6 +119,8 @@ volumes:
 Copy `.env.example` to `.env` and set:
 
 - `TRUST_PROXY_HOPS` — number of reverse proxies in front of Node or Bun whose `X-Forwarded-For` entry may identify the client for proxy limits (default 0, which ignores the header and uses the socket address)
+
+OAuth on every deployment requires a persistent `BETTER_AUTH_SECRET` of at least 32 characters. Generate a random value (for example with `openssl rand -hex 32`) and keep it across restarts and replicas. Set it in the Node/Bun environment or pass it into Docker as an environment variable; on Workers, use `npx wrangler secret put BETTER_AUTH_SECRET`. Do not put it in `wrangler.toml`. Without it, OAuth returns 503 while device sync remains available.
 
 For Node and Bun:
 
@@ -268,19 +270,18 @@ or exposed to third parties. Synced lifetime reading statistics contain only
 per-feed aggregate counters and compact per-item `everRead` markers; article
 content and a detailed reading event history are not synchronized. Authorized
 agent pulls can read the same aggregate statistics, while only the master sync
-key can write statistics snapshots or historical markers. Agent tokens are
-stored in D1 as SHA-256 hashes only — the raw token never touches the
-database — and are revocable from Settings. The same applies to the refresh
-tokens of connected agents.
+key can write statistics snapshots or historical markers. Paired CLI credentials and OAuth refresh tokens are stored as hashes. OAuth access tokens are signed JWTs and are not stored; provider signing keys are encrypted with `BETTER_AUTH_SECRET`. All agent access is revocable immediately from Settings.
 
 ## AI agents
 
 Sift runs a remote [MCP](https://modelcontextprotocol.io) server at `/mcp`, with
-OAuth 2.1 authorisation on the same origin. Any MCP client that supports remote
+OAuth 2.1 authorisation on the same origin, implemented with Better Auth and its MCP and CIMD plugins on Workers, Node and Bun. Any MCP client that supports remote
 servers and OAuth can connect by being given one URL. The agent's tool calls
 come from its host, not from a code sandbox, so the agent needs no network
 access to Sift of its own. Sync must be turned on first, because the connector
 works on the synced account.
+
+Existing installations moving from Sift’s custom OAuth implementation must configure `BETTER_AUTH_SECRET` before deployment. The migration requires agents to reconnect once; device sync, paired CLI credentials and reading data are preserved.
 
 ### Connecting an agent
 
@@ -367,10 +368,9 @@ date and last use.
 - **Identify and rename.** Agents appear under the name they registered with.
   Rename gives one a label you will recognise, such as "Work laptop".
 - **Lifetime.** Access tokens last one hour and the agent renews them silently
-  with a refresh token, so you connect once. A grant expires after a year
-  without use. An agent whose grant has expired or been revoked must be
+  with a refresh token when it requests `offline_access`. Refresh tokens and the agent session last at most one year; reconnect after the session expires. An agent whose grant has expired or been revoked must be
   connected again.
-- **Revoke.** Revoke deletes the grant's access and refresh tokens at once. It
+- **Revoke.** Revoke invalidates the grant's access and refresh tokens at once. It
   does not affect your devices.
 - **Kill switch.** Regenerating the sync key (Settings → Sync → Regenerate)
   stops every agent connection and `siftctl` token immediately. Deleting sync
@@ -456,7 +456,7 @@ The sync API is described at `https://sift.davegarvey.workers.dev/openapi.json`.
 It documents the HTTP bearer scheme for agents, the `X-Sync-Key` header for
 devices, and the scope (`read` or `write`) each operation needs. Point an
 OpenAPI-aware tool at it. Obtain an OAuth token through the metadata at
-`/.well-known/oauth-authorization-server`, or use a `siftctl` token. Writes
+`/.well-known/oauth-authorization-server/oauth`, or use a `siftctl` token. Writes
 carry no timestamps; the server stamps everything. `/llms.txt` gives agents a
 short description of the connector.
 

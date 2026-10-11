@@ -1,3 +1,4 @@
+import { fetchClientMetadataResource } from '@better-auth/cimd/node';
 import { defineConfig, type ViteDevServer } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import solid from 'vite-plugin-solid';
@@ -30,6 +31,8 @@ function honoDevMiddleware() {
         db: databases.sync as unknown as D1Database,
         pollDb: process.env.FEED_POLLING === 'true' ? databases.poll as unknown as D1Database : undefined,
         publicUrl: process.env.PUBLIC_URL?.trim() || undefined,
+        oauthSecret: process.env.BETTER_AUTH_SECRET,
+        oauthMetadataFetch: fetchClientMetadataResource,
         proxy: { clientIp: nodeClientIp(parseTrustedProxyHops(process.env.TRUST_PROXY_HOPS)) },
       });
       server.middlewares.use(
