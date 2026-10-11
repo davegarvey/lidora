@@ -230,6 +230,12 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     }
   }
 
+  if (db) {
+    for (const prefix of ['/oauth/*', '/.well-known/*', '/mcp/*', '/sync/*']) {
+      app.all(prefix, (c) => c.json({ error: 'not_found' }, 404));
+    }
+  }
+
   // Static serving: served by adapter-supplied middleware below.
   // The adapter calls `app.use('/assets/*', serveStatic(...))` and
   // `app.get('/', serveStatic({ path: './index.html' }))` for its runtime.

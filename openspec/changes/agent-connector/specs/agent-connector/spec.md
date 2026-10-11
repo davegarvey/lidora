@@ -44,7 +44,11 @@ The system SHALL serve RFC 8414 metadata at `/.well-known/oauth-authorization-se
 
 ### Requirement: Client ID Metadata Documents
 
-The system SHALL accept a `client_id` that is an HTTPS URL by fetching it, through the upstream fetch policy, as a Client ID Metadata Document. The document's `client_id` field SHALL equal the URL, and the document SHALL list the requested redirect URI.
+The system SHALL accept a `client_id` that is an HTTPS URL by fetching it, through the upstream fetch policy, as a Client ID Metadata Document. The document's `client_id` field SHALL equal the URL, the document SHALL list the requested redirect URI, and it SHALL declare `none` as its token endpoint authentication method or include `none` in `token_endpoint_auth_methods_supported`.
+
+#### Scenario: Client that prefers signed authentication
+- **WHEN** a document declares `private_key_jwt` but lists `none` among its supported methods
+- **THEN** the server SHALL accept the client as a public client
 
 #### Scenario: Metadata document client
 - **WHEN** an authorisation request uses an HTTPS `client_id` whose document lists the requested redirect URI

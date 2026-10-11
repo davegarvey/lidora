@@ -354,6 +354,16 @@ describe('registration', () => {
   });
 });
 
+describe('unknown server paths', () => {
+  it('answers unknown OAuth and discovery paths with a JSON 404 instead of the app', async () => {
+    for (const path of ['/.well-known/openid-configuration', '/oauth/c/abc/.well-known/openid-configuration', '/oauth/unknown', '/sync/unknown']) {
+      const res = await app.request(path);
+      expect(res.status, path).toBe(404);
+      expect(res.headers.get('Content-Type'), path).toContain('application/json');
+    }
+  });
+});
+
 describe('client ID metadata documents', () => {
   const CLIENT_URL = 'https://agent.example/oauth/client.json';
 
@@ -412,6 +422,32 @@ describe('client ID metadata documents', () => {
     vi.mocked(fetchUpstreamWithPolicy).mockRejectedValue(new Error('blocked'));
     expect((await authorize({ clientId: CLIENT_URL, challenge })).status).toBe(400);
     expect(await db.prepare('SELECT COUNT(*) AS n FROM oauth_clients').first<number>('n')).toBe(1);
+  });
+
+  it('accepts a document that prefers signed client authentication but also supports none', async () => {
+    serveDocument({
+      client_id: CLIENT_URL,
+      client_name: 'ChatGPT',
+      redirect_uris: [REDIRECT],
+      token_endpoint_auth_method: 'private_key_jwt',
+      token_endpoint_auth_methods_supported: ['none', 'private_key_jwt'],
+      jwks_uri: 'https://agent.example/oauth/jwks.json',
+    });
+    const { challenge } = await pkce();
+    const res = await authorize({ clientId: CLIENT_URL, challenge });
+    expect(res.status).toBe(302);
+    expect((await viewRequest(requestIdFrom(res))).clientName).toBe('ChatGPT');
+  });
+
+  it('refuses a document that supports only confidential client authentication', async () => {
+    serveDocument({
+      client_id: CLIENT_URL,
+      redirect_uris: [REDIRECT],
+      token_endpoint_auth_method: 'private_key_jwt',
+      token_endpoint_auth_methods_supported: ['private_key_jwt'],
+    });
+    const { challenge } = await pkce();
+    expect((await authorize({ clientId: CLIENT_URL, challenge })).status).toBe(400);
   });
 
   it('marks a metadata client unverified when it redirects to a private-use scheme', async () => {
