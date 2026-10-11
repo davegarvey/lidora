@@ -28,7 +28,7 @@ Refresh reuse has zero overlap. Access tokens last one hour; refresh tokens requ
 
 Migration 0013 removes custom OAuth tables, credentials and refresh-family columns. Existing OAuth agents reconnect once. Paired CLI credentials, device sync and reading data are retained. A persistent `BETTER_AUTH_SECRET` of at least 32 characters is required before deployment, and `PUBLIC_URL` identifies the public origin behind a reverse proxy. Missing secret configuration fails closed for OAuth while device sync continues.
 
-The lockfile audit reports the same ten existing advisory entries as the baseline, with no added advisory packages. Unrelated dependency upgrades are outside this change. Architecture and intentional contract changes are recorded in `openspec/changes/standardize-oauth-provider/`.
+The lockfile audit reports the same ten existing advisory entries as the baseline, with no added advisory packages. Unrelated dependency upgrades are outside this change. Architecture and intentional contract changes are recorded in `openspec/changes/archive/2026-10-11-standardize-oauth-provider/`.
 
 ## Primary references
 

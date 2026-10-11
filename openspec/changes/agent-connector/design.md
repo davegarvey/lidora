@@ -47,7 +47,7 @@ Alternatives considered:
 
 ### 2. Library-managed OAuth 2.1
 
-The implementation is superseded by `../standardize-oauth-provider/design.md`. Better Auth MCP, OAuth provider, JWT and CIMD plugins supply one authorization server on Workers/D1 and Node/Bun SQLite. The canonical issuer is `<origin>/oauth`, discovered at `/.well-known/oauth-authorization-server/oauth`. Protocol endpoints are `<issuer>/oauth2/authorize`, `/oauth2/token`, `/oauth2/register`, `/oauth2/revoke` and `/jwks`. Client authentication follows registered metadata, including public clients and verified `private_key_jwt` assertions. PKCE remains required. Provider account/session APIs are internal. Safe metadata transports retain origin pacing; Workers require `global_fetch_strictly_public` and self-hosted servers use DNS pinning.
+The implementation is superseded by `../archive/2026-10-11-standardize-oauth-provider/design.md`. Better Auth MCP, OAuth provider, JWT and CIMD plugins supply one authorization server on Workers/D1 and Node/Bun SQLite. The canonical issuer is `<origin>/oauth`, discovered at `/.well-known/oauth-authorization-server/oauth`. Protocol endpoints are `<issuer>/oauth2/authorize`, `/oauth2/token`, `/oauth2/register`, `/oauth2/revoke` and `/jwks`. Client authentication follows registered metadata, including public clients and verified `private_key_jwt` assertions. PKCE remains required. Provider account/session APIs are internal. Safe metadata transports retain origin pacing; Workers require `global_fetch_strictly_public` and self-hosted servers use DNS pinning.
 
 ### 3. Consent: adding the agent is the authorisation
 
