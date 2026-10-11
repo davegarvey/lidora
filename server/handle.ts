@@ -1,3 +1,5 @@
+import type { MetadataFetch } from './agent/oauth/provider';
+import { oauthAuthenticator } from './agent/oauth/authenticate';
 import { Hono, type Env, type MiddlewareHandler } from 'hono';
 import {
   getUpstreamUrl,
@@ -41,6 +43,8 @@ export interface CreateAppOptions {
   db?: D1Database;
   pollDb?: D1Database;
   publicUrl?: string;
+  oauthSecret?: string;
+  oauthMetadataFetch?: MetadataFetch;
   scheduledHandler?: (event: { scheduledTime: Date; waitUntil?: (p: Promise<unknown>) => void }) => Promise<void>;
 }
 
@@ -215,14 +219,16 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
 
   // Sync routes — only registered when a D1 binding is provided.
   if (db) {
-    app.route('/', createOAuthRoutes({ db, publicUrl }));
+    const fetchMetadata = options.oauthMetadataFetch ?? (() => { throw new Error('OAuth metadata transport is not configured'); });
+    const oauth = oauthAuthenticator(db, options.oauthSecret, fetchMetadata, publicUrl);
+    app.route('/', createOAuthRoutes({ db, publicUrl, secret: options.oauthSecret, fetchMetadata }));
     app.use('/connect', async (c, next) => {
       await next();
       c.res = new Response(c.res.body, c.res);
       c.res.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
     });
-    app.route('/', createMcpRoutes({ db, pollDb, publicUrl }));
-    const syncApp = createSyncRoutes(db, { pollDb });
+    app.route('/', createMcpRoutes({ db, pollDb, publicUrl, oauth }));
+    const syncApp = createSyncRoutes(db, { pollDb, oauth });
     app.route('/', syncApp);
     if (scheduledHandler) {
       // Mount scheduled handler as a module-level export so worker.ts can hook it.

@@ -1,9 +1,3 @@
-/**
- * Agent token authentication: bearer header, scope enforcement, OAuth token
- * expiry, per-token rate-limit buckets, the OAuth storage migration and the
- * scheduled cleanup, against Miniflare + real SQLite D1.
- */
-
 import { describe, it, expect, beforeAll } from 'vitest';
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare';
 import * as esbuild from 'esbuild';
@@ -67,37 +61,6 @@ async function pairedToken(mf: Miniflare, key: string, label?: unknown): Promise
     body: JSON.stringify(label === undefined ? { code } : { code, label }),
   });
   return ((await redeemed.json()) as { token: string }).token;
-}
-
-interface OAuthTokenOptions {
-  scopes?: string;
-  expiresAt?: number | null;
-  refreshExpiresAt?: number | null;
-}
-
-async function oauthToken(db: D1, syncKey: string, options: OAuthTokenOptions = {}): Promise<{ token: string; tokenId: string }> {
-  const token = generateToken();
-  const tokenId = generateTokenId();
-  await db
-    .prepare(
-      `INSERT INTO tokens
-         (token_id, token_hash, sync_key, scope, fingerprint, created_at, origin, client_id, client_name, scopes, expires_at, refresh_hash, refresh_expires_at, family_id)
-       VALUES (?, ?, ?, 'rw', ?, ?, 'oauth', 'client-1', 'Test Agent', ?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      tokenId,
-      await sha256Hex(token),
-      syncKey,
-      await tokenFingerprint(token),
-      nowSeconds(),
-      options.scopes ?? 'read write',
-      options.expiresAt === undefined ? nowSeconds() + 3600 : options.expiresAt,
-      await sha256Hex(`refresh-${tokenId}`),
-      options.refreshExpiresAt === undefined ? nowSeconds() + 86_400 : options.refreshExpiresAt,
-      `family-${tokenId}`,
-    )
-    .run();
-  return { token, tokenId };
 }
 
 function bearer(token: string): Record<string, string> {
@@ -175,23 +138,6 @@ describe('bearer authentication', () => {
       const minted = await mf.dispatchFetch('http://localhost/sync/tokens', { method: 'POST', headers: { 'X-Sync-Key': key } });
       const { code } = (await minted.json()) as { code: string };
       expect((await pull(mf, {}, `since=0&code=${code}`)).status).toBe(401);
-    } finally {
-      await mf.dispose();
-    }
-  });
-
-  it('exposes authenticateToken for bearer lookups outside the sync routes', async () => {
-    const { mf, key, db } = await setup('helper-----');
-    try {
-      const { token, tokenId } = await oauthToken(db, key, { scopes: 'read' });
-      expect(await authenticateToken(db as unknown as D1Database, token)).toEqual({
-        syncKey: key,
-        tokenId,
-        scopes: ['read'],
-        origin: 'oauth',
-      });
-      expect(await authenticateToken(db as unknown as D1Database, generateToken())).toBeNull();
-      expect(await authenticateToken(db as unknown as D1Database, key)).toBeNull();
     } finally {
       await mf.dispose();
     }
@@ -280,69 +226,9 @@ describe('token labels and listing', () => {
       await mf.dispose();
     }
   });
-
-  it('lists one row per grant with origin, scopes, client name and timestamps', async () => {
-    const { mf, key, db } = await setup('list-grants-');
-    try {
-      const paired = await pairedToken(mf, key, 'siftctl');
-      const { token, tokenId } = await oauthToken(db, key, { scopes: 'read' });
-      await db.prepare('UPDATE tokens SET prev_refresh_hash = ? WHERE token_id = ?').bind('old', tokenId).run();
-      await pull(mf, bearer(paired));
-      await pull(mf, bearer(token));
-
-      const rows = await listTokens(mf, key);
-      expect(rows).toHaveLength(2);
-      const oauth = rows.find((r) => r.origin === 'oauth')!;
-      expect(oauth).toMatchObject({ token_id: tokenId, client_name: 'Test Agent', scopes: 'read', label: null });
-      expect(oauth.created_at).toBeGreaterThan(1_000_000_000_000);
-      expect(oauth.last_seen_at).not.toBeNull();
-      expect(rows.find((r) => r.origin === 'paired')).toMatchObject({ label: 'siftctl', scopes: 'read write', client_name: null });
-      expect(JSON.stringify(rows)).not.toContain(token);
-    } finally {
-      await mf.dispose();
-    }
-  });
 });
 
 describe('scope enforcement', () => {
-  it('lets a read token pull and read items and statistics but not push', async () => {
-    const { mf, key, db } = await setup('scope-read-');
-    try {
-      const { token } = await oauthToken(db, key, { scopes: 'read' });
-      expect((await pull(mf, bearer(token))).status).toBe(200);
-      expect((await mf.dispatchFetch('http://localhost/sync/stats/pull?since=0', { headers: bearer(token) })).status).toBe(200);
-      expect((await push(mf, bearer(token), { feeds: [{ feedId: 'f1', feedUrl: 'https://ex.com/f', deleted: 0 }] })).status).toBe(403);
-      expect(await count(db, 'SELECT COUNT(*) AS n FROM feeds WHERE sync_key = ?', key)).toBe(0);
-    } finally {
-      await mf.dispose();
-    }
-  });
-
-  it('lets a read write token push, and a write-only token push but not pull', async () => {
-    const { mf, key, db } = await setup('scope-write');
-    try {
-      const rw = await oauthToken(db, key, { scopes: 'read write' });
-      expect((await push(mf, bearer(rw.token), { feeds: [{ feedId: 'f1', feedUrl: 'https://ex.com/f', deleted: 0 }] })).status).toBe(204);
-      expect(await count(db, 'SELECT COUNT(*) AS n FROM feeds WHERE sync_key = ?', key)).toBe(1);
-
-      const writeOnly = await oauthToken(db, key, { scopes: 'write' });
-      expect((await push(mf, bearer(writeOnly.token), { feeds: [] })).status).toBe(204);
-      expect((await pull(mf, bearer(writeOnly.token))).status).toBe(403);
-    } finally {
-      await mf.dispose();
-    }
-  });
-
-  it('gives a token with no recognised scope no access', async () => {
-    const { mf, key, db } = await setup('scope-none-');
-    try {
-      const { token } = await oauthToken(db, key, { scopes: '' });
-      expect((await pull(mf, bearer(token))).status).toBe(403);
-      expect((await push(mf, bearer(token), { feeds: [] })).status).toBe(403);
-    } finally {
-      await mf.dispose();
-    }
-  });
 
   it('parses scope strings defensively', () => {
     expect(parseScopes('read write')).toEqual(['read', 'write']);
@@ -351,19 +237,7 @@ describe('scope enforcement', () => {
   });
 });
 
-describe('OAuth access token expiry', () => {
-  it('rejects an expired access token with 401 and accepts a live one', async () => {
-    const { mf, key, db } = await setup('expiry-----');
-    try {
-      const live = await oauthToken(db, key, { expiresAt: nowSeconds() + 60 });
-      const expired = await oauthToken(db, key, { expiresAt: nowSeconds() - 1 });
-      expect((await pull(mf, bearer(live.token))).status).toBe(200);
-      expect((await pull(mf, bearer(expired.token))).status).toBe(401);
-      expect((await pull(mf, { 'X-Sync-Key': expired.token })).status).toBe(401);
-    } finally {
-      await mf.dispose();
-    }
-  });
+describe('paired token lifetime', () => {
 
   it('never expires a paired token', async () => {
     const { mf, key, db } = await setup('expiry-pair');
@@ -397,46 +271,6 @@ describe('rate-limit buckets', () => {
       .bind(scope, windowStart, limit)
       .run();
   }
-
-  it('exhausting an OAuth token bucket leaves devices and other tokens unaffected', async () => {
-    const { mf, key, db } = await setup('rl-oauth---');
-    try {
-      const a = await oauthToken(db, key);
-      const b = await oauthToken(db, key);
-      await fill(db, `pull:tok:${a.tokenId}`, RATE_LIMITS.pull.limit);
-      expect((await pull(mf, bearer(a.token))).status).toBe(429);
-      expect((await pull(mf, bearer(b.token))).status).toBe(200);
-      expect((await pull(mf, { 'X-Sync-Key': key })).status).toBe(200);
-    } finally {
-      await mf.dispose();
-    }
-  });
-
-  it('exhausting the per-key bucket limits devices and paired tokens but not OAuth tokens', async () => {
-    const { mf, key, db } = await setup('rl-shared--');
-    try {
-      const paired = await pairedToken(mf, key);
-      const oauth = await oauthToken(db, key);
-      await fill(db, `pull:${key}`, RATE_LIMITS.pull.limit);
-      expect((await pull(mf, { 'X-Sync-Key': key })).status).toBe(429);
-      expect((await pull(mf, bearer(paired))).status).toBe(429);
-      expect((await pull(mf, bearer(oauth.token))).status).toBe(200);
-    } finally {
-      await mf.dispose();
-    }
-  });
-
-  it('writes OAuth requests to the token bucket rather than the key bucket', async () => {
-    const { mf, key, db } = await setup('rl-writes--');
-    try {
-      const { token, tokenId } = await oauthToken(db, key);
-      expect((await pull(mf, bearer(token))).status).toBe(200);
-      expect(await count(db, 'SELECT COUNT(*) AS n FROM rate_limits WHERE scope = ?', `pull:tok:${tokenId}`)).toBe(1);
-      expect(await count(db, 'SELECT COUNT(*) AS n FROM rate_limits WHERE scope = ?', `pull:${key}`)).toBe(0);
-    } finally {
-      await mf.dispose();
-    }
-  });
 });
 
 describe('push behaviour after the shared merge refactor', () => {
@@ -516,6 +350,23 @@ describe('agent connector migration', () => {
     }
   });
 
+  it('cuts over old OAuth storage while preserving paired credentials and account data', async () => {
+    const mf = await createMf();
+    try {
+      const db = await mf.getD1Database('DB');
+      await applyMigrations(db, migrationFiles.filter((file) => file < '0013'));
+      await db.prepare("INSERT INTO users (sync_key, created_at) VALUES ('account', 1)").run();
+      await db.prepare("INSERT INTO tokens (token_id, token_hash, sync_key, scope, fingerprint, created_at, origin) VALUES ('paired', 'pairedhash', 'account', 'rw', 'ABCD', 1, 'paired'), ('oldoauth', 'oauthhash', 'account', 'rw', 'EFGH', 1, 'oauth')").run();
+      await applyMigrations(db, migrationFiles.filter((file) => file >= '0013'));
+      expect(await db.prepare('SELECT token_id FROM tokens').all()).toMatchObject({ results: [{ token_id: 'paired' }] });
+      expect(await count(db, 'SELECT COUNT(*) AS n FROM users')).toBe(1);
+      expect((await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('oauth_clients', 'oauth_connections', 'oauth_requests', 'oauth_codes')").all()).results).toEqual([]);
+      expect((await db.prepare("SELECT name FROM pragma_table_info('tokens') WHERE name LIKE '%refresh%' OR name = 'family_id'").all()).results).toEqual([]);
+    } finally {
+      await mf.dispose();
+    }
+  });
+
   it('produces the same oauth tables and token columns as the runtime schema', async () => {
     const fromMigrations = await createMf();
     const fromRuntime = await createMf();
@@ -526,85 +377,12 @@ describe('agent connector migration', () => {
       const runtime = await fromRuntime.getD1Database('DB');
       const columns = async (db: D1, table: string) =>
         (await db.prepare(`SELECT name FROM pragma_table_info('${table}')`).all<{ name: string }>()).results.map((r) => r.name).sort();
-      for (const table of ['oauth_clients', 'oauth_connections', 'oauth_requests', 'oauth_codes', 'tokens']) {
+      for (const table of ['agent_connections', 'agent_approvals', 'agent_grants', 'user', 'session', 'oauthClient', 'oauthRefreshToken', 'tokens']) {
         expect(await columns(migrated, table), table).toEqual(await columns(runtime, table));
       }
     } finally {
       await fromMigrations.dispose();
       await fromRuntime.dispose();
-    }
-  });
-});
-
-describe('scheduled cleanup and account deletion', () => {
-  async function seedOAuthRows(db: D1, key: string, offset: number): Promise<void> {
-    const now = nowSeconds();
-    const at = now + offset;
-    const suffix = offset < 0 ? 'old' : 'new';
-    await db.prepare('INSERT INTO oauth_connections (connection_id, sync_key, created_at, expires_at) VALUES (?, ?, ?, ?)').bind(`conn-${suffix}`, key, now - 1000, at).run();
-    await db
-      .prepare('INSERT INTO oauth_requests (request_id, approval_code, client_id, redirect_uri, code_challenge, scopes, sync_key, decision, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(`req-${suffix}`, `code-${suffix}`, 'client-1', 'https://ex.com/cb', 'challenge', 'read', key, 'approved', now - 1000, at)
-      .run();
-    await db
-      .prepare('INSERT INTO oauth_codes (code_hash, client_id, redirect_uri, code_challenge, scopes, sync_key, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(`hash-${suffix}`, 'client-1', 'https://ex.com/cb', 'challenge', 'read', key, now - 1000, at)
-      .run();
-  }
-
-  async function runCron(mf: Miniflare): Promise<void> {
-    const worker = await mf.getWorker();
-    const result = await worker.scheduled({ cron: '0 3 * * *', scheduledTime: new Date() });
-    expect(result.outcome).toBe('ok');
-  }
-
-  it('sweeps expired OAuth rows and refresh-expired grants but keeps live ones', async () => {
-    const { mf, key, db } = await setup('cleanup----');
-    try {
-      await seedOAuthRows(db, key, -10);
-      await seedOAuthRows(db, key, 3600);
-      const paired = await pairedToken(mf, key);
-      const stale = await oauthToken(db, key, { expiresAt: nowSeconds() - 5000, refreshExpiresAt: nowSeconds() - 10 });
-      const idleAccess = await oauthToken(db, key, { expiresAt: nowSeconds() - 5000, refreshExpiresAt: nowSeconds() + 3600 });
-      await db.prepare("INSERT INTO oauth_clients (client_id, client_name, redirect_uris, kind, created_at, expires_at) VALUES ('c-expired', 'X', '[]', 'metadata', 1, ?)").bind(nowSeconds() - 10).run();
-      await db.prepare("INSERT INTO oauth_clients (client_id, client_name, redirect_uris, kind, created_at, expires_at) VALUES ('client-1', 'Y', '[]', 'metadata', 1, ?)").bind(nowSeconds() - 10).run();
-      await db.prepare("INSERT INTO oauth_clients (client_id, client_name, redirect_uris, kind, created_at) VALUES ('c-registered', 'Z', '[]', 'registered', ?)").bind(nowSeconds()).run();
-      await db.prepare("INSERT INTO oauth_clients (client_id, client_name, redirect_uris, kind, created_at) VALUES ('c-registered-old', 'Z', '[]', 'registered', 1)").run();
-
-      await runCron(mf);
-
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_connections WHERE connection_id = 'conn-old'")).toBe(0);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_connections WHERE connection_id = 'conn-new'")).toBe(1);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_requests WHERE request_id = 'req-old'")).toBe(0);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_requests WHERE request_id = 'req-new'")).toBe(1);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_codes WHERE code_hash = 'hash-old'")).toBe(0);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_codes WHERE code_hash = 'hash-new'")).toBe(1);
-      expect(await count(db, 'SELECT COUNT(*) AS n FROM tokens WHERE token_id = ?', stale.tokenId)).toBe(0);
-      expect(await count(db, 'SELECT COUNT(*) AS n FROM tokens WHERE token_id = ?', idleAccess.tokenId)).toBe(1);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM tokens WHERE origin = 'paired' AND sync_key = ?", key)).toBe(1);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_clients WHERE client_id = 'c-expired'")).toBe(0);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_clients WHERE client_id = 'client-1'")).toBe(1);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_clients WHERE client_id = 'c-registered'")).toBe(1);
-      expect(await count(db, "SELECT COUNT(*) AS n FROM oauth_clients WHERE client_id = 'c-registered-old'")).toBe(0);
-      expect((await pull(mf, bearer(paired))).status).toBe(200);
-    } finally {
-      await mf.dispose();
-    }
-  });
-
-  it('removes OAuth rows with the account', async () => {
-    const { mf, key, db } = await setup('acct-delete-');
-    try {
-      await seedOAuthRows(db, key, 3600);
-      const { token } = await oauthToken(db, key);
-      const res = await mf.dispatchFetch('http://localhost/sync/account', { method: 'DELETE', headers: { 'X-Sync-Key': key } });
-      expect(res.status).toBe(204);
-      for (const table of ['oauth_connections', 'oauth_requests', 'oauth_codes']) {
-        expect(await count(db, `SELECT COUNT(*) AS n FROM ${table} WHERE sync_key = ?`, key), table).toBe(0);
-      }
-      expect((await pull(mf, bearer(token))).status).toBe(401);
-    } finally {
-      await mf.dispose();
     }
   });
 });

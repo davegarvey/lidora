@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openNodeSqlite } from '../server/node-sqlite';
 import { createSelfHostedDatabases } from '../server/sqlite-d1';
 import { createApp } from '../server/handle';
+import { SECRET } from './oauth-harness';
 
 const KEY = 'connectflowkey00000001';
 const REDIRECT = 'https://client.example/callback';
@@ -20,7 +21,7 @@ beforeEach(async () => {
     databases.sync.connection.close?.();
     databases.poll.connection.close?.();
   };
-  app = createApp({ db: databases.sync as unknown as D1Database, pollDb: databases.poll as unknown as D1Database });
+  app = createApp({ oauthSecret: SECRET, db: databases.sync as unknown as D1Database, pollDb: databases.poll as unknown as D1Database });
   expect((await app.request('/sync/register', { method: 'POST', headers: { 'X-Sync-Key': KEY } })).status).toBe(204);
 });
 
@@ -74,7 +75,7 @@ describe('connection URL through to MCP tools', () => {
       await app.request(path(meta.registration_endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_name: 'Flow Agent', redirect_uris: [REDIRECT], client_uri: 'https://client.example/home' }),
+        body: JSON.stringify({ client_name: 'Flow Agent', token_endpoint_auth_method: 'none', scope: 'read write offline_access', redirect_uris: [REDIRECT], client_uri: 'https://client.example/home' }),
       }),
       201,
     );
@@ -89,10 +90,14 @@ describe('connection URL through to MCP tools', () => {
         code_challenge: challenge,
         code_challenge_method: 'S256',
         state: 'flow-state',
+        scope: 'read write offline_access',
       })}`,
     );
     expect(authorize.status).toBe(302);
-    const consent = new URL(authorize.headers.get('Location') ?? '');
+    const signed = new URL(authorize.headers.get('Location') ?? '');
+    const start = await app.request(signed.pathname + signed.search);
+    expect(start.status).toBe(302);
+    const consent = new URL(start.headers.get('Location') ?? '');
     expect(consent.pathname).toBe('/connect');
     const requestId = consent.searchParams.get('request') ?? '';
 
@@ -126,7 +131,7 @@ describe('connection URL through to MCP tools', () => {
         code_verifier: verifier,
       }),
     );
-    expect(tokens.scope).toBe('read write');
+    expect(tokens.scope).toBe('read write offline_access');
 
     const list = await rpc(`/mcp/c/${id}`, tokens.access_token, 'tools/list');
     const names = (list.result?.tools as Array<{ name: string }>).map((t) => t.name);
@@ -148,7 +153,7 @@ describe('connection URL through to MCP tools', () => {
       await app.request('/sync/tokens', { headers: { 'X-Sync-Key': KEY } }),
     );
     expect(listed.tokens).toHaveLength(1);
-    expect(listed.tokens[0]).toMatchObject({ client_name: 'Flow Agent', client_host: 'client.example', unverified: true, scopes: 'read write' });
+    expect(listed.tokens[0]).toMatchObject({ client_name: 'Flow Agent', client_host: 'client.example', unverified: true, scopes: 'read write offline_access' });
 
     const reuse = await exchange({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: registered.client_id });
     expect(reuse.status).toBe(400);

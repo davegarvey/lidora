@@ -13,7 +13,7 @@ Paths in this file are relative to the origin that serves it, written `<origin>`
 
 ## Authorisation
 
-- [Authorisation server metadata](/.well-known/oauth-authorization-server): RFC 8414. OAuth 2.1 with PKCE (`S256`), public clients, authorisation code and refresh token grants. Clients identify themselves with a Client ID Metadata Document URL or by Dynamic Client Registration.
+- [Authorisation server metadata](/.well-known/oauth-authorization-server/oauth): RFC 8414. OAuth 2.1 with PKCE (`S256`), public and private-key clients, authorisation code and refresh token grants. Clients identify themselves with a Client ID Metadata Document URL or by Dynamic Client Registration.
 - [Protected resource metadata](/.well-known/oauth-protected-resource): RFC 9728. Names `<origin>/mcp` as the resource.
 - Scopes: `read` allows the read tools. `write` also allows the tools that change subscriptions and reading state. One Allow grants every scope the client requests, or both if it requests none.
 - Access tokens last one hour and are renewed with the refresh token. A grant expires after a year without use. The user can rename or revoke an agent in Settings → Sync → Agent access.

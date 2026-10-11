@@ -1,3 +1,4 @@
+import type { OAuthAuthenticator } from '../oauth/authenticate';
 import {
   ProtocolError,
   ProtocolErrorCode,
@@ -26,6 +27,7 @@ export interface McpRoutesOptions {
   db: D1Database;
   pollDb?: D1Database;
   publicUrl?: string;
+  oauth?: OAuthAuthenticator;
 }
 
 const MAX_BODY_BYTES = 256 * 1024;
@@ -196,7 +198,7 @@ export function createMcpRoutes(options: McpRoutesOptions): Hono {
     if (!bearer) return unauthorised(c, connectionId);
     if (!schemaReady) schemaReady = ensureSchema(db);
     await schemaReady;
-    const auth = await authenticateToken(db, bearer[1]);
+    const auth = await authenticateToken(db, bearer[1]) ?? await options.oauth?.(bearer[1], c.req.url);
     if (!auth) {
       assertNoKeyLog(bearer[1]);
       return unauthorised(c, connectionId);

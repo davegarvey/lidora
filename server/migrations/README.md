@@ -107,6 +107,8 @@ client's self-declared website, shown on the consent screen) and
 `oauth_requests.redirect_url`, which holds the finished redirect for a request
 decided in the app until the consent page collects it once.
 
+Migration `0013_oauth_provider.sql` replaces the custom OAuth tables and tokens with the Better Auth schema and application tables `agent_connections`, `agent_approvals` and `agent_grants`. It drops the superseded refresh-family columns and indexes. Existing OAuth agents reconnect once; paired CLI tokens, device sync and reading data are retained. Provider timestamps use ISO dates; application approval and connection expiry use epoch seconds. Configure persistent `BETTER_AUTH_SECRET` before deploying.
+
 The poll database has its own migration sequence. Migration
 `server/migrations-poll/0001_feed_polling.sql` adds `polled_feeds` (per-URL
 validators and schedule), `polled_items` (retained entries keyed by feed URL

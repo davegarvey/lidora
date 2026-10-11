@@ -37,6 +37,8 @@ export class SqliteD1Statement {
   async all<T = Record<string, unknown>>(): Promise<D1Result<T>> {
     const started = performance.now();
     const results = this.db.connection.prepare(this.sql).all(...this.values) as T[];
+    const mutation = /^(?:insert|update|delete|replace)\b/i.test(this.sql.trim());
+    const change = mutation ? this.db.connection.prepare('SELECT changes() AS changes, last_insert_rowid() AS last_row_id').get() as { changes: number; last_row_id: number } : undefined;
     const pageCount = this.db.connection.prepare('PRAGMA page_count').get() as { page_count?: number } | undefined;
     const pageSize = this.db.connection.prepare('PRAGMA page_size').get() as { page_size?: number } | undefined;
     return {
@@ -44,12 +46,12 @@ export class SqliteD1Statement {
       results,
       meta: {
         duration: performance.now() - started,
-        changes: 0,
-        last_row_id: null,
+        changes: change?.changes ?? 0,
+        last_row_id: change?.last_row_id ?? null,
         size_after: (pageCount?.page_count ?? 0) * (pageSize?.page_size ?? 0),
         rows_read: results.length,
-        rows_written: 0,
-        changed_db: false,
+        rows_written: change?.changes ?? 0,
+        changed_db: mutation,
       },
     } as unknown as D1Result<T>;
   }
@@ -82,7 +84,7 @@ export class SqliteD1Statement {
   }
 
   execute<T = Record<string, unknown>>(): Promise<D1Result<T>> {
-    return this.run<T>();
+    return this.all<T>();
   }
 }
 

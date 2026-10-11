@@ -11,7 +11,7 @@ let server: ChildProcess | undefined;
 test.beforeAll(async () => {
   execFileSync('npm', ['run', 'build'], { stdio: 'ignore' });
   server = spawn('npx', ['tsx', 'server/node.ts'], {
-    env: { ...process.env, PORT: String(PORT), SIFT_DATA_DIR: mkdtempSync(join(tmpdir(), 'sift-sw-')) },
+    env: { ...process.env, PORT: String(PORT), BETTER_AUTH_SECRET: 'oauth-smoke-test-secret-01234567890123456789', SIFT_DATA_DIR: mkdtempSync(join(tmpdir(), 'sift-sw-')) },
     stdio: 'ignore',
   });
   for (let i = 0; i < 60; i++) {
@@ -34,11 +34,11 @@ test('the service worker leaves OAuth navigations to the server and serves the c
   await page.reload();
   expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
 
-  const oauth = await page.goto(`${BASE}/oauth/authorize?client_id=unknown&response_type=code`);
-  expect(oauth?.status()).toBe(400);
+  const oauth = await page.goto(`${BASE}/oauth/oauth2/authorize?client_id=unknown&response_type=code`);
+  expect(oauth?.status()).toBe(404);
   expect(await oauth?.text()).not.toContain('id="root"');
 
-  const wellKnown = await page.goto(`${BASE}/.well-known/oauth-authorization-server`);
+  const wellKnown = await page.goto(`${BASE}/.well-known/oauth-authorization-server/oauth`);
   expect(wellKnown?.headers()['content-type']).toContain('json');
 
   await page.goto(`${BASE}/connect`);

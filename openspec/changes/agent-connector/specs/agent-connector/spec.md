@@ -28,7 +28,7 @@ The `initialize` result SHALL include `instructions` that describe Sift, its ide
 
 ### Requirement: OAuth protected-resource metadata
 
-The system SHALL serve RFC 9728 protected-resource metadata at `/.well-known/oauth-protected-resource` without authentication. It SHALL name the resource `<origin>/mcp`, the authorisation server `<origin>`, and the scopes `read` and `write`. When `PUBLIC_URL` is configured, it SHALL replace the request origin in every advertised URL.
+The system SHALL serve RFC 9728 protected-resource metadata at `/.well-known/oauth-protected-resource` without authentication. It SHALL name the resource `<origin>/mcp`, the authorisation server `<origin>/oauth`, and the scopes `read` and `write`. When `PUBLIC_URL` is configured, it SHALL replace the request origin in every advertised URL.
 
 #### Scenario: Discovery from a 401
 - **WHEN** a client follows the `resource_metadata` URL from a 401
@@ -36,7 +36,7 @@ The system SHALL serve RFC 9728 protected-resource metadata at `/.well-known/oau
 
 ### Requirement: OAuth authorisation-server metadata
 
-The system SHALL serve RFC 8414 metadata at `/.well-known/oauth-authorization-server` without authentication. It SHALL advertise the authorisation, token, registration and revocation endpoints, `S256` as the only code challenge method, the `authorization_code` and `refresh_token` grants, `none` as the token endpoint authentication method, and support for Client ID Metadata Documents.
+The system SHALL serve RFC 8414 metadata at `/.well-known/oauth-authorization-server/oauth` without authentication. It SHALL advertise the authorisation, token, registration and revocation endpoints, `S256` as the only code challenge method, the `authorization_code` and `refresh_token` grants, `none` and library-supported authenticated methods including `private_key_jwt` as token endpoint authentication methods, and support for Client ID Metadata Documents.
 
 #### Scenario: Complete discovery
 - **WHEN** a client reads the authorisation-server metadata
@@ -44,7 +44,7 @@ The system SHALL serve RFC 8414 metadata at `/.well-known/oauth-authorization-se
 
 ### Requirement: Client ID Metadata Documents
 
-The system SHALL accept a `client_id` that is an HTTPS URL by fetching it, through the upstream fetch policy, as a Client ID Metadata Document. The document's `client_id` field SHALL equal the URL, the document SHALL list the requested redirect URI, and it SHALL declare `none` as its token endpoint authentication method or include `none` in `token_endpoint_auth_methods_supported`.
+The system SHALL accept a `client_id` that is an HTTPS URL by fetching it, through the upstream fetch policy, as a Client ID Metadata Document. The document's `client_id` field SHALL equal the URL, the document SHALL list the requested redirect URI, and the library SHALL enforce its declared client authentication method, including verification of signed assertions when `private_key_jwt` is selected.
 
 #### Scenario: Client that prefers signed authentication
 - **WHEN** a document declares `private_key_jwt` but lists `none` among its supported methods
@@ -60,7 +60,7 @@ The system SHALL accept a `client_id` that is an HTTPS URL by fetching it, throu
 
 ### Requirement: Dynamic client registration
 
-The system SHALL provide RFC 7591 registration at `POST /oauth/register`. It SHALL accept only public clients (`token_endpoint_auth_method` of `none`), SHALL require at least one redirect URI, and SHALL accept only HTTPS, loopback HTTP (`127.0.0.1`, `[::1]`, `localhost`) or private-use scheme (RFC 8252) redirect URIs. Fragments and executable schemes SHALL be refused. Registration SHALL be rate-limited per client IP.
+The system SHALL provide RFC 7591 registration at `POST /oauth/oauth2/register`. It SHALL support public clients (`token_endpoint_auth_method` of `none`) and library-supported authenticated clients, SHALL require at least one redirect URI, and SHALL accept only HTTPS, loopback HTTP (`127.0.0.1`, `[::1]`, `localhost`) or private-use scheme (RFC 8252) redirect URIs. Fragments and executable schemes SHALL be refused. Registration SHALL be rate-limited per client IP.
 
 #### Scenario: Dynamic registration
 - **WHEN** a client registers with a name and redirect URIs
@@ -76,7 +76,7 @@ The system SHALL provide RFC 7591 registration at `POST /oauth/register`. It SHA
 
 ### Requirement: Authorisation request validation
 
-`GET /oauth/authorize` SHALL require `response_type=code`, a known client, an exactly matching redirect URI (any port for loopback), an S256 `code_challenge` and `state`. A present `resource` SHALL equal `<origin>/mcp` or a connection URL. Scopes SHALL be a subset of `read write`, defaulting to both. Client and redirect URI errors SHALL be shown on Sift's page without redirecting. Other errors SHALL redirect with the OAuth error and `state`.
+`GET /oauth/oauth2/authorize` SHALL require `response_type=code`, a known client, an exactly matching redirect URI (any port for loopback), an S256 `code_challenge`. The effective `resource` SHALL equal the issuer’s MCP resource; routing SHALL supply that resource when omitted. Scopes SHALL be a subset of `read write offline_access`. Client and redirect URI errors SHALL be shown on Sift's page without redirecting. Other errors SHALL redirect with the OAuth error and `state`.
 
 #### Scenario: Missing PKCE
 - **WHEN** an authorisation request omits `code_challenge`
@@ -92,7 +92,7 @@ The system SHALL provide RFC 7591 registration at `POST /oauth/register`. It SHA
 
 ### Requirement: Single-use connection URLs
 
-The installed app SHALL be able to mint, using the master sync key, a connection ID that is bound to the sync key, single-use and valid for ten minutes. The app SHALL present the ID as `<origin>/mcp/c/<id>`. That path SHALL behave as `/mcp` for all MCP traffic, both before and after the ID is used.
+The installed app SHALL be able to mint, using the master sync key, a connection ID that is bound to the sync key, single-use and valid for ten minutes. The app SHALL present the ID as `<origin>/mcp/c/<id>`. That path SHALL serve the same MCP tools before and after the ID is used, with OAuth tokens bound to its own resource audience.
 
 #### Scenario: Mint a connection URL
 - **WHEN** the user taps Connect an agent
@@ -171,7 +171,7 @@ When the consent request has no usable connection ID, the consent screen SHALL s
 
 ### Requirement: Authorisation code exchange
 
-`POST /oauth/token` SHALL support the `authorization_code` grant. Codes SHALL be single-use, expire after 60 seconds, and be bound to the client, redirect URI, PKCE challenge, scopes and sync key. A successful exchange SHALL return an access token valid for one hour, a refresh token, `token_type` `Bearer`, `expires_in` and `scope`. Token values SHALL be stored only as SHA-256 hashes.
+`POST /oauth/oauth2/token` SHALL support the `authorization_code` grant. Codes SHALL be single-use, expire after ten minutes, and be bound to the client, redirect URI, PKCE challenge, scopes and an isolated provider identity linked to the Sift account. A successful exchange SHALL return a signed JWT access token valid for one hour, a refresh token when `offline_access` was granted, `token_type` `Bearer`, `expires_in` and `scope`. Refresh tokens SHALL be stored hashed. JWT access tokens SHALL not be stored; signing keys SHALL be encrypted using the persistent provider secret.
 
 #### Scenario: Code exchange
 - **WHEN** a client exchanges a valid code with the matching verifier
@@ -183,7 +183,7 @@ When the consent request has no usable connection ID, the consent screen SHALL s
 
 ### Requirement: Refresh token rotation
 
-`POST /oauth/token` SHALL support the `refresh_token` grant. Refresh tokens SHALL expire 365 days after their last use and SHALL rotate on every use. Presenting an already-rotated refresh token SHALL revoke every token in that grant. `POST /oauth/revoke` SHALL revoke a presented access or refresh token.
+`POST /oauth/oauth2/token` SHALL support the `refresh_token` grant. Refresh tokens SHALL expire at most 365 days after issuance, with a maximum agent session of 365 days and SHALL rotate on every use. Presenting an already-rotated refresh token SHALL revoke every token in that grant. `POST /oauth/oauth2/revoke` SHALL revoke a presented refresh token. Settings revocation SHALL invalidate both access and refresh credentials immediately.
 
 #### Scenario: Refresh
 - **WHEN** a client presents a current refresh token

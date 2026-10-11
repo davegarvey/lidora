@@ -8,7 +8,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM oven/bun:1.1-slim AS runtime
+FROM oven/bun:1.3-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server

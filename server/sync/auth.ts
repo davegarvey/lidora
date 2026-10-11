@@ -1,3 +1,4 @@
+import type { OAuthAuthenticator } from '../agent/oauth/authenticate';
 /**
  * Bearer-token authentication for sync data routes.
  *
@@ -72,7 +73,7 @@ export async function authenticateToken(db: D1Database, raw: string): Promise<To
   if (!isValidTokenFormat(raw)) return null;
   const tokenHash = await sha256Hex(raw);
   const row = await db
-    .prepare('SELECT token_id, sync_key, last_seen_minute, scopes, origin, expires_at FROM tokens WHERE token_hash = ?')
+    .prepare('SELECT token_id, sync_key, last_seen_minute, scopes, origin, expires_at FROM tokens WHERE token_hash = ? AND origin = \'paired\'')
     .bind(tokenHash)
     .first<{
       token_id: string;
@@ -141,11 +142,11 @@ function tokenContext(auth: TokenAuth): SyncKeyContext {
 
 type AuthResult = { ok: true; ctx: SyncKeyContext } | { ok: false; response: Response };
 
-async function authenticate(db: D1Database, c: Context<SyncKeyEnv>): Promise<AuthResult> {
+async function authenticate(db: D1Database, c: Context<SyncKeyEnv>, oauth?: OAuthAuthenticator): Promise<AuthResult> {
   const bearerMatch = /^Bearer\s+(\S+)$/i.exec(c.req.header('Authorization') ?? '');
   if (bearerMatch) {
     const bearer = bearerMatch[1];
-    const auth = await authenticateToken(db, bearer);
+    const auth = await authenticateToken(db, bearer) ?? await oauth?.(bearer, c.req.url);
     if (!auth) {
       assertNoKeyLog(bearer);
       return { ok: false, response: c.text('Unauthorized', 401) };
@@ -199,9 +200,9 @@ async function authenticate(db: D1Database, c: Context<SyncKeyEnv>): Promise<Aut
  * scope-limited routes add `requireScope` and master-key-only routes use
  * `requireMaster`. Returns 401 on any failure.
  */
-export function requirePrincipal(db: D1Database): MiddlewareHandler<SyncKeyEnv> {
+export function requirePrincipal(db: D1Database, oauth?: OAuthAuthenticator): MiddlewareHandler<SyncKeyEnv> {
   return async (c, next) => {
-    const result = await authenticate(db, c);
+    const result = await authenticate(db, c, oauth);
     if (!result.ok) return result.response;
     c.set('syncKeyCtx', result.ctx);
     return next();

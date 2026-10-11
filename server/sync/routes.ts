@@ -1,3 +1,4 @@
+import type { OAuthAuthenticator } from '../agent/oauth/authenticate';
 /**
  * Sync HTTP routes.
  *
@@ -29,7 +30,7 @@ import { assertNoKeyLog, assertNoUserDataLog, assertNoUrlLog } from '../log';
 import { decodeItemId } from '../../src/sync/itemId';
 import { generateToken, generateTokenId, sha256Hex, tokenFingerprint, syncKeyFingerprint } from './tokens';
 import { MAX_POLLED_FEEDS_PER_ACCOUNT, registerPolledFeeds, removeUnsubscribedPolledFeeds } from '../poll-registry';
-import { accountFeedUrls, deleteAccount } from './account';
+import { accountFeedUrls, agentDeletionStatements, deleteAccount } from './account';
 
 const TOKEN_LABEL_MAX = 64;
 
@@ -129,6 +130,7 @@ function jsonError(message: string, fieldName?: string, fieldValue?: unknown): R
 }
 
 export interface SyncRoutesOptions {
+  oauth?: OAuthAuthenticator;
   nowSeconds?: () => number;
   /** Poll database; server-side feed polling and /sync/items are enabled only when present. */
   pollDb?: D1Database;
@@ -225,7 +227,7 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
   // Master-key-only routes: /sync/otp (a device code redeems to the master
   // key), /sync/tokens (token lifecycle), /sync/rotate. Agent tokens:
   // `read` scope for pull, stats pull and items, `write` additionally for push.
-  const auth = requirePrincipal(db);
+  const auth = requirePrincipal(db, opts.oauth);
   const masterAuth = requireMaster(db);
   const readScope = requireScope('read');
   const writeScope = requireScope('write');
@@ -279,6 +281,7 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
     await db.batch([
       db.prepare('INSERT OR IGNORE INTO users (sync_key, created_at) VALUES (?, ?)').bind(newKey, now()),
       db.prepare('UPDATE users SET rotated_at = ? WHERE sync_key = ?').bind(now(), oldKey),
+      ...agentDeletionStatements(db, oldKey),
     ]);
     assertNoKeyLog(oldKey);
     return c.body(null, 204);
@@ -511,12 +514,16 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
 
     const res = await db
       .prepare(
-        `SELECT t.token_id, t.fingerprint, t.scope, t.origin, t.label, t.client_name, t.scopes, t.created_at, t.last_seen_at,
-                o.client_uri AS client_uri, o.kind AS client_kind
-           FROM tokens t LEFT JOIN oauth_clients o ON o.client_id = t.client_id
-          WHERE t.sync_key = ? ORDER BY t.created_at ASC`,
+        `SELECT token_id, fingerprint, scope, origin, label, client_name, scopes, created_at, last_seen_at,
+                NULL AS client_uri, NULL AS client_kind
+           FROM tokens WHERE sync_key = ?
+         UNION ALL
+         SELECT g.token_id, g.fingerprint, 'rw', 'oauth', g.label, c.name, g.scopes, g.created_at, g.last_seen_at,
+                c.uri AS client_uri, c.clientDiscoveryId AS client_kind
+           FROM agent_grants g JOIN oauthClient c ON c.clientId = g.client_id WHERE g.sync_key = ?
+         ORDER BY created_at ASC`,
       )
-      .bind(syncKey)
+      .bind(syncKey, syncKey)
       .all();
     // created_at is stored in epoch seconds (now()); the API reports
     // epoch milliseconds, matching last_seen_at and the OTP expiresAt.
@@ -525,7 +532,7 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
         ...r,
         created_at: r.created_at * 1000,
         client_host: hostOfUrl(client_uri),
-        unverified: r.origin === 'oauth' && client_kind !== 'metadata',
+        unverified: r.origin === 'oauth' && !client_kind,
       }),
     );
     return c.json({ tokens });
@@ -553,14 +560,14 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
       return jsonError('label must be a string of at most 64 characters', 'label');
     }
     const existing = await db
-      .prepare('SELECT token_id FROM tokens WHERE token_id = ? AND sync_key = ?')
-      .bind(tokenId, syncKey)
+      .prepare('SELECT token_id FROM tokens WHERE token_id = ? AND sync_key = ? UNION ALL SELECT token_id FROM agent_grants WHERE token_id = ? AND sync_key = ?')
+      .bind(tokenId, syncKey, tokenId, syncKey)
       .first();
     if (!existing) return c.text('Not Found', 404);
-    await db
-      .prepare('UPDATE tokens SET label = ? WHERE token_id = ? AND sync_key = ?')
-      .bind(parsedLabel.label, tokenId, syncKey)
-      .run();
+    await db.batch([
+      db.prepare('UPDATE tokens SET label = ? WHERE token_id = ? AND sync_key = ?').bind(parsedLabel.label, tokenId, syncKey),
+      db.prepare('UPDATE agent_grants SET label = ? WHERE token_id = ? AND sync_key = ?').bind(parsedLabel.label, tokenId, syncKey),
+    ]);
     return c.body(null, 204);
   });
 
@@ -578,10 +585,11 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
     if (!tokenId) {
       return jsonError('token_id is required', 'token_id');
     }
-    await db
-      .prepare('DELETE FROM tokens WHERE token_id = ? AND sync_key = ?')
-      .bind(tokenId, syncKey)
-      .run();
+    await db.batch([
+      db.prepare('DELETE FROM tokens WHERE token_id = ? AND sync_key = ?').bind(tokenId, syncKey),
+      db.prepare('DELETE FROM "user" WHERE id IN (SELECT user_id FROM agent_grants WHERE token_id = ? AND sync_key = ?)').bind(tokenId, syncKey),
+      db.prepare('DELETE FROM agent_grants WHERE token_id = ? AND sync_key = ?').bind(tokenId, syncKey),
+    ]);
     return c.body(null, 204);
   });
 

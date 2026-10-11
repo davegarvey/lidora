@@ -1,9 +1,8 @@
 import { Hono, type Context } from 'hono';
 import { isPairingCode, requireMaster, getSyncKeyContext, clientIp, type SyncKeyEnv } from '../../sync/auth';
 import { RATE_LIMITS, checkRateLimit } from '../../sync/ratelimit';
-import { sha256Hex } from '../../sync/tokens';
+import { consentForAccount } from './provider';
 import {
-  CODE_TTL_SECONDS,
   CONNECTION_TTL_SECONDS,
   generateConnectionId,
   hostOf,
@@ -14,8 +13,6 @@ import {
   nowSeconds,
   origin,
   rateLimited,
-  randomId,
-  redirectWith,
   usableUser,
   type OAuthContext,
 } from './util';
@@ -25,10 +22,9 @@ interface RequestRow {
   approval_code: string;
   client_id: string;
   redirect_uri: string;
-  code_challenge: string;
+  signed_query: string;
+  issuer: string;
   scopes: string;
-  state: string | null;
-  resource: string | null;
   connection_id: string | null;
   decision: string | null;
   sync_key: string | null;
@@ -40,7 +36,7 @@ interface RequestRow {
 type Status = 'pending' | 'approved' | 'denied' | 'expired';
 
 const REQUEST_COLUMNS =
-  'request_id, approval_code, client_id, redirect_uri, code_challenge, scopes, state, resource, connection_id, decision, sync_key, created_at, expires_at, redirect_url';
+  'request_id, approval_code, client_id, redirect_uri, signed_query, issuer, scopes, connection_id, decision, sync_key, created_at, expires_at, redirect_url';
 
 function redirectScheme(uri: string): string {
   try {
@@ -58,13 +54,13 @@ function statusOf(row: RequestRow, now: number): Status {
 
 async function describeRequest(ctx: OAuthContext, row: RequestRow, now: number) {
   const client = await ctx.db
-    .prepare('SELECT client_name, kind, client_uri FROM oauth_clients WHERE client_id = ?')
+    .prepare('SELECT name AS client_name, clientDiscoveryId AS kind, uri AS client_uri FROM oauthClient WHERE clientId = ?')
     .bind(row.client_id)
     .first<{ client_name: string; kind: string; client_uri: string | null }>();
   return {
     status: statusOf(row, now),
     clientName: client?.client_name ?? hostOf(row.client_id) ?? 'Unknown client',
-    unverified: client?.kind !== 'metadata' || isPrivateUseScheme(redirectScheme(row.redirect_uri)),
+    unverified: !client?.kind || isPrivateUseScheme(redirectScheme(row.redirect_uri)),
     clientHost: hostOf(client?.client_uri),
     redirectHost: redirectDisplayHost(row.redirect_uri),
     scopes: row.scopes.split(' ').filter(Boolean),
@@ -76,7 +72,7 @@ async function describeRequest(ctx: OAuthContext, row: RequestRow, now: number) 
 async function usableConnection(ctx: OAuthContext, connectionId: string | null, now: number) {
   if (!isConnectionId(connectionId)) return null;
   return ctx.db
-    .prepare('SELECT sync_key, created_at FROM oauth_connections WHERE connection_id = ? AND used_at IS NULL AND expires_at > ?')
+    .prepare('SELECT sync_key, created_at FROM agent_connections WHERE connection_id = ? AND used_at IS NULL AND expires_at > ?')
     .bind(connectionId, now)
     .first<{ sync_key: string; created_at: number }>();
 }
@@ -88,48 +84,50 @@ async function finalise(
   row: RequestRow,
   decision: 'approve' | 'deny',
   syncKey: string,
-  consumeConnection: boolean,
+  requireConnection = false,
 ): Promise<Finalised> {
   const now = nowSeconds();
+  const connection = row.connection_id
+    ? await ctx.db.prepare('SELECT sync_key FROM agent_connections WHERE connection_id = ?').bind(row.connection_id).first<{ sync_key: string }>()
+    : null;
+  if ((connection && connection.sync_key !== syncKey) || (requireConnection && !(await usableConnection(ctx, row.connection_id, now)))) {
+    return { ok: false, status: 401, error: 'unauthorized' };
+  }
   const decided = decision === 'approve' ? 'approved' : 'denied';
   const claim = await ctx.db
-    .prepare('UPDATE oauth_requests SET decision = ?, sync_key = ? WHERE request_id = ? AND decision IS NULL AND expires_at > ?')
+    .prepare('UPDATE agent_approvals SET decision = ?, sync_key = ? WHERE request_id = ? AND decision IS NULL AND expires_at > ?')
     .bind(decided, syncKey, row.request_id, now)
     .run();
   if (claim.meta.changes !== 1) {
     const current = await ctx.db
-      .prepare('SELECT decision FROM oauth_requests WHERE request_id = ?')
+      .prepare('SELECT decision FROM agent_approvals WHERE request_id = ?')
       .bind(row.request_id)
       .first<{ decision: string | null }>();
     return current?.decision ? { ok: false, status: 409, error: 'already_decided' } : { ok: false, status: 410, error: 'expired' };
   }
 
-  if (decision === 'deny') {
-    return { ok: true, redirect: redirectWith(row.redirect_uri, { error: 'access_denied', state: row.state ?? undefined }) };
-  }
-
-  if (consumeConnection) {
+  if (row.connection_id && decision === 'approve') {
     const used = await ctx.db
-      .prepare('UPDATE oauth_connections SET used_at = ? WHERE connection_id = ? AND used_at IS NULL AND expires_at > ?')
+      .prepare('UPDATE agent_connections SET used_at = ? WHERE connection_id = ? AND used_at IS NULL AND expires_at > ?')
       .bind(now, row.connection_id, now)
       .run();
-    if (used.meta.changes !== 1) {
+    if (used.meta.changes !== 1 && requireConnection) {
       await ctx.db
-        .prepare('UPDATE oauth_requests SET decision = NULL, sync_key = NULL WHERE request_id = ?')
+        .prepare('UPDATE agent_approvals SET decision = NULL, sync_key = NULL WHERE request_id = ?')
         .bind(row.request_id)
         .run();
       return { ok: false, status: 401, error: 'unauthorized' };
     }
   }
 
-  const code = randomId(32);
-  await ctx.db
-    .prepare(
-      'INSERT INTO oauth_codes (code_hash, client_id, redirect_uri, code_challenge, scopes, resource, sync_key, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    )
-    .bind(await sha256Hex(code), row.client_id, row.redirect_uri, row.code_challenge, row.scopes, row.resource, syncKey, now, now + CODE_TTL_SECONDS)
-    .run();
-  return { ok: true, redirect: redirectWith(row.redirect_uri, { code, state: row.state ?? undefined }) };
+  const resource = row.connection_id
+    ? `${new URL(row.issuer).origin}/mcp/c/${row.connection_id}`
+    : `${new URL(row.issuer).origin}/mcp`;
+  const redirect = await consentForAccount(ctx.provider(row.issuer), ctx.db, {
+    syncKey, issuer: row.issuer, resource, clientId: row.client_id,
+    scopes: row.scopes, signedQuery: row.signed_query, accept: decision === 'approve',
+  });
+  return { ok: true, redirect };
 }
 
 async function readDecision(c: Context): Promise<'approve' | 'deny' | null> {
@@ -153,7 +151,7 @@ export function createDecisionRoutes(ctx: OAuthContext): Hono<SyncKeyEnv> {
   const masterAuth = requireMaster(ctx.db);
 
   const loadRequest = (requestId: string) =>
-    ctx.db.prepare(`SELECT ${REQUEST_COLUMNS} FROM oauth_requests WHERE request_id = ?`).bind(requestId).first<RequestRow>();
+    ctx.db.prepare(`SELECT ${REQUEST_COLUMNS} FROM agent_approvals WHERE request_id = ?`).bind(requestId).first<RequestRow>();
 
   app.post('/sync/connections', async (c, next) => {
     await ctx.ready();
@@ -167,7 +165,7 @@ export function createDecisionRoutes(ctx: OAuthContext): Hono<SyncKeyEnv> {
     const connectionId = generateConnectionId();
     const expiresAt = now + CONNECTION_TTL_SECONDS;
     await ctx.db
-      .prepare('INSERT INTO oauth_connections (connection_id, sync_key, created_at, expires_at) VALUES (?, ?, ?, ?)')
+      .prepare('INSERT INTO agent_connections (connection_id, sync_key, created_at, expires_at) VALUES (?, ?, ?, ?)')
       .bind(connectionId, syncKey, now, expiresAt)
       .run();
     noStore(c);
@@ -185,7 +183,7 @@ export function createDecisionRoutes(ctx: OAuthContext): Hono<SyncKeyEnv> {
     let redirect: string | undefined;
     if (row.redirect_url && description.status !== 'pending' && description.status !== 'expired') {
       const taken = await ctx.db
-        .prepare('UPDATE oauth_requests SET redirect_url = NULL WHERE request_id = ? AND redirect_url IS NOT NULL')
+        .prepare('UPDATE agent_approvals SET redirect_url = NULL WHERE request_id = ? AND redirect_url IS NOT NULL')
         .bind(row.request_id)
         .run();
       if (taken.meta.changes === 1) redirect = row.redirect_url;
@@ -217,16 +215,16 @@ export function createDecisionRoutes(ctx: OAuthContext): Hono<SyncKeyEnv> {
 
     const master = c.get('syncKeyCtx');
     let syncKey: string;
-    let consume = false;
     if (master) {
+      const connection = await usableConnection(ctx, row.connection_id, now);
+      if (connection && connection.sync_key !== master.syncKey) return c.json({ error: 'account_mismatch' }, 409);
       syncKey = master.syncKey;
     } else {
       const connection = await usableConnection(ctx, row.connection_id, now);
       if (!connection || !(await usableUser(ctx.db, connection.sync_key))) return c.json({ error: 'unauthorized' }, 401);
       syncKey = connection.sync_key;
-      consume = decision === 'approve';
     }
-    const result = await finalise(ctx, row, decision, syncKey, consume);
+    const result = await finalise(ctx, row, decision, syncKey, !master);
     if (!result.ok) return c.json({ error: result.error }, result.status);
     return c.json({ redirect: result.redirect });
   });
@@ -244,7 +242,7 @@ export function createDecisionRoutes(ctx: OAuthContext): Hono<SyncKeyEnv> {
     if (!byKey.ok) return rateLimited(c, byKey.retryAfter);
     const code = normaliseCode(c.req.param('code') ?? '');
     const row = code
-      ? await ctx.db.prepare(`SELECT ${REQUEST_COLUMNS} FROM oauth_requests WHERE approval_code = ?`).bind(code).first<RequestRow>()
+      ? await ctx.db.prepare(`SELECT ${REQUEST_COLUMNS} FROM agent_approvals WHERE approval_code = ?`).bind(code).first<RequestRow>()
       : null;
     if (!row) return c.json({ error: 'not_found' }, 404);
     return { row, syncKey };
@@ -265,10 +263,10 @@ export function createDecisionRoutes(ctx: OAuthContext): Hono<SyncKeyEnv> {
     const status = statusOf(row, nowSeconds());
     if (status === 'approved' || status === 'denied') return c.json({ error: 'already_decided' }, 409);
     if (status === 'expired') return c.json({ error: 'expired' }, 410);
-    const result = await finalise(ctx, row, decision, syncKey, false);
+    const result = await finalise(ctx, row, decision, syncKey);
     if (!result.ok) return c.json({ error: result.error }, result.status);
     await ctx.db
-      .prepare('UPDATE oauth_requests SET redirect_url = ? WHERE request_id = ?')
+      .prepare('UPDATE agent_approvals SET redirect_url = ? WHERE request_id = ?')
       .bind(result.redirect, row.request_id)
       .run();
     return c.json({ status: decision === 'approve' ? 'approved' : 'denied' });

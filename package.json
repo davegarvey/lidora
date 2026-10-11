@@ -1,11 +1,16 @@
 {
   "dependencies": {
+    "@better-auth/cimd": "1.7.7",
+    "@better-auth/mcp": "1.7.7",
+    "@better-auth/oauth-provider": "1.7.7",
     "@extractus/feed-extractor": "^7.2.1",
     "@hono/node-server": "^2.1.1",
     "@modelcontextprotocol/server": "2.3.1",
     "@mozilla/readability": "^0.6.0",
+    "better-auth": "1.7.7",
     "hono": "^4.13.5",
     "idb": "^8.0.3",
+    "jose": "6.2.12",
     "jsqr": "^1.4.0",
     "lucide-solid": "^1.22.0",
     "qrcode-generator": "^1.5.2",
