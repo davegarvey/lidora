@@ -12,4 +12,4 @@ export const FETCH_ONLY_ROUTES = ['/feed', '/article', '/img'];
 
 export const APP_SHELL_ROUTES = ['/', '/connect'];
 
-export const WORKER_FIRST_ROUTES = ['/oauth/*', '/.well-known/*', '/mcp', '/mcp/*', '/sync/*'];
+export const WORKER_FIRST_ROUTES = ['/feed', '/article', '/img', '/oauth/*', '/.well-known/*', '/mcp', '/mcp/*', '/sync/*'];
