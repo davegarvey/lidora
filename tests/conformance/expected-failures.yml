@@ -1,0 +1,45 @@
+# Scenarios that cannot apply to Sift. Everything not listed must pass.
+# The runner reports a listed scenario that starts passing, so remove it then.
+server:
+  # Sift offers tools only: no logging, completion, resources or prompts.
+  - logging-set-level
+  - completion-complete
+  - resources-list
+  - resources-read-text
+  - resources-read-binary
+  - resources-templates-read
+  - resources-subscribe
+  - resources-unsubscribe
+  - prompts-list
+  - prompts-get-simple
+  - prompts-get-with-args
+  - prompts-get-embedded-resource
+  - prompts-get-with-image
+
+  # These call fixture tools the suite expects (test_simple_text,
+  # json_schema_2020_12_tool and so on), which a real RSS tool set lacks.
+  # Schema pass-through is covered by tests/agent-mcp.test.ts instead.
+  - tools-call-simple-text
+  - tools-call-image
+  - tools-call-audio
+  - tools-call-embedded-resource
+  - tools-call-mixed-content
+  - tools-call-error
+  - json-schema-2020-12
+
+  # Sift is stateless and answers with plain JSON. It never sends progress,
+  # logging, sampling or elicitation messages, and it opens no SSE streams.
+  - tools-call-with-logging
+  - tools-call-with-progress
+  - tools-call-sampling
+  - tools-call-elicitation
+  - elicitation-sep1034-defaults
+  - elicitation-sep1330-enums
+  - server-sse-polling
+  - server-sse-multiple-streams
+
+  # Targets unauthenticated localhost servers. Sift requires a bearer token,
+  # which a browser never attaches on its own, so a rebound Host header gains
+  # an attacker nothing. The suite sends no token, so a token-injecting proxy
+  # makes the invalid-Host probe succeed with 200.
+  - dns-rebinding-protection
