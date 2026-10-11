@@ -17,6 +17,9 @@ dist/
 # Git worktrees
 /.worktrees/
 
+# Local Claude Code state and worktrees
+/.claude/
+
 # Editor / OS
 .DS_Store
 .vscode/
