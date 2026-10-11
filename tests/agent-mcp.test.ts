@@ -10,7 +10,7 @@ import { createSelfHostedDatabases } from '../server/sqlite-d1';
 import { generateToken, generateTokenId, sha256Hex, tokenFingerprint } from '../server/sync/tokens';
 import { RATE_LIMITS } from '../server/sync/ratelimit';
 import { fromJsonSchema } from '@modelcontextprotocol/server';
-import type { Schema } from '../server/agent/mcp/schema';
+import { describeIssue, type Schema } from '../server/agent/mcp/schema';
 import { redactUrl } from '../server/agent/mcp/redact';
 import { htmlToMarkdown } from '../server/agent/mcp/markdown';
 import { publicOrigin } from '../server/agent/origin';
@@ -78,6 +78,10 @@ async function setup(options: { scopes?: string; polling?: boolean; publicUrl?: 
   return { app, sync, poll, token, tokenId };
 }
 
+function bytes(value: unknown): ArrayBuffer {
+  return new TextEncoder().encode(JSON.stringify(value)).buffer as ArrayBuffer;
+}
+
 interface RpcResponse {
   jsonrpc: '2.0';
   id: number | null;
@@ -88,7 +92,7 @@ interface RpcResponse {
 async function rpc(h: Harness, method: string, params?: unknown, path = '/mcp', token = h.token): Promise<RpcResponse> {
   const res = await h.app.request(path, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
   });
   return (await res.json()) as RpcResponse;
@@ -291,17 +295,13 @@ describe('MCP endpoint', () => {
     const h = await setup();
     const notification = await h.app.request('/mcp', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${h.token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+      headers: { Authorization: `Bearer ${h.token}` },
+      body: bytes({ jsonrpc: '2.0', method: 'notifications/initialized' }),
     });
     expect(notification.status).toBe(202);
     expect((await rpc(h, 'ping')).result).toEqual({});
     expect((await rpc(h, 'nope')).error?.code).toBe(-32601);
-    const bad = await h.app.request('/mcp', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${h.token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
-      body: '{',
-    });
+    const bad = await h.app.request('/mcp', { method: 'POST', headers: { Authorization: `Bearer ${h.token}` }, body: new TextEncoder().encode('{').buffer as ArrayBuffer });
     expect(bad.status).toBe(400);
     expect(((await bad.json()) as RpcResponse).error?.code).toBe(-32700);
     const unknownTool = await rpc(h, 'tools/call', { name: 'nope', arguments: {} });
@@ -309,22 +309,50 @@ describe('MCP endpoint', () => {
   });
 });
 
+describe('argument error text', () => {
+  const schema: Schema = {
+    type: 'object',
+    required: ['url'],
+    properties: {
+      url: { type: 'string', minLength: 1 },
+      sort: { type: 'string', enum: ['a', 'b'] },
+      tags: { type: 'array', items: { type: 'string', maxLength: 64 } },
+    },
+  };
+
+  it('reads the same for Ajv and cfworker messages', () => {
+    expect(describeIssue(schema, ["data must have required property 'url'"])).toBe('url is required');
+    expect(describeIssue(schema, ['#: Instance does not have required property "url".'])).toBe('url is required');
+    expect(describeIssue(schema, ['data/sort must be equal to one of the allowed values'])).toBe('sort must be one of a, b');
+    expect(describeIssue(schema, ['#: Property "sort" does not match schema.', '#/sort: "z" does not match enum.'])).toBe('sort must be one of a, b');
+    expect(describeIssue(schema, ['data/tags/0 must NOT have more than 64 characters'])).toBe('tags[0] must be string, at most 64 characters');
+    expect(describeIssue(schema, ['#: Property "sort" does not match schema.; #/sort: "z" does not match enum.'])).toBe('sort must be one of a, b');
+    expect(describeIssue(schema, ['#/tags/0: String is too long.'])).toBe('tags[0] must be string, at most 64 characters');
+  });
+});
+
 describe('MCP transport', () => {
-  it('answers with plain JSON and requires the Streamable HTTP headers', async () => {
+  it('answers with plain JSON and tolerates missing or loose headers', async () => {
     const h = await setup();
-    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' });
+    const body = bytes({ jsonrpc: '2.0', id: 1, method: 'ping' });
     const authorization = `Bearer ${h.token}`;
-    const ok = await h.app.request('/mcp', {
-      method: 'POST',
-      headers: { Authorization: authorization, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
-      body,
-    });
-    expect(ok.headers.get('Content-Type')).toMatch(/^application\/json/);
-    expect(ok.headers.get('Access-Control-Allow-Origin')).toBe('*');
-    const noAccept = await h.app.request('/mcp', { method: 'POST', headers: { Authorization: authorization, 'Content-Type': 'application/json' }, body });
-    expect(noAccept.status).toBe(406);
-    const noType = await h.app.request('/mcp', { method: 'POST', headers: { Authorization: authorization, Accept: 'application/json, text/event-stream' }, body });
-    expect(noType.status).toBe(415);
+    const post = (headers: Record<string, string>) => h.app.request('/mcp', { method: 'POST', headers: { Authorization: authorization, ...headers }, body });
+    const strict = await post({ 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' });
+    expect(strict.headers.get('Content-Type')).toMatch(/^application\/json/);
+    expect(strict.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    const loose: Record<string, string>[] = [
+      { 'Content-Type': 'application/json', Accept: '*/*' },
+      { 'Content-Type': 'application/json' },
+      { Accept: 'application/json' },
+      {},
+    ];
+    for (const headers of loose) {
+      const res = await post(headers);
+      expect(res.status, JSON.stringify(headers)).toBe(200);
+      expect(((await res.json()) as RpcResponse).result).toEqual({});
+    }
+    expect((await post({ 'Content-Type': 'text/plain' })).status).toBe(415);
+    expect((await h.app.request('/mcp', { method: 'POST', headers: { Authorization: authorization }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }) })).status).toBe(415);
   });
 
   it('answers batches and rejects oversized bodies', async () => {
@@ -418,7 +446,7 @@ describe('tool listing and scopes', () => {
     const h = await setup();
     const result = await call(h, 'list_items', { limit: 500 });
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toMatch(/Invalid arguments/);
+    expect(result.content[0].text).toBe('Invalid arguments: limit must be integer, at least 1, at most 200.');
     expect((await call(h, 'set_item_state', { itemIds: [], read: true })).isError).toBe(true);
   });
 });

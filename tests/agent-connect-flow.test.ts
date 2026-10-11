@@ -41,7 +41,7 @@ async function json<T>(res: Response, status = 200): Promise<T> {
 async function rpc(path: string, token: string, method: string, params?: unknown) {
   const res = await app.request(path, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
   });
   return json<{ result?: Record<string, unknown>; error?: unknown }>(res);
