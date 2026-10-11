@@ -6,7 +6,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}', 'server/**/*.ts', 'tests/**/*.ts', 'vite.config.ts', 'vitest.config.ts', '.opencode/**/*.ts'],
+    files: ['src/**/*.{ts,tsx}', 'server/**/*.ts', 'tests/**/*.ts', 'vite.config.ts', 'vitest.config.ts', '.opencode/**/*.ts', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: {
         ...globals.browser,
