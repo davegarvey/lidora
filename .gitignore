@@ -20,6 +20,9 @@ dist/
 # Local Claude Code state and worktrees
 /.claude/
 
+# Local tala agent messaging state
+/.tala/
+
 # Editor / OS
 .DS_Store
 .vscode/
@@ -32,8 +35,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # Test
-coverage/.chit/
-.chit/
+coverage/
 
 # Playwright
 test-results/
