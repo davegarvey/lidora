@@ -16,13 +16,15 @@
 ## 4. Validation and release
 - [x] 4.1 Align the open `agent-connector` change so archiving it does not restore the fixed one-year session or the `offline_access` precondition
 - [x] 4.2 Run typecheck, lint, tests, build, conformance and `openspec validate agent-connection-lifetime --strict`
-- [ ] 4.3 Open a PR, merge and deploy
+- [x] 4.3 Open a PR, merge and deploy
 
 ## 5. Live compatibility
-- [ ] 5.1 Reconnect Codex on production while watching `agent_grants`, `session` and `oauthRefreshToken`; confirm a refresh token was issued
-- [ ] 5.2 Reconnect ChatGPT the same way; record the token endpoint authentication method used, and decide on `private_key_jwt` from the result
-- [ ] 5.3 Confirm the Agents screen shows both connections with the expected identity and details
-- [ ] 5.4 More than an hour after 5.1, run a Codex tool call; confirm a rotation occurred and the session expiry moved forward
-- [ ] 5.5 Archive this change once 5.1–5.4 pass
+- [x] 5.1 Reconnect Codex on production while watching `agent_grants`, `session` and `oauthRefreshToken`; confirm a refresh token was issued
+- [x] 5.2 Reconnect ChatGPT the same way; record the token endpoint authentication method used, and decide on `private_key_jwt` from the result
+- [x] 5.3 Confirm the Agents screen shows both connections with the expected identity and details
+- [x] 5.4 More than an hour after 5.1, run a Codex tool call; confirm a rotation occurred and the session expiry moved forward
+- [x] 5.5 Archive this change once 5.1–5.4 pass
 
 Implementation note: the session extension runs in Sift's token-route wrapper (`server/agent/oauth/lifetime.ts`), the fallback the design allows; it needs no library hook and runs identically on every runtime. Resource authentication now requires an active refresh token for every grant, matching the listing and cleanup rule.
+
+Live result (2026-10-12): Codex connected at 16:02 UTC and refreshed at 18:54, extending its session; ChatGPT connected at 19:00 with `private_key_jwt` verified against its published keys. Both appear by name in Agent access, and ChatGPT works on mobile once added through the web. At the time of testing, ChatGPT allowed custom connectors to be added only in its web interface; this is ChatGPT's behaviour and may change. Both clients now publish client metadata at new URLs, so the fixtures were updated in the same PR.
