@@ -44,11 +44,15 @@ export function registrationWithOfflineAccess(body: ArrayBuffer): ArrayBuffer {
 
 export async function extendSessionAfterRefresh(db: D1Database, response: Response): Promise<void> {
   if (!response.ok) return;
-  const { access_token: accessToken } = await response.clone().json() as { access_token?: unknown };
-  if (typeof accessToken !== 'string') return;
-  const sessionId = decodeJwt(accessToken).sid;
-  if (typeof sessionId !== 'string') return;
-  const latest = 'SELECT MAX(expiresAt) FROM oauthRefreshToken WHERE sessionId = ? AND revoked IS NULL';
-  await db.prepare(`UPDATE "session" SET expiresAt = (${latest}), updatedAt = ? WHERE id = ? AND expiresAt < (${latest})`)
-    .bind(sessionId, new Date().toISOString(), sessionId, sessionId).run();
+  try {
+    const { access_token: accessToken } = await response.clone().json() as { access_token?: unknown };
+    if (typeof accessToken !== 'string') return;
+    const sessionId = decodeJwt(accessToken).sid;
+    if (typeof sessionId !== 'string') return;
+    const latest = 'SELECT MAX(expiresAt) FROM oauthRefreshToken WHERE sessionId = ? AND revoked IS NULL';
+    await db.prepare(`UPDATE "session" SET expiresAt = (${latest}), updatedAt = ? WHERE id = ? AND expiresAt < (${latest})`)
+      .bind(sessionId, new Date().toISOString(), sessionId, sessionId).run();
+  } catch {
+    console.warn(JSON.stringify({ event: 'oauth.session_extension_failed' }));
+  }
 }

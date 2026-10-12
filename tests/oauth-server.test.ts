@@ -199,6 +199,23 @@ describe('library-managed OAuth and Sift approvals', () => {
     expect(await db.prepare('SELECT COUNT(*) AS n FROM agent_grants').first<number>('n')).toBe(1);
   });
 
+  it('returns rotated tokens when the session extension fails', async () => {
+    const failing = new Proxy(db, { get: (target, property) => property === 'prepare'
+      ? (sql: string) => { if (sql.startsWith('UPDATE "session" SET expiresAt')) throw new Error('unavailable'); return target.prepare(sql); }
+      : Reflect.get(target, property).bind?.(target) ?? Reflect.get(target, property) });
+    const app = createApp({ db: failing, oauthSecret: SECRET });
+    fetcher = async (path, init) => app.request(ORIGIN + path, init);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const request = await connected(fetcher);
+    const response = await refresh(request);
+    expect(response.status).toBe(200);
+    const tokens = await response.json() as { access_token: string; refresh_token: string };
+    expect(warn).toHaveBeenCalledWith(JSON.stringify({ event: 'oauth.session_extension_failed' }));
+    expect((await read(fetcher, tokens.access_token)).status).toBe(200);
+    expect((await refresh(request, tokens.refresh_token)).status).toBe(200);
+    warn.mockRestore();
+  });
+
   it('renames and revokes only the selected agent, immediately for access and refresh', async () => {
     const first = await connected(fetcher);
     const second = await connected(fetcher);
