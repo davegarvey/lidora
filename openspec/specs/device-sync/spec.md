@@ -918,31 +918,16 @@ The Settings drawer SHALL display an inline error message when enabling sync fai
 
 ### Requirement: Agent access management
 
-The Settings Sync section SHALL provide an "Agent access" row that opens a modal listing paired agent tokens and allowing revocation. Revocation SHALL require confirmation.
+The Settings Sync section SHALL provide an "Agent access" row that opens the agent-connector "Connect an agent" screen. The screen SHALL list connected agents and allow revocation. Revocation SHALL require confirmation.
 
-#### Scenario: Agent tokens are listed
-- **WHEN** the user opens the agents modal
-- **THEN** the modal SHALL list each paired agent token with its fingerprint, scope, creation time, and last-seen time
-- **AND** SHALL show a placeholder when no agents are paired
+#### Scenario: Connected agents are listed
+- **WHEN** the user opens Agent access
+- **THEN** the screen SHALL list each connected agent by its label or client name, with its last use
 
-#### Scenario: Revoking an agent token requires confirmation
-- **WHEN** the user activates revoke for a token
-- **THEN** the system SHALL display a confirmation dialog naming the token's fingerprint
-- **AND** SHALL revoke the token only on explicit confirmation
-- **AND** after the dialog closes, the agents modal SHALL be shown again with the token removed
-
-#### Scenario: Pairing code is minted on demand
-- **WHEN** the user opens the agents modal
-- **THEN** SHALL NOT mint an agent pairing code
-- **WHEN** the user activates "Pair an agent"
-- **THEN** the modal SHALL mint an 8-character code with a 5-minute countdown
-- **AND** SHALL embed the code in a "Copy prompt" action and a secondary terminal-pairing path rather than displaying it
-- **AND** a mint failure SHALL show an inline error and return the modal to the un-minted state
-
-#### Scenario: Expired pairing code offers a new one
-- **WHEN** the displayed agent pairing code reaches its 5-minute expiry
-- **THEN** the modal SHALL show an "Code expired" state with a "Get a new code" action
-- **AND** SHALL hide the "Copy prompt" action and the terminal-pairing path while expired
+#### Scenario: Revoking an agent requires confirmation
+- **WHEN** the user activates revoke for an agent
+- **THEN** the system SHALL display a confirmation dialog naming the agent
+- **AND** SHALL revoke the agent only on explicit confirmation
 
 ### Requirement: Dirty set cleared on toggle off
 
@@ -1127,29 +1112,6 @@ The client SHALL maintain a server-clock offset, measured on every successful pu
 #### Scenario: Offset is cleared with sync state
 - **WHEN** the user disables sync (or regenerates the key)
 - **THEN** the stored offset SHALL be cleared along with `lastSyncAt` and the dirty set
-
-### Requirement: siftctl group code
-
-`siftctl status` SHALL display a short, display-only group identifier derived from the sync key — identical to the web app's `Group XK7B` — so a CLI user can confirm two devices belong to the same sync group. The sync key itself SHALL NOT be exposed.
-
-#### Scenario: status shows the group code when paired
-
-- **WHEN** `siftctl status` runs with a token configured
-- **AND** the server supports `GET /sync/status`
-- **THEN** the output SHALL include a `Group:` line with the group fingerprint (first 20 bits of SHA-256 of the sync key, 4 Crockford base32 characters)
-- **AND** the fingerprint SHALL equal the web app's `fingerprintSyncKey` result for the same sync key
-
-#### Scenario: status is unaffected on older servers
-
-- **WHEN** `siftctl status` runs with a token configured
-- **AND** the server returns 404 for `GET /sync/status` (predates the endpoint)
-- **THEN** the command SHALL still exit 0
-- **AND** the group line SHALL be omitted (text) / `groupFingerprint` SHALL be null (`--json`)
-
-#### Scenario: status requires a valid credential
-
-- **WHEN** `GET /sync/status` is called without a valid master key or agent token
-- **THEN** the server SHALL return 401
 
 ### Requirement: First-time pairing refreshes synchronized feeds immediately
 
