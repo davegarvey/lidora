@@ -35,7 +35,7 @@ export function oauthAuthenticator(db: D1Database, secret: string | undefined, t
       const scopes = parseScopes(typeof payload.scope === 'string' ? payload.scope : '').filter((scope) => parseScopes(grant.scopes).includes(scope));
       const minute = Math.floor(Date.now() / 60_000);
       if (grant.last_seen_minute !== minute) await db.prepare('UPDATE agent_grants SET last_seen_at = ?, last_seen_minute = ? WHERE token_id = ?').bind(Date.now(), minute, grant.token_id).run();
-      return { syncKey: grant.sync_key, tokenId: grant.token_id, scopes, origin: 'oauth' };
+      return { syncKey: grant.sync_key, tokenId: grant.token_id, scopes };
     } catch {
       return null;
     }

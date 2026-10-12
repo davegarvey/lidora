@@ -158,7 +158,7 @@ The screen shows only what the task needs, with no section headings:
 - **Connect an agent.** One sentence ("Let an AI agent read and manage your feeds.") and a primary button that mints a single-use connection URL (`<origin>/mcp/c/<id>`) and copies client-neutral setup instructions containing it. The URL then replaces the button, with its own copy icon for pasting into connector settings, followed by one line of guidance with the expiry and a "Copy setup instructions" button, which matters where the browser blocks the automatic copy after a network request (Safari).
 
 The instructions are deliberately generic. They state what Sift is (a remote MCP server, Streamable HTTP, OAuth), the URL, the name "sift", user-wide scope and the sign-in step, and ask agents that cannot configure themselves to say where to paste the URL. Agents that manage their own configuration know their own commands, so per-client commands would add nothing but text that goes stale with each client release. The instructions never ask the agent to fetch a page: that would reintroduce the sandbox dependency this change removes, and would teach users to paste "go and run what this page says". The plain `<origin>/mcp` address is not shown: the connection URL works for every client, including hand-configured ones, so a second address would only invite the less convenient choice.
-- **Connected agents.** One row per grant. The title is the user's label, else the client name ("Paired token" for legacy `siftctl` tokens until they are retired), with an "unverified" mark for self-registered names. One detail line: the client name when relabelled, the website host for unverified clients, "Read only" when applicable, and last use. Connected date and fingerprint are omitted. Each row has Rename and Revoke.
+- **Connected agents.** One row per grant. The title is the user's label, else the client name ("Agent" when the client gives no name), with an "unverified" mark for self-registered names. One detail line: the client name when relabelled, the website host for unverified clients, "Read only" when applicable, and last use. Connected date and fingerprint are omitted. Each row has Rename and Revoke.
 - **Have an approval code?** A quiet link that reveals the code field and scan button for the fallback path.
 
 There is no HTTP, pairing or terminal section. Agents that need the OpenAPI document or `llms.txt` find them at their standard paths. Labels are stored server-side, so they appear on every device. Client logos are not shown: they would mean loading images from arbitrary third-party URLs for little gain over a clear name.
@@ -188,7 +188,8 @@ The final phase therefore removes:
 
 - `packages/siftctl`, its tests, CI step and npm publish step
 - agent pairing-code minting (`POST /sync/tokens`) and redemption (`POST /sync/tokens/redeem`)
-- paired tokens: a migration deletes rows with `origin = 'paired'`, deletes `pairing_codes` rows of kind `agent`, and drops the `origin` column
+- paired tokens: a migration deletes `pairing_codes` rows of kind `agent` and drops the `tokens` table. After the move to provider-managed OAuth (archived change `2026-10-11-standardize-oauth-provider`), that table holds only paired tokens, so dropping it replaces the planned `origin` column removal
+- `GET /sync/status`, whose only caller was `siftctl status`, and `X-Sync-Key` authentication for agent tokens; agents authenticate only with OAuth bearer tokens
 - the `agent-cli` specification and the `siftctl` group-code requirement
 
 It is sequenced last, so that `siftctl` remains a working agent route until the connector is proven. The user marks the npm package deprecated from their own npm account. The Agents screen built in phase 4 already omits the pairing and terminal section, so existing `siftctl` pairings keep working until this phase deletes them, but no new ones can be made.
@@ -220,7 +221,7 @@ That keeps one server surface and one credential system, with no duplicated logi
 
 1. Apply migration 0013 after configuring the persistent provider secret. It removes superseded OAuth tables and credentials, creates provider/application tables and requires agents to reconnect once. Paired CLI credentials and reading data are preserved.
 2. Ship the server endpoints, consent route and new Agents screen together with the removals in one release. There is no dual-path period.
-3. After task 7.3, a separate release retires `siftctl` and deletes paired tokens (section 10). This is irreversible for paired tokens; holders reconnect through OAuth.
+3. After task 7.3, a separate release retires `siftctl` and deletes paired tokens (section 8). This is irreversible for paired tokens; holders reconnect through OAuth.
 4. Rollback: revert the release. The added columns and tables are inert to the previous code.
 
 ## Open Questions

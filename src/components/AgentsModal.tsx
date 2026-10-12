@@ -36,7 +36,7 @@ function approvalErrorMessage(e: unknown): string {
 }
 
 function titleOf(token: AgentTokenInfo): string {
-  return token.label || token.client_name || 'Paired token';
+  return token.label || token.client_name || 'Agent';
 }
 
 function detailOf(token: AgentTokenInfo): string {
@@ -265,7 +265,7 @@ export function AgentsModal() {
                               type="text"
                               maxLength={LABEL_MAX}
                               value={renameValue()}
-                              placeholder={token.client_name ?? 'Paired token'}
+                              placeholder={token.client_name ?? 'Agent'}
                               aria-label="Agent name"
                               onInput={(e) => setRenameValue(e.currentTarget.value)}
                               onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setRenaming(null); } }}

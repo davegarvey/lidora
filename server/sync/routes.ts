@@ -29,7 +29,6 @@ import { applyPush, isLegacyWrapper, type PushBody } from './apply-push';
 import { ensureSchema } from './schema';
 import { assertNoKeyLog, assertNoUserDataLog, assertNoUrlLog } from '../log';
 import { decodeItemId } from '../../src/sync/itemId';
-import { generateToken, generateTokenId, sha256Hex, tokenFingerprint, syncKeyFingerprint } from './tokens';
 import { MAX_POLLED_FEEDS_PER_ACCOUNT, registerPolledFeeds, removeUnsubscribedPolledFeeds } from '../poll-registry';
 import { accountFeedUrls, agentDeletionStatements, deleteAccount } from './account';
 
@@ -226,7 +225,7 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
 
   // Authenticated data routes.
   // Master-key-only routes: /sync/otp (a device code redeems to the master
-  // key), /sync/tokens (token lifecycle), /sync/rotate. Agent tokens:
+  // key), /sync/tokens (agent management), /sync/rotate. OAuth agents:
   // `read` scope for pull, stats pull and items, `write` additionally for push.
   const auth = requirePrincipal(db, opts.oauth);
   const masterAuth = requireMaster(db);
@@ -238,7 +237,6 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
   app.use('/sync/stats/push', masterAuth);
   app.use('/sync/stats/pull', auth, readScope);
   if (pollDb) app.use('/sync/items', auth, readScope);
-  app.use('/sync/status', auth);
   app.use('/sync/tokens', masterAuth);
   app.use('/sync/rotate', masterAuth);
   app.use('/sync/account', masterAuth);
@@ -405,135 +403,27 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
     return c.json({ syncKey: row.sync_key });
   });
 
-  // POST /sync/tokens — mint an agent pairing code (master key only).
-  // The code is redeemed by `siftctl pair` / an OAS consumer; the token
-  // never passes through the browser.
-  app.post('/sync/tokens', async (c) => {
-    const { syncKey } = getSyncKeyContext(c);
-
-    const rl = await checkRateLimit(
-      db,
-      `tokens:mint:${syncKey}`,
-      RATE_LIMITS.tokensMint.windowSeconds,
-      RATE_LIMITS.tokensMint.limit,
-      now(),
-    );
-    if (!rl.ok) {
-      return rateLimitResponse(`tokens:mint:${syncKey}`, syncKey, rl.retryAfter, 429);
-    }
-
-    const expiresAt = now() + PAIRING_TTL_SECONDS;
-    let code = '';
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const candidate = generatePairingCode();
-      try {
-        await db
-          .prepare('INSERT INTO pairing_codes (code, sync_key, expires_at, kind) VALUES (?, ?, ?, ?)')
-          .bind(candidate, syncKey, expiresAt, 'agent')
-          .run();
-        code = candidate;
-        break;
-      } catch (err) {
-        // Unique constraint violation → retry with a new code.
-        if (!String(err).includes('UNIQUE')) {
-          throw err;
-        }
-      }
-    }
-    if (!code) {
-      return new Response('Internal Server Error', { status: 500 });
-    }
-
-    return c.json({ code, expiresAt: expiresAt * 1000 });
-  });
-
-  // POST /sync/tokens/redeem — exchange an agent pairing code for a token.
-  // Public (like device redeem); rate-limited per IP on its own scope.
-  app.post('/sync/tokens/redeem', async (c) => {
-    const ip = clientIp(c);
-    const rl = await checkRateLimit(
-      db,
-      `tokens:redeem:${ip}`,
-      RATE_LIMITS.tokensRedeem.windowSeconds,
-      RATE_LIMITS.tokensRedeem.limit,
-      now(),
-    );
-    if (!rl.ok) {
-      return rateLimitResponse(`tokens:redeem:${ip}`, ip, rl.retryAfter, 429);
-    }
-
-    let body: { code?: unknown; label?: unknown };
-    try {
-      body = await c.req.json();
-    } catch {
-      return jsonError('Invalid JSON body', 'body');
-    }
-    const code = typeof body.code === 'string' ? body.code : '';
-    if (!isPairingCode(code)) {
-      return jsonError('Invalid pairing code', 'code');
-    }
-    const parsedLabel = parseLabel(body.label);
-    if (!parsedLabel.ok) {
-      return jsonError('label must be a string of at most 64 characters', 'label');
-    }
-
-    const row = await db
-      .prepare('SELECT sync_key, expires_at FROM pairing_codes WHERE code = ? AND kind = ?')
-      .bind(code, 'agent')
-      .first<{ sync_key: string; expires_at: number }>();
-
-    if (!row) {
-      return c.text('Not Found', 404);
-    }
-    if (row.expires_at <= now()) {
-      await db.prepare('DELETE FROM pairing_codes WHERE code = ?').bind(code).run();
-      return c.text('Not Found', 404);
-    }
-
-    // One-time use.
-    await db.prepare('DELETE FROM pairing_codes WHERE code = ?').bind(code).run();
-
-    const token = generateToken();
-    const tokenId = generateTokenId();
-    const [tokenHash, fingerprint] = await Promise.all([
-      sha256Hex(token),
-      tokenFingerprint(token),
-    ]);
-    await db
-      .prepare(
-        'INSERT INTO tokens (token_id, token_hash, sync_key, scope, fingerprint, created_at, label) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      )
-      .bind(tokenId, tokenHash, row.sync_key, 'rw', fingerprint, now(), parsedLabel.label)
-      .run();
-    assertNoKeyLog(row.sync_key);
-    return c.json({ token });
-  });
-
-  // GET /sync/tokens — list token metadata (master key only, never raw tokens).
+  // GET /sync/tokens — list connected agents (master key only).
   app.get('/sync/tokens', async (c) => {
     const { syncKey } = getSyncKeyContext(c);
 
     const res = await db
       .prepare(
-        `SELECT token_id, fingerprint, scope, origin, label, client_name, scopes, created_at, last_seen_at,
-                NULL AS client_uri, NULL AS client_kind
-           FROM tokens WHERE sync_key = ?
-         UNION ALL
-         SELECT g.token_id, g.fingerprint, 'rw', 'oauth', g.label, c.name, g.scopes, g.created_at, g.last_seen_at,
+        `SELECT g.token_id, g.fingerprint, g.label, c.name AS client_name, g.scopes, g.created_at, g.last_seen_at,
                 c.uri AS client_uri, c.clientDiscoveryId AS client_kind
            FROM agent_grants g JOIN oauthClient c ON c.clientId = g.client_id WHERE g.sync_key = ? AND NOT (${ENDED_GRANT_SQL})
-         ORDER BY created_at ASC`,
+         ORDER BY g.created_at ASC`,
       )
-      .bind(syncKey, syncKey, ...endedGrantBindings(Date.now()))
+      .bind(syncKey, ...endedGrantBindings(Date.now()))
       .all();
     // created_at is stored in epoch seconds (now()); the API reports
     // epoch milliseconds, matching last_seen_at and the OTP expiresAt.
-    const tokens = (res.results as Array<{ created_at: number; origin: string; client_uri: string | null; client_kind: string | null }>).map(
+    const tokens = (res.results as Array<{ created_at: number; client_uri: string | null; client_kind: string | null }>).map(
       ({ client_uri, client_kind, ...r }) => ({
         ...r,
         created_at: r.created_at * 1000,
         client_host: hostOfUrl(client_uri),
-        unverified: r.origin === 'oauth' && !client_kind,
+        unverified: !client_kind,
       }),
     );
     return c.json({ tokens });
@@ -561,18 +451,14 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
       return jsonError('label must be a string of at most 64 characters', 'label');
     }
     const existing = await db
-      .prepare('SELECT token_id FROM tokens WHERE token_id = ? AND sync_key = ? UNION ALL SELECT token_id FROM agent_grants WHERE token_id = ? AND sync_key = ?')
-      .bind(tokenId, syncKey, tokenId, syncKey)
-      .first();
-    if (!existing) return c.text('Not Found', 404);
-    await db.batch([
-      db.prepare('UPDATE tokens SET label = ? WHERE token_id = ? AND sync_key = ?').bind(parsedLabel.label, tokenId, syncKey),
-      db.prepare('UPDATE agent_grants SET label = ? WHERE token_id = ? AND sync_key = ?').bind(parsedLabel.label, tokenId, syncKey),
-    ]);
+      .prepare('UPDATE agent_grants SET label = ? WHERE token_id = ? AND sync_key = ?')
+      .bind(parsedLabel.label, tokenId, syncKey)
+      .run();
+    if (existing.meta.changes === 0) return c.text('Not Found', 404);
     return c.body(null, 204);
   });
 
-  // DELETE /sync/tokens — revoke a token by id (master key only).
+  // DELETE /sync/tokens — revoke an agent by grant id (master key only).
   app.delete('/sync/tokens', async (c) => {
     const { syncKey } = getSyncKeyContext(c);
 
@@ -587,19 +473,10 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
       return jsonError('token_id is required', 'token_id');
     }
     await db.batch([
-      db.prepare('DELETE FROM tokens WHERE token_id = ? AND sync_key = ?').bind(tokenId, syncKey),
       db.prepare('DELETE FROM "user" WHERE id IN (SELECT user_id FROM agent_grants WHERE token_id = ? AND sync_key = ?)').bind(tokenId, syncKey),
       db.prepare('DELETE FROM agent_grants WHERE token_id = ? AND sync_key = ?').bind(tokenId, syncKey),
     ]);
     return c.body(null, 204);
-  });
-
-  // GET /sync/status — authenticated; returns the group fingerprint so
-  // `siftctl status` can show the same short code as Settings. Works with
-  // master keys and agent tokens (mounted with `auth` above).
-  app.get('/sync/status', async (c) => {
-    const { syncKey } = getSyncKeyContext(c);
-    return c.json({ groupFingerprint: await syncKeyFingerprint(syncKey) });
   });
 
   // POST /sync/push — apply PATCH semantics to feeds and flags.

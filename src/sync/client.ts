@@ -233,8 +233,6 @@ export async function mintAgentConnection(): Promise<AgentConnection> {
 export interface AgentTokenInfo {
   token_id: string;
   fingerprint: string;
-  scope: string;
-  origin: string;
   label: string | null;
   client_name: string | null;
   client_host: string | null;

@@ -1,5 +1,5 @@
 /**
- * Sync-key rotation (/sync/rotate), which permanently orphans agent tokens.
+ * Sync-key rotation (/sync/rotate), which permanently retires the old key.
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -43,16 +43,6 @@ async function register(mf: Miniflare, key: string): Promise<number> {
   return res.status;
 }
 
-async function mintAgentCode(mf: Miniflare, key: string): Promise<string> {
-  const res = await mf.dispatchFetch('http://localhost/sync/tokens', {
-    method: 'POST',
-    headers: { 'X-Sync-Key': key },
-  });
-  expect(res.status).toBe(200);
-  const body = (await res.json()) as { code: string };
-  return body.code;
-}
-
 async function pushFeed(mf: Miniflare, key: string, feedUrl: string): Promise<number> {
   const res = await mf.dispatchFetch('http://localhost/sync/push', {
     method: 'POST',
@@ -76,24 +66,13 @@ function pull(
 }
 
 describe('sync-key rotation orphans everything under the old key', () => {
-  it('rotate deads the old key, its tokens, and register refuses to resurrect it', async () => {
+  it('rotate deads the old key and register refuses to resurrect it', async () => {
     const mf = await createMf();
     try {
       const oldKey = makeSyncKey('rot-old---');
       const newKey = makeSyncKey('rot-new---');
       await register(mf, oldKey);
       expect(await pushFeed(mf, oldKey, 'https://ex.com/rot')).toBe(204);
-
-      // Mint + redeem a token under the old key; it works before rotation.
-      const code = await mintAgentCode(mf, oldKey);
-      const redeem = await mf.dispatchFetch('http://localhost/sync/tokens/redeem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      expect(redeem.status).toBe(200);
-      const { token } = (await redeem.json()) as { token: string };
-      expect((await pull(mf, 'since=0', { key: token })).status).toBe(200);
 
       // Rotate.
       const rotate = await mf.dispatchFetch('http://localhost/sync/rotate', {
@@ -106,9 +85,6 @@ describe('sync-key rotation orphans everything under the old key', () => {
       // Old key is dead for pull and push.
       expect((await pull(mf, 'since=0', { key: oldKey })).status).toBe(401);
       expect(await pushFeed(mf, oldKey, 'https://ex.com/rot2')).toBe(401);
-
-      // Token minted under the old key is dead.
-      expect((await pull(mf, 'since=0', { key: token })).status).toBe(401);
 
       // Register refuses to resurrect the old key.
       expect(await register(mf, oldKey)).toBe(403);
@@ -141,29 +117,6 @@ describe('sync-key rotation orphans everything under the old key', () => {
         body: JSON.stringify({ sync_key: key }),
       });
       expect(same.status).toBe(400);
-    } finally {
-      await mf.dispose();
-    }
-  });
-
-  it('rotate requires the master key (tokens cannot rotate)', async () => {
-    const mf = await createMf();
-    try {
-      const key = makeSyncKey('rot-token-');
-      await register(mf, key);
-      const code = await mintAgentCode(mf, key);
-      const redeem = await mf.dispatchFetch('http://localhost/sync/tokens/redeem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      const { token } = (await redeem.json()) as { token: string };
-      const res = await mf.dispatchFetch('http://localhost/sync/rotate', {
-        method: 'POST',
-        headers: { 'X-Sync-Key': token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sync_key: makeSyncKey('rot-token2') }),
-      });
-      expect(res.status).toBe(401);
     } finally {
       await mf.dispose();
     }

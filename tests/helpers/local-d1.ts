@@ -73,7 +73,7 @@ class LocalD1Stmt {
       this.db.lastChanges = 0;
       return this.db._createTable(trimmed);
     }
-    if (upper.startsWith('CREATE INDEX') || upper.startsWith('CREATE UNIQUE INDEX')) return [];
+    if (upper.startsWith('CREATE INDEX') || upper.startsWith('CREATE UNIQUE INDEX') || upper.startsWith('DROP INDEX')) return [];
     if (upper.startsWith('INSERT')) return this.db._insert(trimmed, this.params);
     if (upper.startsWith('UPDATE')) return this.db._update(trimmed, this.params);
     if (upper.startsWith('DELETE')) return this.db._delete(trimmed, this.params);
@@ -754,8 +754,6 @@ export class LocalD1Database {
         return ['sync_key', 'feed_id'];
       case 'pairing_codes':
         return ['code'];
-      case 'tokens':
-        return ['token_id'];
       case 'rate_limits':
         return ['scope', 'window_start'];
       case 'feed_fetch_failures':

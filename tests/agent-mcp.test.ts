@@ -7,7 +7,7 @@ import { clearFeedCacheForTests } from '../server/fetch';
 import { clearOriginGovernorForTests } from '../server/origin-governor';
 import { openNodeSqlite } from '../server/node-sqlite';
 import { createSelfHostedDatabases } from '../server/sqlite-d1';
-import { generateToken, generateTokenId, sha256Hex, tokenFingerprint } from '../server/sync/tokens';
+import { decodeJwt } from 'jose';
 import { RATE_LIMITS } from '../server/sync/ratelimit';
 import { fromJsonSchema } from '@modelcontextprotocol/server';
 import { describeIssue, type Schema } from '../server/agent/mcp/schema';
@@ -15,9 +15,10 @@ import { redactUrl } from '../server/agent/mcp/redact';
 import { htmlToMarkdown } from '../server/agent/mcp/markdown';
 import { publicOrigin } from '../server/agent/origin';
 import { buildStats } from '../server/agent/mcp/stats';
+import { KEY, ORIGIN, SECRET, connected, initialize, type Fetcher } from './oauth-harness';
 
 const SITE = 'http://93.184.216.34';
-const SYNC_KEY = 'a'.repeat(22);
+const SYNC_KEY = KEY;
 const directories: string[] = [];
 
 afterEach(() => {
@@ -36,27 +37,12 @@ interface Harness {
   tokenId: string;
 }
 
-async function addToken(sync: D1Database, scopes: string, expiresAt?: number | null): Promise<{ token: string; tokenId: string }> {
-  const token = generateToken();
-  const tokenId = generateTokenId();
-  const now = Math.floor(Date.now() / 1000);
-  await sync
-    .prepare(
-      `INSERT INTO tokens
-         (token_id, token_hash, sync_key, scope, fingerprint, created_at, origin, client_id, client_name, scopes, expires_at)
-       VALUES (?, ?, ?, 'rw', ?, ?, 'paired', 'client-1', 'Test Agent', ?, ?)`,
-    )
-    .bind(
-      tokenId,
-      await sha256Hex(token),
-      SYNC_KEY,
-      await tokenFingerprint(token),
-      now,
-      scopes,
-      expiresAt === undefined ? now + 3600 : expiresAt,
-    )
-    .run();
-  return { token, tokenId };
+async function addToken(h: Pick<Harness, 'app' | 'sync'>, scopes: string, options: { connection?: boolean } = {}): Promise<{ token: string; tokenId: string; resource: string }> {
+  const fetcher: Fetcher = async (path, init) => h.app.request(ORIGIN + path, init);
+  const request = await connected(fetcher, { canonical: !options.connection, scopes });
+  const token = request.tokens.access_token;
+  const grant = await h.sync.prepare('SELECT token_id FROM agent_grants WHERE user_id = ?').bind(decodeJwt(token).sub).first<{ token_id: string }>();
+  return { token, tokenId: grant!.token_id, resource: new URL(request.resource).pathname };
 }
 
 async function setup(options: { scopes?: string; polling?: boolean; publicUrl?: string } = {}): Promise<Harness> {
@@ -65,13 +51,15 @@ async function setup(options: { scopes?: string; polling?: boolean; publicUrl?: 
   const databases = await createSelfHostedDatabases(directory, openNodeSqlite);
   const sync = databases.sync as unknown as D1Database;
   const poll = databases.poll as unknown as D1Database;
-  await sync.prepare('INSERT INTO users (sync_key, created_at) VALUES (?, ?)').bind(SYNC_KEY, 1).run();
   const app = createApp({
     db: sync,
     pollDb: options.polling === false ? undefined : poll,
     publicUrl: options.publicUrl,
+    oauthSecret: SECRET,
   });
-  const { token, tokenId } = await addToken(sync, options.scopes ?? 'read write');
+  await initialize(async (path, init) => app.request(ORIGIN + path, init));
+  if (options.publicUrl) return { app, sync, poll, token: '', tokenId: '' };
+  const { token, tokenId } = await addToken({ app, sync }, options.scopes ?? 'read write');
   return { app, sync, poll, token, tokenId };
 }
 
@@ -232,8 +220,7 @@ describe('MCP endpoint', () => {
 
   it('uses the configured public URL and rejects invalid, expired and master credentials', async () => {
     const h = await setup({ publicUrl: 'https://sift.example.com/ignored' });
-    const expired = await addToken(h.sync, 'read write', Math.floor(Date.now() / 1000) - 10);
-    for (const credential of ['tnotavalidtokenxxxxxxxx', expired.token, SYNC_KEY]) {
+    for (const credential of ['tnotavalidtokenxxxxxxxx', SYNC_KEY]) {
       const res = await h.app.request('http://internal:8787/mcp', {
         method: 'POST',
         headers: { Authorization: `Bearer ${credential}` },
@@ -264,10 +251,19 @@ describe('MCP endpoint', () => {
     }
   });
 
-  it('serves the alias identically to /mcp, ignoring the ID', async () => {
+  it('rejects an expired access token', async () => {
+    const h = await setup();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 2 * 60 * 60_000);
+    const res = await h.app.request('/mcp', { method: 'POST', headers: { Authorization: `Bearer ${h.token}` }, body: '{}' });
+    expect(res.status).toBe(401);
+  });
+
+  it('serves a connection resource identically to /mcp', async () => {
     const h = await setup();
     const main = await rpc(h, 'tools/list');
-    const alias = await rpc(h, 'tools/list', undefined, '/mcp/c/spent-id');
+    const linked = await addToken(h, 'read write', { connection: true });
+    const alias = await rpc(h, 'tools/list', undefined, linked.resource, linked.token);
     expect(alias).toEqual(main);
   });
 
@@ -418,7 +414,7 @@ describe('tool listing and scopes', () => {
     for (const hidden of ['subscribe', 'update_subscription', 'unsubscribe', 'set_item_state']) {
       expect(names).not.toContain(hidden);
     }
-    await push({ ...h, token: (await addToken(h.sync, 'read write')).token }, {
+    await push({ ...h, token: (await addToken(h, 'read write')).token }, {
       feeds: [{ feedId: 'f1', feedUrl: `${SITE}/f1.xml`, title: 'One', deleted: 0 }],
     });
     const refused = await call(h, 'unsubscribe', { feedId: 'f1' });
@@ -531,7 +527,7 @@ describe('read tools', () => {
     expect(tagged.subscriptions.map((s) => s.feedId)).toEqual(['b']);
   });
 
-  it('matches siftctl stats output apart from URL redaction', async () => {
+  it('derives reading statistics from the synced feed and statistics rows', async () => {
     const h = await setup();
     await seedAccount(h);
     const rows = (await h.sync.prepare('SELECT feed_id, feed_url, title, deleted FROM feeds WHERE sync_key = ? ORDER BY row_at ASC').bind(SYNC_KEY).all()).results;
@@ -850,7 +846,7 @@ describe('discover_feeds', () => {
 describe('rate limits', () => {
   it('limits each token separately and tells the agent when to retry', async () => {
     const h = await setup();
-    const other = await addToken(h.sync, 'read write');
+    const other = await addToken(h, 'read write');
     const windowStart = Math.floor(Date.now() / 1000 / RATE_LIMITS.mcp.windowSeconds) * RATE_LIMITS.mcp.windowSeconds;
     await h.sync
       .prepare('INSERT INTO rate_limits (scope, window_start, count) VALUES (?, ?, ?)')

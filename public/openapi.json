@@ -3,7 +3,7 @@
   "info": {
     "title": "Sift Sync API",
     "version": "0.49.6",
-    "description": "Sift is a browser-first RSS reader. This API exposes your subscription state (feeds, read/starred flags), aggregate feed-reading statistics and server-polled items to AI agents and other tools. Agents are first-class sync devices that act with a scoped, revocable credential.\n\nGetting a credential:\n- MCP and OAuth clients: use the MCP endpoint at /mcp. Authorisation server metadata is published at /.well-known/oauth-authorization-server/oauth (RFC 8414) and protected resource metadata at /.well-known/oauth-protected-resource. The OAuth endpoints are discovered from that metadata and are not described here. The access token is sent as Authorization: Bearer.\n- Scripts and the siftctl CLI: open Sift Settings → Sync → Agent access, create a siftctl pairing code, then redeem the 8-character code with POST /sync/tokens/redeem to obtain a token (23 characters, starts with 't'). Send it in the Authorization: Bearer header.\n- Devices: Sift browsers authenticate with the master sync key in the X-Sync-Key header. Agents should not use it.\n\nSecurity notes:\n- Agent credentials carry scopes. `read` allows GET /sync/pull, GET /sync/stats/pull, GET /sync/items and GET /sync/status. `write` additionally allows POST /sync/push. A credential without the required scope receives 403. Each operation below states its scope in `x-required-scope`.\n- OAuth access tokens expire after one hour and are renewed by the client with its refresh token when offline_access was granted. Agent sessions last at most one year. Siftctl tokens do not expire.\n- Statistics writes, token management, connection URLs, device codes and account deletion are master-key-only.\n- Aggregate statistics contain feed identities, counters, and lifetime-read marker identities only; they do not contain article content or reading-event history.\n- A credential grants read or write access to the subscriptions it is bound to. Revoke it anytime from Settings → Sync → Agent access; revocation takes effect immediately. Rotating the sync key orphans all tokens.\n- Writes carry NO timestamps: the server stamps every write with its own monotonic time. Send bare field values.",
+    "description": "Sift is a browser-first RSS reader. This API exposes your subscription state (feeds, read/starred flags), aggregate feed-reading statistics and server-polled items to AI agents and other tools. Agents are first-class sync devices that act with a scoped, revocable credential.\n\nGetting a credential:\n- MCP and OAuth clients: use the MCP endpoint at /mcp. Authorisation server metadata is published at /.well-known/oauth-authorization-server/oauth (RFC 8414) and protected resource metadata at /.well-known/oauth-protected-resource. The OAuth endpoints are discovered from that metadata and are not described here. The access token is sent as Authorization: Bearer.\n- Scripts and other HTTP clients: obtain an OAuth access token through the same metadata and send it in the Authorization: Bearer header.\n- Devices: Sift browsers authenticate with the master sync key in the X-Sync-Key header. Agents should not use it.\n\nSecurity notes:\n- Agent credentials carry scopes. `read` allows GET /sync/pull, GET /sync/stats/pull, GET /sync/items. `write` additionally allows POST /sync/push. A credential without the required scope receives 403. Each operation below states its scope in `x-required-scope`.\n- OAuth access tokens expire after one hour and are renewed by the client with its refresh token. A connection ends after a year without renewal.\n- Statistics writes, agent management, connection URLs, device codes and account deletion are master-key-only.\n- Aggregate statistics contain feed identities, counters, and lifetime-read marker identities only; they do not contain article content or reading-event history.\n- A credential grants read or write access to the subscriptions it is bound to. Revoke it anytime from Settings → Sync → Agent access; revocation takes effect immediately. Rotating the sync key ends every agent connection.\n- Writes carry NO timestamps: the server stamps every write with its own monotonic time. Send bare field values.",
     "contact": {
       "name": "Sift"
     }
@@ -26,13 +26,13 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "For agents. An OAuth access token (obtain one through the endpoints advertised at /.well-known/oauth-authorization-server/oauth) or a siftctl token from POST /sync/tokens/redeem, sent as Authorization: Bearer <token>. Tokens carry the scopes `read` and `write`, stated per operation in `x-required-scope`. The master sync key is not accepted here."
+        "description": "For agents. An OAuth access token (obtain one through the endpoints advertised at /.well-known/oauth-authorization-server/oauth), sent as Authorization: Bearer <token>. Tokens carry the scopes `read` and `write`, stated per operation in `x-required-scope`. The master sync key is not accepted here."
       },
       "X-Sync-Key": {
         "type": "apiKey",
         "in": "header",
         "name": "X-Sync-Key",
-        "description": "For devices. The 22-character master sync key, which grants every scope and is the only credential accepted by the master-key-only operations. Siftctl tokens are also accepted in this header. OAuth access tokens should use the bearer scheme."
+        "description": "For devices. The 22-character master sync key, which grants every scope and is the only credential accepted by the master-key-only operations. OAuth access tokens use the bearer scheme."
       }
     },
     "schemas": {
@@ -168,10 +168,10 @@
         "properties": {
           "token_id": { "type": "string" },
           "fingerprint": { "type": "string", "description": "4-char display fingerprint (SHA-256, first 20 bits, Crockford base32)." },
-          "scope": { "type": "string", "enum": ["rw"], "description": "Legacy column; use `scopes`." },
-          "origin": { "type": "string", "enum": ["paired", "oauth"] },
           "label": { "type": ["string", "null"], "description": "User-chosen display name." },
-          "client_name": { "type": ["string", "null"], "description": "OAuth client name; null for paired tokens." },
+          "client_name": { "type": ["string", "null"], "description": "OAuth client name, when the client provides one." },
+          "client_host": { "type": ["string", "null"], "description": "Host of the client's website, when known." },
+          "unverified": { "type": "boolean", "description": "True when the client registered itself without a verifiable metadata document." },
           "scopes": { "type": "string", "description": "Granted scopes, space-separated: read, write." },
           "created_at": { "type": "integer" },
           "last_seen_at": { "type": ["integer", "null"] }
@@ -193,34 +193,6 @@
               }
             }
           }
-        }
-      }
-    },
-    "/sync/tokens/redeem": {
-      "post": {
-        "summary": "Exchange an agent pairing code for a token",
-        "description": "Public. For siftctl and HTTP scripts; MCP clients use OAuth instead. The code comes from Sift Settings → Sync → Agent access and is minted by POST /sync/tokens. One-time use, 5-minute expiry. The returned token is 23 characters, starts with 't', never expires, and holds both `read` and `write`.",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "type": "object", "required": ["code"], "properties": { "code": { "type": "string", "minLength": 8, "maxLength": 8 }, "label": { "type": "string", "maxLength": 64, "description": "Optional display name, trimmed." } } }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Token issued",
-            "content": {
-              "application/json": {
-                "schema": { "type": "object", "required": ["token"], "properties": { "token": { "type": "string" } } }
-              }
-            }
-          },
-          "400": { "description": "Malformed code or label" },
-          "404": { "description": "Unknown, expired, or already-redeemed code" },
-          "429": { "description": "Rate limited (per IP)" }
         }
       }
     },
@@ -395,7 +367,7 @@
     "/sync/redeem": {
       "post": {
         "summary": "Exchange a device pairing code for the sync key (for Sift browsers)",
-        "description": "Public, for the Sift device-pairing flow only. Agent pairing codes are NOT accepted here — use POST /sync/tokens/redeem.",
+        "description": "Public, for the Sift device-pairing flow only. Agents connect through OAuth instead.",
         "security": [],
         "requestBody": {
           "required": true,
@@ -417,23 +389,6 @@
           "400": { "description": "Malformed code" },
           "404": { "description": "Unknown, expired, or already-redeemed code" },
           "429": { "description": "Rate limited (per IP)" }
-        }
-      }
-    },
-    "/sync/status": {
-      "get": {
-        "summary": "Get the sync group fingerprint",
-        "description": "Returns the short fingerprint Settings shows for the sync group, so an agent can confirm which account it is bound to. Any valid agent credential works; no particular scope is required.",
-        "responses": {
-          "200": {
-            "description": "Group fingerprint",
-            "content": {
-              "application/json": {
-                "schema": { "type": "object", "required": ["groupFingerprint"], "properties": { "groupFingerprint": { "type": "string" } } }
-              }
-            }
-          },
-          "401": { "description": "Missing, revoked, or invalid credential" }
         }
       }
     },
@@ -521,34 +476,10 @@
       }
     },
     "/sync/tokens": {
-      "post": {
-        "summary": "Mint an agent pairing code (master-key only)",
-        "security": [{ "X-Sync-Key": [] }],
-        "description": "Issues an 8-character code, valid for five minutes, that POST /sync/tokens/redeem exchanges for a revocable siftctl token. MCP and OAuth clients do not use this route; they connect through POST /sync/connections or OAuth discovery. Agent credentials are rejected with 401.",
-        "responses": {
-          "200": {
-            "description": "Code issued",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["code", "expiresAt"],
-                  "properties": {
-                    "code": { "type": "string", "minLength": 8, "maxLength": 8 },
-                    "expiresAt": { "type": "integer", "description": "Milliseconds since epoch." }
-                  }
-                }
-              }
-            }
-          },
-          "401": { "description": "Invalid or token credential" },
-          "429": { "description": "Rate limited (per sync key)" }
-        }
-      },
       "get": {
-        "summary": "List agent tokens (master-key only)",
+        "summary": "List connected agents (master-key only)",
         "security": [{ "X-Sync-Key": [] }],
-        "description": "Metadata only — raw tokens are never returned. Lists siftctl tokens (origin `paired`) and OAuth grants (origin `oauth`), one row per grant. OAuth grants show the client name and granted scopes; use `label` for a user-chosen name and the fingerprint to match a token shown by your tool.",
+        "description": "Metadata only — credentials are never returned. Lists OAuth grants, one row per connected agent, with the client name and granted scopes; `label` holds a user-chosen name.",
         "responses": {
           "200": {
             "description": "Token metadata",
@@ -566,7 +497,7 @@
         }
       },
       "patch": {
-        "summary": "Rename an agent token or OAuth grant (master-key only)",
+        "summary": "Rename a connected agent (master-key only)",
         "security": [{ "X-Sync-Key": [] }],
         "description": "Sets the display label. An empty string clears it. Labels are trimmed and at most 64 characters.",
         "requestBody": {
@@ -581,13 +512,13 @@
           "204": { "description": "Renamed" },
           "400": { "description": "Missing tokenId or invalid label" },
           "401": { "description": "Invalid or token credential" },
-          "404": { "description": "Unknown token" }
+          "404": { "description": "Unknown agent" }
         }
       },
       "delete": {
-        "summary": "Revoke an agent token or OAuth grant (master-key only)",
+        "summary": "Revoke a connected agent (master-key only)",
         "security": [{ "X-Sync-Key": [] }],
-        "description": "Revocation is immediate. For an OAuth grant, the access and refresh tokens are deleted together and the agent must be connected again.",
+        "description": "Revocation is immediate: the grant's access and refresh tokens are deleted together and the agent must be connected again.",
         "requestBody": {
           "required": true,
           "content": {

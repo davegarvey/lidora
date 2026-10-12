@@ -37,12 +37,12 @@ jobs:
           git checkout --detach origin/main
           BUMP_TYPE=$(./grubble --bump-type)
           echo "BUMP_TYPE=$BUMP_TYPE"
-          ./grubble --tag --preset node --package-files "package.json,packages/siftctl/package.json"
+          ./grubble --tag --preset node --package-files "package.json"
           NEW=$(./grubble --raw --preset node)
           echo "NEW=$NEW"
           echo "version=$NEW" >> "$GITHUB_OUTPUT"
           echo "bump_type=$BUMP_TYPE" >> "$GITHUB_OUTPUT"
-          git restore --worktree --staged package.json packages/siftctl/package.json
+          git restore --worktree --staged package.json
 
       - name: Push release branch and create PR
         if: steps.bump.outputs.bump_type != 'none'
@@ -60,13 +60,11 @@ jobs:
           fi
           VERSION="${VERSION}" node --input-type=module -e '
             import fs from "node:fs";
-            for (const file of ["package.json", "packages/siftctl/package.json"]) {
-              const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
-              pkg.version = process.env.VERSION;
-              fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
-            }
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            pkg.version = process.env.VERSION;
+            fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
           '
-          git add package.json packages/siftctl/package.json
+          git add package.json
           if ! git diff --cached --quiet; then
             git commit -m "chore: bump version to ${VERSION}"
           fi
@@ -97,26 +95,3 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           git tag "v${VERSION}"
           git push origin "v${VERSION}"
-
-  publish-siftctl:
-    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-          cache: npm
-
-      - run: npm i -g npm@latest
-
-      - run: npm ci
-
-      - run: npm run build --workspace siftctl
-
-      - run: npm publish --workspace siftctl

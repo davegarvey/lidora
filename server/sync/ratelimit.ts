@@ -56,8 +56,6 @@ export const RATE_LIMITS = {
   redeem: { windowSeconds: 60, limit: 10 },
   push: { windowSeconds: 60, limit: 60 },
   pull: { windowSeconds: 60, limit: 60 },
-  tokensMint: { windowSeconds: 3600, limit: 20 },
-  tokensRedeem: { windowSeconds: 60, limit: 10 },
   rotate: { windowSeconds: 3600, limit: 20 },
   statsPush: { windowSeconds: 60, limit: 60 },
   statsPull: { windowSeconds: 60, limit: 60 },
@@ -76,7 +74,6 @@ export const RATE_LIMITS = {
 export const KEYED_RATE_LIMIT_PREFIXES = [
   'rotate',
   'otp',
-  'tokens:mint',
   'push',
   'pull',
   'stats-push',

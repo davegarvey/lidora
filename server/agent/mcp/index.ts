@@ -13,7 +13,7 @@ import {
 import { Hono, type Context } from 'hono';
 import pkg from '../../../package.json';
 import { assertNoKeyLog } from '../../log';
-import { authenticateToken, hasScope, type TokenAuth } from '../../sync/auth';
+import { hasScope, type TokenAuth } from '../../sync/auth';
 import { RATE_LIMITS, checkRateLimit } from '../../sync/ratelimit';
 import { ensureSchema } from '../../sync/schema';
 import { publicOrigin } from '../origin';
@@ -198,7 +198,7 @@ export function createMcpRoutes(options: McpRoutesOptions): Hono {
     if (!bearer) return unauthorised(c, connectionId);
     if (!schemaReady) schemaReady = ensureSchema(db);
     await schemaReady;
-    const auth = await authenticateToken(db, bearer[1]) ?? await options.oauth?.(bearer[1], c.req.url);
+    const auth = await options.oauth?.(bearer[1], c.req.url);
     if (!auth) {
       assertNoKeyLog(bearer[1]);
       return unauthorised(c, connectionId);

@@ -51,16 +51,6 @@ export async function ensureSchema(db: D1Database): Promise<void> {
       sync_key    TEXT NOT NULL,
       expires_at  INTEGER NOT NULL
     )`,
-    `CREATE TABLE IF NOT EXISTS tokens (
-      token_id         TEXT PRIMARY KEY,
-      token_hash       TEXT NOT NULL UNIQUE,
-      sync_key         TEXT NOT NULL,
-      scope            TEXT NOT NULL DEFAULT 'rw',
-      fingerprint      TEXT NOT NULL,
-      created_at       INTEGER NOT NULL,
-      last_seen_at     INTEGER,
-      last_seen_minute INTEGER
-    )`,
     `CREATE TABLE IF NOT EXISTS counters (
       name  TEXT PRIMARY KEY,
       value INTEGER NOT NULL
@@ -76,7 +66,8 @@ export async function ensureSchema(db: D1Database): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_flags_feed_id   ON flags(sync_key, feed_id)`,
     `CREATE INDEX IF NOT EXISTS idx_feed_stats_row_at ON feed_stats(sync_key, row_at)`,
     `CREATE INDEX IF NOT EXISTS idx_pairing_expires ON pairing_codes(expires_at)`,
-    `CREATE INDEX IF NOT EXISTS idx_tokens_sync_key ON tokens(sync_key)`,
+    `DROP INDEX IF EXISTS idx_tokens_sync_key`,
+    `DROP TABLE IF EXISTS tokens`,
     `CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start)`,
   ];
   await db.batch([...statements, ...PROVIDER_SCHEMA.split(';').map((sql) => sql.trim()).filter(Boolean)].map((sql) => db.prepare(sql)));
@@ -89,12 +80,6 @@ export async function ensureSchema(db: D1Database): Promise<void> {
     `ALTER TABLE users ADD COLUMN rotated_at INTEGER`,
     `ALTER TABLE flags ADD COLUMN ever_read INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE users ADD COLUMN last_active_at INTEGER`,
-    `ALTER TABLE tokens ADD COLUMN origin TEXT NOT NULL DEFAULT 'paired'`,
-    `ALTER TABLE tokens ADD COLUMN client_id TEXT`,
-    `ALTER TABLE tokens ADD COLUMN client_name TEXT`,
-    `ALTER TABLE tokens ADD COLUMN scopes TEXT NOT NULL DEFAULT 'read write'`,
-    `ALTER TABLE tokens ADD COLUMN expires_at INTEGER`,
-    `ALTER TABLE tokens ADD COLUMN label TEXT`,
   ];
   for (const sql of migrations) {
     try {
