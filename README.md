@@ -368,8 +368,10 @@ date and last use.
 - **Identify and rename.** Agents appear under the name they registered with.
   Rename gives one a label you will recognise, such as "Work laptop".
 - **Lifetime.** Access tokens last one hour and the agent renews them silently
-  with a refresh token when it requests `offline_access`. Refresh tokens and the agent session last at most one year; reconnect after the session expires. An agent whose grant has expired or been revoked must be
-  connected again.
+  with a refresh token. Sift grants `offline_access` to every connection, so
+  agents that request only `read write` stay connected too. Each renewal extends
+  the connection, which ends after a year without use. An agent whose grant has
+  expired or been revoked must be connected again.
 - **Revoke.** Revoke invalidates the grant's access and refresh tokens at once. It
   does not affect your devices.
 - **Kill switch.** Regenerating the sync key (Settings → Sync → Regenerate)

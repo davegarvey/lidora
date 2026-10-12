@@ -1,4 +1,5 @@
 import { deleteAccount } from './account';
+import { ENDED_GRANT_SQL, endedGrantBindings } from '../agent/oauth/lifetime';
 import { currentMonotonicTime } from './monotonic';
 import { STATE_RETENTION_MS } from '../origin-governor';
 
@@ -55,6 +56,7 @@ export async function runSyncCron(db: D1Database, scheduledTime: number = Date.n
     db.prepare('DELETE FROM verification WHERE expiresAt < ?').bind(new Date(now).toISOString()),
     db.prepare('DELETE FROM oauthClientAssertion WHERE expiresAt < ?').bind(new Date(now).toISOString()),
     db.prepare('DELETE FROM "user" WHERE id IN (SELECT g.user_id FROM agent_grants g JOIN "session" s ON s.userId = g.user_id WHERE s.expiresAt < ?)').bind(new Date(now).toISOString()),
+    db.prepare(`DELETE FROM "user" WHERE id IN (SELECT g.user_id FROM agent_grants g WHERE ${ENDED_GRANT_SQL})`).bind(...endedGrantBindings(now)),
     db.prepare('DELETE FROM agent_grants WHERE user_id NOT IN (SELECT id FROM "user")'),
     db.prepare('DELETE FROM oauthClient WHERE clientId NOT IN (SELECT client_id FROM agent_grants) AND clientId NOT IN (SELECT client_id FROM agent_approvals) AND createdAt < ?').bind(new Date(now - 30 * 86_400_000).toISOString()),
     db.prepare('DELETE FROM oauthResource WHERE identifier NOT IN (SELECT resource FROM agent_grants) AND identifier LIKE ? AND identifier NOT IN (SELECT resourceId FROM oauthClientResource)').bind('%/mcp/c/%'),

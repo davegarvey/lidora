@@ -1,4 +1,5 @@
 import type { OAuthAuthenticator } from '../agent/oauth/authenticate';
+import { ENDED_GRANT_SQL, endedGrantBindings } from '../agent/oauth/lifetime';
 /**
  * Sync HTTP routes.
  *
@@ -520,10 +521,10 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
          UNION ALL
          SELECT g.token_id, g.fingerprint, 'rw', 'oauth', g.label, c.name, g.scopes, g.created_at, g.last_seen_at,
                 c.uri AS client_uri, c.clientDiscoveryId AS client_kind
-           FROM agent_grants g JOIN oauthClient c ON c.clientId = g.client_id WHERE g.sync_key = ?
+           FROM agent_grants g JOIN oauthClient c ON c.clientId = g.client_id WHERE g.sync_key = ? AND NOT (${ENDED_GRANT_SQL})
          ORDER BY created_at ASC`,
       )
-      .bind(syncKey, syncKey)
+      .bind(syncKey, syncKey, ...endedGrantBindings(Date.now()))
       .all();
     // created_at is stored in epoch seconds (now()); the API reports
     // epoch milliseconds, matching last_seen_at and the OTP expiresAt.
