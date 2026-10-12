@@ -20,9 +20,8 @@ dist/
 # Local Claude Code state and worktrees
 /.claude/
 
-# Local tala agent messaging state (formerly chit)
+# Local tala agent messaging state
 /.tala/
-/.chit/
 
 # Editor / OS
 .DS_Store
