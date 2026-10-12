@@ -81,7 +81,9 @@ const runtimes: Array<'Node' | 'Workers' | 'Bun'> = hasBun ? ['Node', 'Workers',
 describe.each(runtimes)('%s client metadata and OAuth integration', (runtime) => {
   it('runs the convenient connection flow with the captured Codex metadata', async () => {
     const fetcher = await setup(runtime, { [codex.client_id as string]: codex });
-    const request = await connected(fetcher, { client: codex });
+    const request = await connected(fetcher, { client: codex, scopes: 'read write' });
+    expect(request.tokens.scope).toBe('read write offline_access');
+    expect(request.tokens.refresh_token).toBeTruthy();
     expect((await read(fetcher, request.tokens.access_token)).status).toBe(200);
     const response = await fetcher(request.prefix + '/oauth2/token', form({ grant_type: 'refresh_token', refresh_token: request.tokens.refresh_token, client_id: codex.client_id as string, resource: request.resource }));
     expect(response.status, await response.clone().text()).toBe(200);
@@ -98,16 +100,21 @@ describe.each(runtimes)('%s client metadata and OAuth integration', (runtime) =>
     const { privateKey, publicKey } = await generateKeyPair('RS256');
     const key = { ...await exportJWK(publicKey), alg: 'RS256', kid: 'test-key', use: 'sig' };
     const fetcher = await setup(runtime, { [chatgpt.client_id as string]: chatgpt, [chatgpt.jwks_uri as string]: { keys: [key] } });
-    const rejected = await pending(fetcher, { client: chatgpt });
+    const rejected = await pending(fetcher, { client: chatgpt, scopes: 'read write' });
     const rejectedCode = await approve(fetcher, rejected);
     expect((await exchange(fetcher, rejected, rejectedCode)).status).toBe(400);
-    const request = await pending(fetcher, { client: chatgpt });
+    const request = await pending(fetcher, { client: chatgpt, scopes: 'read write' });
     const code = await approve(fetcher, request);
     const assertion = await new SignJWT({}).setProtectedHeader({ alg: 'RS256', kid: 'test-key' }).setIssuer(chatgpt.client_id as string).setSubject(chatgpt.client_id as string).setAudience(request.metadata.token_endpoint).setIssuedAt().setExpirationTime('1m').setJti(crypto.randomUUID()).sign(privateKey);
     const response = await exchange(fetcher, request, code, { client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer', client_assertion: assertion });
     expect(response.status, await response.clone().text()).toBe(200);
     const tokens = await response.json() as Tokens;
+    expect(tokens.scope).toBe('read write offline_access');
     expect((await read(fetcher, tokens.access_token)).status).toBe(200);
+    const refreshAssertion = await new SignJWT({}).setProtectedHeader({ alg: 'RS256', kid: 'test-key' }).setIssuer(chatgpt.client_id as string).setSubject(chatgpt.client_id as string).setAudience(request.metadata.token_endpoint).setIssuedAt().setExpirationTime('1m').setJti(crypto.randomUUID()).sign(privateKey);
+    const refreshed = await fetcher(request.prefix + '/oauth2/token', form({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: chatgpt.client_id as string, resource: request.resource, client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer', client_assertion: refreshAssertion }));
+    expect(refreshed.status, await refreshed.clone().text()).toBe(200);
+    expect((await read(fetcher, (await refreshed.json() as Tokens).access_token)).status).toBe(200);
     expect((await exchange(fetcher, request, code, { client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer', client_assertion: assertion })).status).toBe(400);
   }, 30_000);
 

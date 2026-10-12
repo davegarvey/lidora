@@ -7,6 +7,7 @@ import { ensureSchema } from '../../sync/schema';
 import { RATE_LIMITS } from '../../sync/ratelimit';
 import { publicOrigin } from '../origin';
 import { createDecisionRoutes } from './decisions';
+import { extendSessionAfterRefresh, registrationWithOfflineAccess, requestedGrantType, withOfflineAccess } from './lifetime';
 import { createProvider } from './provider';
 import { metadataTransport } from './transport';
 import { errorPage, isConnectionId, limitByIp, noStore, randomId, type OAuthContext } from './util';
@@ -56,6 +57,8 @@ export function createOAuthRoutes({ db, publicUrl, secret, fetchMetadata }: OAut
     if (requestUrl.pathname.endsWith('/oauth2/authorize') && !requestUrl.searchParams.has('resource')) {
       requestUrl.searchParams.set('resource', `${canonical.origin}/mcp${id ? `/c/${id}` : ''}`);
     }
+    const scope = requestUrl.searchParams.get('scope');
+    if (requestUrl.pathname.endsWith('/oauth2/authorize') && scope !== null) requestUrl.searchParams.set('scope', withOfflineAccess(scope));
     const headers = new Headers(c.req.raw.headers);
     headers.delete('cookie');
     if (declaredLengthExceeds(c.req.raw.headers, 16 * 1024)) return c.json({ error: 'invalid_request' }, 413);
@@ -65,8 +68,16 @@ export function createOAuthRoutes({ db, publicUrl, secret, fetchMetadata }: OAut
     } catch {
       return c.json({ error: 'invalid_request' }, 413);
     }
+    if (body && requestUrl.pathname.endsWith('/oauth2/register')) {
+      body = registrationWithOfflineAccess(body);
+      headers.delete('content-length');
+    }
     const auth = providerForRequest(c.req.url, id);
-    return auth.handler(new Request(requestUrl, { method: c.req.method, headers, body }));
+    const response = await auth.handler(new Request(requestUrl, { method: c.req.method, headers, body }));
+    if (body && requestUrl.pathname.endsWith('/oauth2/token') && requestedGrantType(headers.get('content-type'), body) === 'refresh_token') {
+      await extendSessionAfterRefresh(db, response);
+    }
+    return response;
   };
   for (const prefix of ['/oauth', '/oauth/c/:id']) {
     for (const endpoint of ['register', 'token', 'revoke']) {

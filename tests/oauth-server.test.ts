@@ -1,12 +1,12 @@
 import { mkdtempSync, rmSync } from 'node:fs';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { decodeJwt } from 'jose';
 import { openNodeSqlite } from '../server/node-sqlite';
 import { createSelfHostedDatabases } from '../server/sqlite-d1';
 import { createApp } from '../server/handle';
 import { runSyncCron } from '../server/sync/cron';
 import { clearOriginGovernorForTests } from '../server/origin-governor';
-import { KEY, OTHER_KEY, ORIGIN, SECRET, approve, connected, exchange, form, initialize, json, pending, read, type Fetcher } from './oauth-harness';
+import { KEY, OTHER_KEY, ORIGIN, REDIRECT, SECRET, approve, connected, exchange, form, initialize, json, pending, read, type Fetcher } from './oauth-harness';
 
 let fetcher: Fetcher;
 let db: D1Database;
@@ -22,7 +22,7 @@ beforeEach(async () => {
   fetcher = async (path, init) => app.request(ORIGIN + path, init);
   await initialize(fetcher);
 });
-afterEach(() => { close(); rmSync(directory, { recursive: true, force: true }); });
+afterEach(() => { vi.useRealTimers(); close(); rmSync(directory, { recursive: true, force: true }); });
 
 async function grants(key = KEY) {
   return (await (await fetcher('/sync/tokens', { headers: { 'X-Sync-Key': key } })).json() as { tokens: Array<{ token_id: string; label: string; origin: string; fingerprint: string }> }).tokens;
@@ -133,6 +133,87 @@ describe('library-managed OAuth and Sift approvals', () => {
     expect((await refresh(request)).status).toBe(400);
     expect((await read(fetcher, tokens.access_token)).status).toBe(401);
     expect((await refresh(request, tokens.refresh_token)).status).toBe(400);
+  });
+
+  it('omits a grant from the listing and cleanup once refresh reuse ends it', async () => {
+    const request = await connected(fetcher);
+    const response = await refresh(request);
+    expect(response.status).toBe(200);
+    expect((await refresh(request)).status).toBe(400);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 11 * 60_000);
+    expect(await grants()).toHaveLength(0);
+    await runSyncCron(db);
+    expect(await db.prepare('SELECT COUNT(*) AS n FROM agent_grants').first<number>('n')).toBe(0);
+    expect(await db.prepare('SELECT COUNT(*) AS n FROM "user"').first<number>('n')).toBe(0);
+  });
+
+  it('keeps an approval awaiting code exchange for the code lifetime only', async () => {
+    const request = await pending(fetcher);
+    await approve(fetcher, request);
+    await runSyncCron(db);
+    expect(await grants()).toHaveLength(1);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 11 * 60_000);
+    expect(await grants()).toHaveLength(0);
+    await runSyncCron(db);
+    expect(await db.prepare('SELECT COUNT(*) AS n FROM agent_grants').first<number>('n')).toBe(0);
+  });
+
+  it('issues refresh tokens to clients that request only resource scopes, including registered scopes', async () => {
+    const client = await (await fetcher('/oauth/oauth2/register', json({
+      client_name: 'Scoped Agent', application_type: 'native', redirect_uris: [REDIRECT], token_endpoint_auth_method: 'none',
+      grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], scope: 'read write',
+    }))).json() as Record<string, unknown>;
+    expect(client.scope).toBe('read write offline_access');
+    const request = await connected(fetcher, { client, scopes: 'read write', canonical: true });
+    expect(request.tokens.scope).toBe('read write offline_access');
+    expect((await refresh(request)).status).toBe(200);
+    const readOnly = await connected(fetcher, { scopes: 'read' });
+    expect(readOnly.tokens.scope).toBe('read offline_access');
+    expect(readOnly.tokens.refresh_token).toBeTruthy();
+  });
+
+  it('keeps a regularly refreshed connection beyond a year and ends one unused for a year', async () => {
+    const day = 86_400_000;
+    let now = Date.now();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const request = await connected(fetcher, { scopes: 'read write' });
+    const idle = await connected(fetcher, { scopes: 'read write' });
+    now += 2 * 60 * 60_000;
+    vi.setSystemTime(now);
+    expect((await read(fetcher, request.tokens.access_token)).status).toBe(401);
+    let current = request.tokens.refresh_token;
+    for (const step of [0, 364 * day, 364 * day]) {
+      now += step;
+      vi.setSystemTime(now);
+      const response = await refresh(request, current);
+      expect(response.status, await response.clone().text()).toBe(200);
+      const tokens = await response.json() as { access_token: string; refresh_token: string };
+      expect((await read(fetcher, tokens.access_token)).status).toBe(200);
+      current = tokens.refresh_token;
+    }
+    expect((await refresh(idle)).status).toBe(400);
+    await runSyncCron(db, now);
+    expect(await grants()).toHaveLength(1);
+    expect(await db.prepare('SELECT COUNT(*) AS n FROM agent_grants').first<number>('n')).toBe(1);
+  });
+
+  it('returns rotated tokens when the session extension fails', async () => {
+    const failing = new Proxy(db, { get: (target, property) => property === 'prepare'
+      ? (sql: string) => { if (sql.startsWith('UPDATE "session" SET expiresAt')) throw new Error('unavailable'); return target.prepare(sql); }
+      : Reflect.get(target, property).bind?.(target) ?? Reflect.get(target, property) });
+    const app = createApp({ db: failing, oauthSecret: SECRET });
+    fetcher = async (path, init) => app.request(ORIGIN + path, init);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const request = await connected(fetcher);
+    const response = await refresh(request);
+    expect(response.status).toBe(200);
+    const tokens = await response.json() as { access_token: string; refresh_token: string };
+    expect(warn).toHaveBeenCalledWith(JSON.stringify({ event: 'oauth.session_extension_failed' }));
+    expect((await read(fetcher, tokens.access_token)).status).toBe(200);
+    expect((await refresh(request, tokens.refresh_token)).status).toBe(200);
+    warn.mockRestore();
   });
 
   it('renames and revokes only the selected agent, immediately for access and refresh', async () => {

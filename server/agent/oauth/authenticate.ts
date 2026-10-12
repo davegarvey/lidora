@@ -31,7 +31,7 @@ export function oauthAuthenticator(db: D1Database, secret: string | undefined, t
       const requestPath = new URL(requestUrl).pathname;
       if (requestPath.startsWith('/mcp') && `${base}${requestPath}` !== grant.resource) return null;
       const refresh = await db.prepare('SELECT expiresAt, revoked FROM oauthRefreshToken WHERE userId = ?').bind(payload.sub).all<{ expiresAt: number | string; revoked: number | string | null }>();
-      if ((grant.scopes.split(' ').includes('offline_access') || refresh.results.length > 0) && !refresh.results.some((row) => row.revoked === null && new Date(row.expiresAt).getTime() > Date.now())) return null;
+      if (!refresh.results.some((row) => row.revoked === null && new Date(row.expiresAt).getTime() > Date.now())) return null;
       const scopes = parseScopes(typeof payload.scope === 'string' ? payload.scope : '').filter((scope) => parseScopes(grant.scopes).includes(scope));
       const minute = Math.floor(Date.now() / 60_000);
       if (grant.last_seen_minute !== minute) await db.prepare('UPDATE agent_grants SET last_seen_at = ?, last_seen_minute = ? WHERE token_id = ?').bind(Date.now(), minute, grant.token_id).run();
