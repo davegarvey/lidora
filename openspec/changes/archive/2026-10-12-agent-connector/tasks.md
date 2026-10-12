@@ -47,9 +47,9 @@
 
 ## 7. Verification
 
-- [ ] 7.1 Run `openspec validate agent-connector`, `npm run typecheck`, `npm run lint` and `npm test`
-- [ ] 7.2 Run a security review of the OAuth and consent code before merge
-- [ ] 7.3 Connect at least two independent MCP clients against a preview deployment, including connecting from a Chrome PWA whose system default browser is Firefox, and from an installed PWA on a phone, and record the results in the PR
+- [x] 7.1 Run `openspec validate agent-connector`, `npm run typecheck`, `npm run lint` and `npm test`
+- [x] 7.2 Run a security review of the OAuth and consent code before merge. Reviewed on 2026-10-12, after the move to Better Auth, covering Sift's own code: authorization routing, connection links, approval decisions, resource authentication, session extension, client metadata transports and the consent page. No changes were needed. Anonymous approval requires an unused connection bound to the same account. Used connections cannot be rebound. Concurrent approvals of one connection fail. Cross-site decision posts are refused by the Origin check. Approval-code lookup needs the master key and is rate-limited. Consent redirects reject script schemes. Client metadata fetches are HTTPS-only, size- and time-bounded and limited to public addresses. Signed-key `jwks_uri` must share the metadata document's origin, or be a trusted origin for self-registered clients. Accepted risks: standard OAuth consent phishing, mitigated by showing the client name, the unverified mark and the redirect host; self-asserted names of self-registered clients, which are marked unverified; and acceptance of a connection-scoped token on the sync API, by design.
+- [x] 7.3 Connect at least two independent MCP clients against a preview deployment, including connecting from a Chrome PWA whose system default browser is Firefox, and from an installed PWA on a phone, and record the results in the PR. Verified on production instead: Codex and ChatGPT connected on 2026-10-11 and 2026-10-12 (see archived `agent-connection-lifetime`), and ChatGPT worked on mobile.
 
 ## 8. Retire siftctl (after 7.3)
 

@@ -81,21 +81,6 @@ The system SHALL expose `subscribeFeed` and `unsubscribeFeed` methods on the `Ap
 - **WHEN** the user confirms unsubscription in `ConfirmUnsubscribeModal`
 - **THEN** `ctx.unsubscribeFeed` is called
 - **AND** the change is enqueued for sync
-- **AND** `mcpNotifySync` is called for MCP server notification
-
-### Requirement: MCP handlers use context methods
-The MCP `add-feed` and `remove-feed` EventSource handlers in `src/state.tsx` SHALL use `ctx.subscribeFeed` and `ctx.unsubscribeFeed` respectively, rather than composing the operations inline.
-
-#### Scenario: MCP add-feed uses context
-- **WHEN** the MCP server sends an `add-feed` event
-- **THEN** `ctx.subscribeFeed` is called with the feed from the event
-- **AND** the MCP server is acked
-
-#### Scenario: MCP remove-feed uses context and refreshes items
-- **WHEN** the MCP server sends a `remove-feed` event
-- **THEN** `ctx.unsubscribeFeed` is called with the URL from the event
-- **AND** the `items()` signal is refreshed so any open river view updates immediately
-- **AND** the MCP server is acked
 
 ### Requirement: QR-paired device shows feeds immediately
 When the app boots with a `?pair=` URL parameter, after `triggerFirstTime()` completes, the `feeds()` and `items()` signals SHALL be refreshed so the newly-pulled feeds appear in the river view without waiting for the 30-second reload interval.
