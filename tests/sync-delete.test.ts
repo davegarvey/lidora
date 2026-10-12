@@ -98,7 +98,6 @@ interface AccountRows {
   feeds: number;
   flags: number;
   feedStats: number;
-  tokens: number;
   pairingCodes: number;
   rateLimits: number;
 }
@@ -110,15 +109,14 @@ async function accountRows(mf: Miniflare, key: string): Promise<AccountRows> {
     feeds: await count(d, 'SELECT COUNT(*) AS n FROM feeds WHERE sync_key = ?', key),
     flags: await count(d, 'SELECT COUNT(*) AS n FROM flags WHERE sync_key = ?', key),
     feedStats: await count(d, 'SELECT COUNT(*) AS n FROM feed_stats WHERE sync_key = ?', key),
-    tokens: await count(d, 'SELECT COUNT(*) AS n FROM tokens WHERE sync_key = ?', key),
     pairingCodes: await count(d, 'SELECT COUNT(*) AS n FROM pairing_codes WHERE sync_key = ?', key),
     rateLimits: await count(d, 'SELECT COUNT(*) AS n FROM rate_limits WHERE substr(scope, -22) = ?', key),
   };
 }
 
-const EMPTY_ROWS: AccountRows = { users: 0, feeds: 0, flags: 0, feedStats: 0, tokens: 0, pairingCodes: 0, rateLimits: 0 };
+const EMPTY_ROWS: AccountRows = { users: 0, feeds: 0, flags: 0, feedStats: 0, pairingCodes: 0, rateLimits: 0 };
 
-async function seedAccount(mf: Miniflare, key: string, label: string): Promise<{ token: string; agentCode: string }> {
+async function seedAccount(mf: Miniflare, key: string, label: string): Promise<void> {
   await register(mf, key);
   await pushFeeds(mf, key, [{ feedId: `${label}-feed`, feedUrl: `http://93.184.216.34/${label}.xml` }]);
   const itemId = `${encodeURIComponent(`${label}-feed`)}::article-1`;
@@ -133,12 +131,6 @@ async function seedAccount(mf: Miniflare, key: string, label: string): Promise<{
   expect(stats.status).toBe(200);
   expect((await api(mf, 'POST', '/sync/otp', key)).status).toBe(200);
   expect((await api(mf, 'GET', '/sync/pull?since=0', key)).status).toBe(200);
-  const minted = (await (await api(mf, 'POST', '/sync/tokens', key)).json()) as { code: string };
-  const redeemed = await api(mf, 'POST', '/sync/tokens/redeem', null, { code: minted.code });
-  expect(redeemed.status).toBe(200);
-  const { token } = (await redeemed.json()) as { token: string };
-  const agentCode = ((await (await api(mf, 'POST', '/sync/tokens', key)).json()) as { code: string }).code;
-  return { token, agentCode };
 }
 
 async function runDailyCron(mf: Miniflare): Promise<void> {
@@ -154,15 +146,14 @@ describe('DELETE /sync/account', () => {
       const alice = makeSyncKey('del-alice');
       const bob = makeSyncKey('del-bob');
       await seedAccount(mf, alice, 'alice');
-      const bobSeed = await seedAccount(mf, bob, 'bob');
+      await seedAccount(mf, bob, 'bob');
 
       const before = await accountRows(mf, alice);
       expect(before.users).toBe(1);
       expect(before.feeds).toBe(1);
       expect(before.flags).toBe(1);
       expect(before.feedStats).toBe(1);
-      expect(before.tokens).toBe(1);
-      expect(before.pairingCodes).toBeGreaterThanOrEqual(2);
+      expect(before.pairingCodes).toBe(1);
       expect(before.rateLimits).toBeGreaterThan(0);
       const bobBefore = await accountRows(mf, bob);
 
@@ -181,7 +172,6 @@ describe('DELETE /sync/account', () => {
       expect(await count(shared, 'SELECT COUNT(*) AS n FROM counters WHERE name = ?', 'server_time')).toBe(1);
 
       expect((await api(mf, 'GET', '/sync/pull?since=0', bob)).status).toBe(200);
-      expect((await api(mf, 'GET', '/sync/pull?since=0', bobSeed.token)).status).toBe(200);
     } finally {
       await mf.dispose();
     }
@@ -208,17 +198,17 @@ describe('DELETE /sync/account', () => {
     }
   });
 
-  it('rejects missing, malformed, unknown and agent-token credentials', async () => {
+  it('rejects missing, malformed and unknown credentials', async () => {
     const mf = await createMf();
     try {
       const alice = makeSyncKey('auth-alice');
-      const { token } = await seedAccount(mf, alice, 'alice');
+      await seedAccount(mf, alice, 'alice');
       const before = await accountRows(mf, alice);
 
       expect((await api(mf, 'DELETE', '/sync/account', null)).status).toBe(401);
       expect((await api(mf, 'DELETE', '/sync/account', 'short')).status).toBe(401);
       expect((await api(mf, 'DELETE', '/sync/account', makeSyncKey('auth-unknown'))).status).toBe(401);
-      expect((await api(mf, 'DELETE', '/sync/account', token)).status).toBe(401);
+      expect((await api(mf, 'DELETE', '/sync/account', 't' + 'a'.repeat(22))).status).toBe(401);
       expect((await api(mf, 'OPTIONS', '/sync/account', null)).status).toBe(403);
 
       expect(await accountRows(mf, alice)).toEqual(before);
@@ -250,20 +240,16 @@ describe('DELETE /sync/account', () => {
     }
   });
 
-  it('revokes agent tokens and agent pairing codes immediately', async () => {
+  it('removes outstanding pairing codes immediately', async () => {
     const mf = await createMf();
     try {
       const alice = makeSyncKey('tok-alice');
-      const { token } = await seedAccount(mf, alice, 'alice');
-      expect((await api(mf, 'GET', '/sync/pull?since=0', token)).status).toBe(200);
+      await seedAccount(mf, alice, 'alice');
       expect((await accountRows(mf, alice)).pairingCodes).toBeGreaterThan(0);
 
       expect((await api(mf, 'DELETE', '/sync/account', alice)).status).toBe(204);
 
-      expect((await api(mf, 'GET', '/sync/pull?since=0', token)).status).toBe(401);
-      expect((await api(mf, 'POST', '/sync/push', token, { feeds: [] })).status).toBe(401);
       expect((await accountRows(mf, alice)).pairingCodes).toBe(0);
-      expect((await accountRows(mf, alice)).tokens).toBe(0);
     } finally {
       await mf.dispose();
     }
@@ -478,7 +464,6 @@ describe('retention in the daily cron', () => {
         expect(rows.feeds, key).toBe(1);
         expect(rows.flags, key).toBe(1);
         expect(rows.feedStats, key).toBe(1);
-        expect(rows.tokens, key).toBe(1);
       }
     } finally {
       await mf.dispose();

@@ -25,7 +25,7 @@ beforeEach(async () => {
 afterEach(() => { vi.useRealTimers(); close(); rmSync(directory, { recursive: true, force: true }); });
 
 async function grants(key = KEY) {
-  return (await (await fetcher('/sync/tokens', { headers: { 'X-Sync-Key': key } })).json() as { tokens: Array<{ token_id: string; label: string; origin: string; fingerprint: string }> }).tokens;
+  return (await (await fetcher('/sync/tokens', { headers: { 'X-Sync-Key': key } })).json() as { tokens: Array<{ token_id: string; label: string; fingerprint: string }> }).tokens;
 }
 async function refresh(request: Awaited<ReturnType<typeof connected>>, token = request.tokens.refresh_token) {
   return fetcher(request.prefix + '/oauth2/token', form({ grant_type: 'refresh_token', refresh_token: token, client_id: request.client.client_id as string, resource: request.resource }));
@@ -42,7 +42,6 @@ describe('library-managed OAuth and Sift approvals', () => {
     expect(payload.aud).toBe(request.resource);
     const rows = await grants();
     expect(rows).toHaveLength(1);
-    expect(rows[0].origin).toBe('oauth');
     expect((await grants(OTHER_KEY))).toHaveLength(0);
     expect((await fetcher(`/oauth/requests/${request.requestId}/decision`, json({ decision: 'approve' }))).status).toBe(409);
   });
@@ -237,6 +236,7 @@ describe('library-managed OAuth and Sift approvals', () => {
     expect((await read(fetcher, token)).status).toBe(200);
     expect((await fetcher('/sync/push', { ...json({ feeds: [] }), headers: { ...json({}).headers, authorization: `Bearer ${token}` } })).status).toBe(403);
     expect((await read(fetcher, token, '/sync/tokens')).status).toBe(401);
+    expect((await fetcher('/sync/rotate', { ...json({ sync_key: 'r'.repeat(22) }), headers: { ...json({}).headers, authorization: `Bearer ${token}` } })).status).toBe(401);
     const invalid = token.slice(0, -4) + 'xxxx';
     expect((await read(fetcher, invalid)).status).toBe(401);
     expect((await fetcher('/mcp', { ...json({}), headers: { authorization: `Bearer ${token}` } })).status).toBe(401);

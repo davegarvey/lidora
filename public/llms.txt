@@ -39,6 +39,6 @@ Identify feeds by `feedId` and items by `<feedId>::<guid>`, exactly as returned.
 
 ## HTTP clients
 
-- [OpenAPI document](/openapi.json): the sync API (`/sync/pull`, `/sync/push`, `/sync/items`, `/sync/stats/pull`) with the scope each operation needs. Send an OAuth access token, or a `siftctl` token, as `Authorization: Bearer <token>`.
+- [OpenAPI document](/openapi.json): the sync API (`/sync/pull`, `/sync/push`, `/sync/items`, `/sync/stats/pull`) with the scope each operation needs. Send an OAuth access token as `Authorization: Bearer <token>`.
 - [About Sift](/about): what Sift is and how it handles data.
-- [Source and README](https://github.com/davegarvey/sift): deployment, configuration and the `siftctl` command-line tool.
+- [Source and README](https://github.com/davegarvey/sift): deployment and configuration.

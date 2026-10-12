@@ -27,7 +27,6 @@ export function accountDeletionStatements(
     db.prepare('DELETE FROM flags WHERE sync_key = ?').bind(syncKey),
     db.prepare('DELETE FROM feed_stats WHERE sync_key = ?').bind(syncKey),
     db.prepare('DELETE FROM feeds WHERE sync_key = ?').bind(syncKey),
-    db.prepare('DELETE FROM tokens WHERE sync_key = ?').bind(syncKey),
     db.prepare('DELETE FROM pairing_codes WHERE sync_key = ?').bind(syncKey),
     ...agentDeletionStatements(db, syncKey),
   ];

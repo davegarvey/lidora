@@ -9,7 +9,7 @@ provides multi-device sync and AI agent integration.
 - **Local-only**: subscriptions, items, read/starred state, and lifetime reading statistics live in IndexedDB.
 - **Multi-device sync**: optional D1-backed sync via Cloudflare Workers (pairing-code based), including exact group read-once deduplication and approximate observed volume. You can delete your server-side sync data from Settings.
 - **Server-side polling**: on Workers, synced subscriptions are polled every 30 minutes, so items published while no device is open still arrive.
-- **AI agent connector**: a remote MCP server with OAuth lets chat and coding agents read subscriptions, statistics and recent articles, and manage subscriptions, after one approval. `siftctl` and an OpenAPI document cover scripts.
+- **AI agent connector**: a remote MCP server with OAuth lets chat and coding agents read subscriptions, statistics and recent articles, and manage subscriptions, after one approval. An OpenAPI document describes the sync API for other tools.
 - **Portable**: import/export your subscription list as OPML.
 - **Offline**: installable PWA; works offline against cached data.
 - **Deploy anywhere**: local dev, Node/Bun server, Docker, or Cloudflare Workers — all from one codebase.
@@ -254,8 +254,8 @@ Sync data is kept until you delete it or the account expires. Settings → Sync
 → Delete sync data calls `DELETE /sync/account` (master key only), which in
 one transaction deletes the account and every row keyed by its sync key:
 subscriptions (including removed ones still awaiting cleanup), read and starred
-flags, reading statistics, agent tokens, pairing codes and the rate-limit
-counters for that key. Agent tokens and pairing codes stop working at once.
+flags, reading statistics, agent connections, pairing codes and the rate-limit
+counters for that key. Agent connections and pairing codes stop working at once.
 Data on your devices is not touched, other paired devices stop syncing, and
 when polling is enabled any polled feed URLs and entries that no other group
 subscribes to are deleted immediately (otherwise by the next daily pass).
@@ -270,7 +270,7 @@ or exposed to third parties. Synced lifetime reading statistics contain only
 per-feed aggregate counters and compact per-item `everRead` markers; article
 content and a detailed reading event history are not synchronized. Authorized
 agent pulls can read the same aggregate statistics, while only the master sync
-key can write statistics snapshots or historical markers. Paired CLI credentials and OAuth refresh tokens are stored as hashes. OAuth access tokens are signed JWTs and are not stored; provider signing keys are encrypted with `BETTER_AUTH_SECRET`. All agent access is revocable immediately from Settings.
+key can write statistics snapshots or historical markers. OAuth refresh tokens are stored as hashes. OAuth access tokens are signed JWTs and are not stored; provider signing keys are encrypted with `BETTER_AUTH_SECRET`. All agent access is revocable immediately from Settings.
 
 ## AI agents
 
@@ -281,7 +281,7 @@ come from its host, not from a code sandbox, so the agent needs no network
 access to Sift of its own. Sync must be turned on first, because the connector
 works on the synced account.
 
-Existing installations moving from Sift’s custom OAuth implementation must configure `BETTER_AUTH_SECRET` before deployment. The migration requires agents to reconnect once; device sync, paired CLI credentials and reading data are preserved.
+Existing installations moving from Sift’s custom OAuth implementation must configure `BETTER_AUTH_SECRET` before deployment. The migration requires agents to reconnect once; device sync and reading data are preserved. A later migration removes `siftctl` credentials when the CLI is retired.
 
 ### Connecting an agent
 
@@ -375,115 +375,28 @@ date and last use.
 - **Revoke.** Revoke invalidates the grant's access and refresh tokens at once. It
   does not affect your devices.
 - **Kill switch.** Regenerating the sync key (Settings → Sync → Regenerate)
-  stops every agent connection and `siftctl` token immediately. Deleting sync
+  stops every agent connection immediately. Deleting sync
   data does the same and removes the account.
 
 A grant gives the agent read and write access to your subscriptions. Treat the
 connection URL and approval codes like passwords for the ten minutes they live,
 and revoke agents you no longer use.
 
-### Command line and HTTP
+### HTTP API
 
-The remainder of this section covers `siftctl` and the OpenAPI document, for
-scripts and tools that do not speak MCP. Coding agents should use the connector
-instead. `siftctl` will be retired once the connector has been verified in
-practice.
+Tools that do not speak MCP can call the sync API directly. It is described at
+`https://sift.davegarvey.workers.dev/openapi.json`, which documents the HTTP
+bearer scheme for agents, the `X-Sync-Key` header for devices, and the scope
+each operation needs. Obtain an OAuth access token through the metadata at
+`/.well-known/oauth-authorization-server/oauth` and send it as
+`Authorization: Bearer <token>`. `read` allows `/sync/pull`,
+`/sync/stats/pull` and `/sync/items`; `write` additionally allows `/sync/push`
+(403 without it). Statistics writes, device pairing, registration and agent
+management remain master-key-only. Writes carry no timestamps; the server stamps
+everything. `/llms.txt` gives agents a short description of the connector.
 
-#### `siftctl`
-
-Published to npm on each release. Install and pair:
-
-```sh
-npm i -g siftctl        # or: npx siftctl
-siftctl pair <code>     # code from POST /sync/tokens (master key)
-siftctl feeds
-siftctl feed add https://example.com/feed.xml
-siftctl feed edit https://example.com/feed.xml --title "Example" --tags "tech, reading"
-siftctl feed remove https://example.com/feed.xml --yes
-siftctl items https://example.com/feed.xml
-siftctl mark read '<feed-id>::<guid>'
-siftctl stats --json
-siftctl --version
-```
-
-Environment: `SIFTCTL_TOKEN` (overrides the token file at
-`~/.config/siftctl/token`), `SIFTCTL_URL` (defaults to the hosted deployment),
-`SIFTCTL_HOME`. Exit codes: 0 success, 1 runtime/API error, 2 usage. `feed add`
-discovers the feed title and HTML URL when available, while `feed edit` updates
-the title or comma-separated tags. Tags are trimmed, lowercased, whitespace-
-normalized, deduplicated, and limited to 64 characters. All data commands and
-mutations support `--json` for machine consumption. Mutation results use stable
-objects such as `{ "ok": true, "operation": "edit", "feedId": "...", "url": "...", "title": "...", "tags": ["..."] }`.
-
-`siftctl stats` requires a paired agent token and reads the server-committed
-statistics snapshot; it cannot read device-local IndexedDB statistics. The
-browser may have newer pending sync data, and observed article volume is an
-approximate aggregate across devices. The command does not expose article
-content, reading-event history, reading duration, or trends. `--version` and
-`-v` print the installed CLI version without pairing or network access.
-
-With `--json`, stats output has a stable shape for scripts and LLMs:
-
-```json
-{
-  "source": "sync",
-  "approximate": true,
-  "summary": {
-    "totalSeen": 1200,
-    "readOnce": 340,
-    "readRate": 0.2833333333333333
-  },
-  "feeds": [
-    {
-      "feedId": "feed-id",
-      "title": "Example Feed",
-      "url": "https://example.com/feed.xml",
-      "totalSeen": 100,
-      "readOnce": 60,
-      "readRate": 0.6,
-      "expectedReads": 28.333333333333332,
-      "readIndex": 2.1176470588235294,
-      "backlog": 40
-    }
-  ]
-}
-```
-
-`readRate`, `expectedReads`, and `readIndex` are `null` when there is not
-enough data to calculate them.
-
-#### OpenAPI document
-
-The sync API is described at `https://sift.davegarvey.workers.dev/openapi.json`.
-It documents the HTTP bearer scheme for agents, the `X-Sync-Key` header for
-devices, and the scope (`read` or `write`) each operation needs. Point an
-OpenAPI-aware tool at it. Obtain an OAuth token through the metadata at
-`/.well-known/oauth-authorization-server/oauth`, or use a `siftctl` token. Writes
-carry no timestamps; the server stamps everything. `/llms.txt` gives agents a
-short description of the connector.
-
-#### Pairing and tokens
-
-- Pairing: `POST /sync/tokens` (master key) mints an 8-character code
-  (5-minute expiry) for `siftctl pair` or `POST /sync/tokens/redeem`, which
-  exchange it for a token. The Settings screen no longer offers pairing codes.
-  Pairing codes do not authenticate any other request.
-- Tokens are 23-character credentials starting with `t`, distinct from the
-  master sync key, which never leaves your browser. Send them as
-  `Authorization: Bearer <token>`. `siftctl` tokens hold both scopes and do not
-  expire. OAuth access tokens carry the scopes you approved: `read` allows
-  `/sync/pull`, `/sync/stats/pull` and `/sync/items`; `write` additionally
-  allows `/sync/push` (403 without it). Statistics writes remain master-key-only.
-  Tokens cannot mint device codes, register, or manage tokens, because a device
-  code would redeem to the master key.
-- Revocation and the sync-key kill switch work as described under Managing
-  connections. Rotation does not delete the old key's data at once; it is
-  deleted 30 days later (see Privacy).
-- **Warning**: a `siftctl` token grants read and write access to your
-  subscriptions to whoever holds it, and never expires. Treat it like a
-  password and revoke it when done. Tokens from `siftctl pair` share your
-  per-sync-key budgets with your browsers, so a runaway script can slow your
-  devices' sync. OAuth tokens draw from their own per-token budgets.
+The `siftctl` command-line tool has been retired and is deprecated on npm.
+Connect agents through the MCP connector instead.
 
 ## Known v0 limitations
 

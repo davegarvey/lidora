@@ -31,8 +31,6 @@ interface Call {
 const token = {
   token_id: 't1',
   fingerprint: 'AB12',
-  scope: 'rw',
-  origin: 'oauth',
   label: null as string | null,
   client_name: 'Test Agent' as string | null,
   client_host: 'client.example' as string | null,
@@ -222,9 +220,9 @@ describe('Agents screen', () => {
     expect(document.querySelector('.agents-row__detail')?.textContent).toBe('Test Agent · Read only · Last used 2h ago');
   });
 
-  it('labels legacy paired tokens', async () => {
-    tokens = [{ ...token, origin: 'paired', client_name: null, client_host: null, unverified: false }];
+  it('names an agent without a client name generically', async () => {
+    tokens = [{ ...token, client_name: null, client_host: null, unverified: false }];
     await mount();
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Paired token'));
+    await vi.waitFor(() => expect(document.querySelector('.agents-row__title')?.textContent).toBe('Agent'));
   });
 });
