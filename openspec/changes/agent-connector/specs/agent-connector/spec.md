@@ -171,7 +171,7 @@ When the consent request has no usable connection ID, the consent screen SHALL s
 
 ### Requirement: Authorisation code exchange
 
-`POST /oauth/oauth2/token` SHALL support the `authorization_code` grant. Codes SHALL be single-use, expire after ten minutes, and be bound to the client, redirect URI, PKCE challenge, scopes and an isolated provider identity linked to the Sift account. A successful exchange SHALL return a signed JWT access token valid for one hour, a refresh token when `offline_access` was granted, `token_type` `Bearer`, `expires_in` and `scope`. Refresh tokens SHALL be stored hashed. JWT access tokens SHALL not be stored; signing keys SHALL be encrypted using the persistent provider secret.
+`POST /oauth/oauth2/token` SHALL support the `authorization_code` grant. Codes SHALL be single-use, expire after ten minutes, and be bound to the client, redirect URI, PKCE challenge, scopes and the approving account's isolated provider identity. A successful exchange SHALL return a one-hour signed JWT `Bearer` access token, a refresh token, `expires_in` and `scope`. Refresh tokens SHALL be stored hashed and access tokens not at all; signing keys SHALL be encrypted with the provider secret.
 
 #### Scenario: Code exchange
 - **WHEN** a client exchanges a valid code with the matching verifier
@@ -183,7 +183,7 @@ When the consent request has no usable connection ID, the consent screen SHALL s
 
 ### Requirement: Refresh token rotation
 
-`POST /oauth/oauth2/token` SHALL support the `refresh_token` grant. Refresh tokens SHALL expire at most 365 days after issuance, with a maximum agent session of 365 days and SHALL rotate on every use. Presenting an already-rotated refresh token SHALL revoke every token in that grant. `POST /oauth/oauth2/revoke` SHALL revoke a presented refresh token. Settings revocation SHALL invalidate both access and refresh credentials immediately.
+`POST /oauth/oauth2/token` SHALL support the `refresh_token` grant. Sift SHALL grant `offline_access` to every approved connection. Refresh tokens SHALL expire 365 days after issuance and SHALL rotate on every use; each refresh SHALL extend the agent session to the new refresh token's expiry. Presenting an already-rotated refresh token SHALL revoke every token in that grant. `POST /oauth/oauth2/revoke` SHALL revoke a presented refresh token.
 
 #### Scenario: Refresh
 - **WHEN** a client presents a current refresh token
