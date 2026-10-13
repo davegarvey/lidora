@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { getDb } from '../src/db/open';
@@ -56,6 +57,15 @@ beforeEach(async () => {
 });
 
 describe('writing bodies', () => {
+  it('sanitises feed HTML and extractions before storing them', async () => {
+    await insertOrUpdateItem(makeInput({ html: '<p onclick="alert(1)">feed</p><script>alert(2)</script>' }));
+    await saveExtractedHtml({ id: 'f1::g1', feedId: 'f1' }, '<img src="/img?url=x" onerror="alert(1)"><a href="javascript:alert(1)">x</a>');
+
+    const body = await getItemBody('f1::g1');
+    expect(body?.html).toBe('<p>feed</p>');
+    expect(body?.extractedHtml).toBe('<img src="/img?url=x"><a>x</a>');
+  });
+
   it('writes the body to itemBodies and keeps it off the article record', async () => {
     await insertOrUpdateItem(makeInput({ html: '<p>feed</p>' }));
 

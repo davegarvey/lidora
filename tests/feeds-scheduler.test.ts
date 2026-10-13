@@ -1,18 +1,10 @@
+// @vitest-environment jsdom
 /**
  * Feed scheduler tests: background fetches must never touch user-authority
  * fields (modifiedAt, urlAt) — only user-initiated mutations may.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-
-// The scheduler transitively imports util/idle, which registers event
-// listeners on `document` at module load. Node has none, so stub the
-// browser globals before the dynamic import below.
-vi.stubGlobal('document', {
-  addEventListener: () => {},
-  visibilityState: 'visible',
-});
-vi.stubGlobal('window', { addEventListener: () => {} });
 
 import 'fake-indexeddb/auto';
 import { getDb } from '../src/db/open';

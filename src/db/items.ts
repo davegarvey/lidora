@@ -1,5 +1,6 @@
 import { getDb } from './open';
 import type { FeedStats, Item, ItemBody, ItemInput } from './types';
+import { sanitiseArticleHtml } from '../articles/sanitise';
 import { flagToRead, flagToStar, readToFlag, starToFlag, READ_UNREAD, STAR_UNSTARRED } from './flags';
 
 /**
@@ -33,6 +34,7 @@ export async function insertOrUpdateItem(item: ItemInput): Promise<void> {
 
 export async function bulkUpsertItems(inputs: ItemInput[], options: { insertOnly?: boolean } = {}): Promise<string[]> {
   if (inputs.length === 0) return [];
+  inputs = inputs.map((input) => (input.html ? { ...input, html: sanitiseArticleHtml(input.html) } : input));
   const db = await getDb();
   const feedId = inputs[0].feedId;
 
@@ -130,12 +132,13 @@ export async function getItemBody(id: string): Promise<ItemBody | undefined> {
 }
 
 export async function saveExtractedHtml(item: Pick<Item, 'id' | 'feedId'>, extractedHtml: string): Promise<void> {
+  const safeHtml = sanitiseArticleHtml(extractedHtml);
   const db = await getDb();
   const tx = db.transaction(['items', 'itemBodies'], 'readwrite');
   if (await tx.objectStore('items').getKey(item.id) !== undefined) {
     const bodies = tx.objectStore('itemBodies');
     const existing = await bodies.get(item.id);
-    await bodies.put({ ...existing, id: item.id, feedId: item.feedId, extractedHtml });
+    await bodies.put({ ...existing, id: item.id, feedId: item.feedId, extractedHtml: safeHtml });
   }
   await tx.done;
 }
