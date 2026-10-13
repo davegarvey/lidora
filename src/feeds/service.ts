@@ -96,12 +96,20 @@ export async function updateFeedMeta(
 }
 
 export async function changeFeedUrl(feedId: string, newUrl: string): Promise<void> {
+  return writeFeedUrl(feedId, newUrl, true);
+}
+
+export async function adoptFeedUrl(feedId: string, newUrl: string): Promise<void> {
+  return writeFeedUrl(feedId, newUrl, false);
+}
+
+async function writeFeedUrl(feedId: string, newUrl: string, userInitiated: boolean): Promise<void> {
   const trimmed = newUrl.trim();
   if (!trimmed) throw new Error('URL is required');
   try { new URL(trimmed); } catch { throw new Error('Invalid feed URL'); }
 
   const existing = await getFeedByUrl(trimmed);
-  if (existing && existing.id !== feedId) {
+  if (userInitiated && existing && existing.id !== feedId) {
     throw new Error('Already subscribed to this URL');
   }
 
@@ -110,10 +118,13 @@ export async function changeFeedUrl(feedId: string, newUrl: string): Promise<voi
   await updateFeed(feedId, {
     url: trimmed,
     urlAt: now,
-    modifiedAt: now,
+    ...(userInitiated ? { modifiedAt: now } : {}),
     etag: null,
     lastModified: null,
     refreshError: null,
+    removedAt: null,
+    redirectCandidateUrl: null,
+    redirectCandidateCount: 0,
   });
   if (feed) {
     await updateFeedStatsLabel({ id: feed.id, title: feed.title, url: trimmed });

@@ -102,6 +102,8 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
         'X-Sift-Request-Source': upstreamRes.headers.get('X-Sift-Request-Source') ?? 'feed-cache',
       });
       if (retryAfter) headers.set('X-Sift-Retry-After', retryAfter);
+      const permanentRedirectUrl = upstreamRes.headers.get('X-Sift-Permanent-Redirect');
+      if (permanentRedirectUrl) headers.set('X-Sift-Permanent-Redirect', permanentRedirectUrl);
       return new Response(null, { status: 304, headers });
     }
 
@@ -124,6 +126,8 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     const lastModified = upstreamRes.headers.get('Last-Modified');
     if (lastModified) headers.set('Last-Modified', lastModified);
     if (retryAfter) headers.set('X-Sift-Retry-After', retryAfter);
+    const permanentRedirectUrl = upstreamRes.headers.get('X-Sift-Permanent-Redirect');
+    if (permanentRedirectUrl) headers.set('X-Sift-Permanent-Redirect', permanentRedirectUrl);
     return new Response(capBody(upstreamRes.body, FEED_MAX_BYTES), { status: 200, headers });
   });
 

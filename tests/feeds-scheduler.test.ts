@@ -513,5 +513,68 @@ describe('refresh status', () => {
     await refreshFeed((await getFeed('new-feed'))!);
     expect(fetchingState.feedErrors()['new-feed']).toBe('HTTP 503');
   });
+
+  it('adopts the same permanent redirect after two independent fetches', async () => {
+    const { refreshFeed } = await import('../src/feeds/scheduler');
+    const id = 'redirect-feed';
+    await upsertFeed({
+      id,
+      url: 'https://old.example/feed.xml',
+      urlAt: 1000,
+      modifiedAt: 2000,
+      title: 'Feed',
+      learnedIntervalMs: 3_600_000,
+      lastFetched: null,
+    });
+    const destination = 'https://new.example/feed.xml';
+    globalThis.fetch = (async () => new Response(RSS, {
+      status: 200,
+      headers: { 'X-Sift-Cache': 'miss', 'X-Sift-Permanent-Redirect': destination },
+    })) as unknown as typeof globalThis.fetch;
+
+    await refreshFeed((await getFeed(id))!);
+    expect((await getFeed(id))?.url).toBe('https://old.example/feed.xml');
+    expect((await getFeed(id))?.redirectCandidateCount).toBe(1);
+
+    globalThis.fetch = (async () => new Response(RSS, {
+      status: 200,
+      headers: { 'X-Sift-Cache': 'hit', 'X-Sift-Permanent-Redirect': destination },
+    })) as unknown as typeof globalThis.fetch;
+    await refreshFeed((await getFeed(id))!);
+    expect((await getFeed(id))?.redirectCandidateCount).toBe(1);
+
+    globalThis.fetch = (async () => new Response(RSS, {
+      status: 200,
+      headers: { 'X-Sift-Cache': 'revalidated', 'X-Sift-Permanent-Redirect': destination },
+    })) as unknown as typeof globalThis.fetch;
+    await refreshFeed((await getFeed(id))!);
+    const updated = (await getFeed(id))!;
+    expect(updated.url).toBe(destination);
+    expect(updated.urlAt).toBeGreaterThan(1000);
+    expect(updated.modifiedAt).toBe(2000);
+    expect(updated.redirectCandidateUrl).toBeNull();
+  });
+
+  it('marks a 410 feed removed and does not refresh it again automatically', async () => {
+    const { refreshFeed, refreshStaleFeeds } = await import('../src/feeds/scheduler');
+    const id = 'gone-feed';
+    await upsertFeed({
+      id,
+      url: 'https://gone.example/feed.xml',
+      title: 'Gone',
+      learnedIntervalMs: 3_600_000,
+      lastFetched: null,
+    });
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return new Response('Gone', { status: 410 });
+    }) as unknown as typeof globalThis.fetch;
+
+    await refreshFeed((await getFeed(id))!);
+    expect((await getFeed(id))?.removedAt).toBeTypeOf('number');
+    await refreshStaleFeeds({ forceAll: true });
+    expect(calls).toBe(1);
+  });
 });
 

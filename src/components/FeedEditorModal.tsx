@@ -110,6 +110,9 @@ export function FeedEditorModal() {
     <div class="modal feed-editor modal-center">
       <div class="modal-header">Edit Feed</div>
       <div class="modal-body">
+        <Show when={feed()?.removedAt != null}>
+          <p class="error">The publisher returned HTTP 410 and removed this feed. You can unsubscribe below.</p>
+        </Show>
         <label style={{ display: 'block', 'margin-bottom': '12px' }}>
           <span style={{ display: 'block', 'font-size': '12px', 'margin-bottom': '4px', color: 'var(--subtext)' }}>Name</span>
           <input

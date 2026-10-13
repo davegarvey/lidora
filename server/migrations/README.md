@@ -118,3 +118,7 @@ maintenance deletes items first seen more than 7 days earlier and removes
 polling state for URLs no active group subscribes to. Each account contributes
 at most 500 feed URLs; polling pauses above the configured
 `POLL_DB_MAX_BYTES` size (8 GiB by default).
+
+Migration `server/migrations-poll/0002_permanent_feed_redirects.sql` adds the
+candidate destination and independent observation count used to confirm a
+permanent feed redirect before migrating subscriptions and retained entries.

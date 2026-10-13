@@ -75,4 +75,28 @@ describe('fetchFeed Retry-After parsing', () => {
       expect(result.etag).toBe('"abc"');
     }
   });
+
+  it('reports a permanent redirect only on independent upstream responses', async () => {
+    globalThis.fetch = (async () => new Response('<rss/>', {
+      status: 200,
+      headers: {
+        'X-Sift-Cache': 'revalidated',
+        'X-Sift-Permanent-Redirect': 'https://x.example/new.xml',
+      },
+    })) as unknown as typeof globalThis.fetch;
+    const independent = await fetchFeed('https://x.example/old.xml');
+    expect(independent.kind).toBe('modified');
+    if (independent.kind === 'modified') expect(independent.permanentRedirectUrl).toBe('https://x.example/new.xml');
+
+    globalThis.fetch = (async () => new Response('<rss/>', {
+      status: 200,
+      headers: {
+        'X-Sift-Cache': 'hit',
+        'X-Sift-Permanent-Redirect': 'https://x.example/new.xml',
+      },
+    })) as unknown as typeof globalThis.fetch;
+    const cached = await fetchFeed('https://x.example/old.xml');
+    expect(cached.kind).toBe('modified');
+    if (cached.kind === 'modified') expect(cached.permanentRedirectUrl).toBeUndefined();
+  });
 });
