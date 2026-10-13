@@ -484,6 +484,10 @@ a:hover { text-decoration: underline; }
     padding: 16px 16px calc(56px + env(safe-area-inset-bottom, 0px));
   }
 
+  .reading .reading-body figure {
+    margin-inline: 0;
+  }
+
   .reading .reading-chrome-inner {
     height: 40px;
     padding: 0 16px;
