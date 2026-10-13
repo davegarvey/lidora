@@ -484,10 +484,6 @@ a:hover { text-decoration: underline; }
     padding: 16px 16px calc(56px + env(safe-area-inset-bottom, 0px));
   }
 
-  .reading .reading-body figure {
-    margin-inline: 0;
-  }
-
   .reading .reading-chrome-inner {
     height: 40px;
     padding: 0 16px;
@@ -1995,6 +1991,15 @@ a:hover { text-decoration: underline; }
   border-radius: 4px;
   display: block;
   margin: 1em auto;
+}
+.reading .reading-body figure { margin: 1.5em 0; }
+.reading .reading-body figure img { margin: 0 auto; }
+.reading .reading-body figcaption {
+  margin-top: 0.6em;
+  font-family: var(--sans-stack);
+  font-size: 0.8em;
+  line-height: 1.5;
+  color: var(--subtext);
 }
 .reading .reading-body a { color: var(--accent-text); }
 .reading .reading-body blockquote {
