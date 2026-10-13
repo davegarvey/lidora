@@ -42,6 +42,11 @@ export interface Feed {
   sourceFetchedAt?: number | null;
   /** Local-only epoch ms at which the server will next contact the source while serving a retained copy. Never synced. */
   nextCheckAt?: number | null;
+  /** Local-only permanent redirect candidate and independent fetch count. */
+  redirectCandidateUrl?: string | null;
+  redirectCandidateCount?: number;
+  /** Local-only epoch ms when the publisher returned HTTP 410. */
+  removedAt?: number | null;
   /** ISO timestamp of the most recent item observed, for cadence learning. */
   lastItemPublishedAt?: number | null;
   /** Daily publish count observations used by the cadence-learning heuristic. */

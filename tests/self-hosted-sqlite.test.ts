@@ -23,7 +23,10 @@ describe('self-hosted SQLite D1 adapter', () => {
     const syncMigrations = await sync.prepare('SELECT name FROM d1_migrations ORDER BY id').all<{ name: string }>();
     const pollMigrations = await poll.prepare('SELECT name FROM d1_migrations ORDER BY id').all<{ name: string }>();
     expect(syncMigrations.results.length).toBeGreaterThan(1);
-    expect(pollMigrations.results).toEqual([{ name: '0001_feed_polling.sql' }]);
+    expect(pollMigrations.results).toEqual([
+      { name: '0001_feed_polling.sql' },
+      { name: '0002_permanent_feed_redirects.sql' },
+    ]);
 
     await sync.prepare('INSERT INTO users (sync_key, created_at) VALUES (?, ?)')
       .bind('a'.repeat(22), 1)

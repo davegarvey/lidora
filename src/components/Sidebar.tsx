@@ -322,6 +322,7 @@ interface FeedRowProps {
 
 function FeedRow(props: FeedRowProps) {
   const error = () => props.errors[props.feed.id];
+  const removed = () => props.feed.removedAt != null;
   const isFetching = () => props.fetchingFeeds.has(props.feed.id);
   const retryLabel = () => {
     const err = props.feed.refreshError;
@@ -337,8 +338,8 @@ function FeedRow(props: FeedRowProps) {
       <Show when={isFetching()}>
         <span class="fetching-spinner" title="Fetching…" />
       </Show>
-      <Show when={error()}>
-        <span class="error-mark" data-error={error()} title={retryLabel() ?? 'Last refresh failed'}><TriangleAlert size={12} /></span>
+      <Show when={error() || removed()}>
+        <span class="error-mark" data-error={removed() ? 'Publisher removed this feed (HTTP 410)' : error()} title={removed() ? 'Publisher removed this feed (HTTP 410)' : retryLabel() ?? 'Last refresh failed'}><TriangleAlert size={12} /></span>
       </Show>
       <button class="edit-btn" title={`Edit ${props.feed.title}`} onClick={(e) => { e.stopPropagation(); props.onEdit(); }}>
         <MoreHorizontal size={14} />

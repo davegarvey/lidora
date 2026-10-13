@@ -163,6 +163,9 @@ export async function applyRemoteState(
       lastError: local?.lastError,
       sourceFetchedAt: local?.sourceFetchedAt,
       nextCheckAt: local?.nextCheckAt,
+      redirectCandidateUrl: mergedUrl === local?.url ? local?.redirectCandidateUrl : null,
+      redirectCandidateCount: mergedUrl === local?.url ? local?.redirectCandidateCount : 0,
+      removedAt: mergedUrl === local?.url ? local?.removedAt : null,
       lastItemPublishedAt: local?.lastItemPublishedAt,
       recentPublishCounts: local?.recentPublishCounts,
     };

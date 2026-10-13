@@ -103,6 +103,11 @@ async function runCron(mf: Miniflare, cron = POLL_CRON): Promise<void> {
   await worker.scheduled({ cron, scheduledTime: new Date() });
 }
 
+async function clearFeedCache(mf: Miniflare, url: string): Promise<void> {
+  const response = await mf.dispatchFetch(`http://localhost/__test/clear-feed-cache?url=${encodeURIComponent(url)}`);
+  expect(response.status).toBe(204);
+}
+
 async function pollDb(mf: Miniflare) {
   return mf.getD1Database('POLL_DB');
 }
@@ -261,6 +266,94 @@ describe('server feed polling', () => {
       expect(row?.last_status).toBe(429);
       expect(row!.next_poll_at).toBeGreaterThanOrEqual(startedAt + 7_200_000 - 5_000);
       expect((await items(mf, key)).items).toEqual([]);
+    } finally {
+      await mf.dispose();
+    }
+  });
+
+  it('stops polling a feed after an upstream 410, including after maintenance', async () => {
+    const upstream: Upstream = {
+      requests: [],
+      respond: () => new Response('Gone', { status: 410 }),
+    };
+    const mf = await createMf(upstream);
+    try {
+      const key = makeSyncKey('gone');
+      const url = 'http://93.184.216.34/gone.xml';
+      await register(mf, key);
+      await subscribe(mf, key, 'gone-feed', url);
+      await pull(mf, key);
+
+      await runCron(mf);
+      const db = await pollDb(mf);
+      const row = await db.prepare('SELECT last_status, failures FROM polled_feeds WHERE feed_url = ?')
+        .bind(url).first<{ last_status: number; failures: number }>();
+      expect(row).toEqual({ last_status: 410, failures: 0 });
+      expect(feedRequests(upstream, '/gone.xml')).toBe(1);
+
+      await forceMaintenance(mf);
+      await runCron(mf);
+      expect(feedRequests(upstream, '/gone.xml')).toBe(1);
+    } finally {
+      await mf.dispose();
+    }
+  });
+
+  it('migrates synced subscriptions and retained items after two permanent redirects', async () => {
+    const oldUrl = 'http://93.184.216.34/old.xml';
+    const newUrl = 'http://93.184.216.34/new.xml';
+    const editedUrl = 'http://93.184.216.34/edited.xml';
+    const upstream: Upstream = {
+      requests: [],
+      respond: (url) => url.pathname === '/old.xml'
+        ? new Response(null, { status: 301, headers: { Location: newUrl } })
+        : new Response(rss(upstream.requests.filter((request) => request.endsWith('/new.xml')).length === 1
+          ? [{ guid: 'shared' }]
+          : [{ guid: 'shared' }, { guid: url.pathname === '/new.xml' ? 'from-new' : 'edited' }]), {
+          headers: { ETag: upstream.requests.filter((request) => request.endsWith('/new.xml')).length === 1 ? '"new"' : '"new-2"' },
+        }),
+    };
+    const mf = await createMf(upstream);
+    try {
+      const key = makeSyncKey('redirect');
+      const secondKey = makeSyncKey('redirect-second');
+      const editedKey = makeSyncKey('redirect-edited');
+      await register(mf, key);
+      await register(mf, secondKey);
+      await register(mf, editedKey);
+      await subscribe(mf, key, 'stable-feed-id', oldUrl);
+      await subscribe(mf, secondKey, 'second-feed-id', oldUrl);
+      await subscribe(mf, editedKey, 'edited-feed-id', oldUrl);
+      await pull(mf, key);
+      await pull(mf, secondKey);
+      await pull(mf, editedKey);
+
+      await runCron(mf);
+      const first = await (await pollDb(mf)).prepare(
+        'SELECT redirect_url, redirect_observations FROM polled_feeds WHERE feed_url = ?',
+      ).bind(oldUrl).first<{ redirect_url: string; redirect_observations: number }>();
+      expect(first).toEqual({ redirect_url: newUrl, redirect_observations: 1 });
+      expect(await registeredUrls(mf)).toEqual([oldUrl]);
+
+      await push(mf, editedKey, [{ feedId: 'edited-feed-id', feedUrl: editedUrl, deleted: 0 }]);
+      await clearFeedCache(mf, oldUrl);
+      await (await pollDb(mf)).prepare('UPDATE polled_feeds SET next_poll_at = 0 WHERE feed_url = ?').bind(oldUrl).run();
+      await runCron(mf);
+
+      expect(await registeredUrls(mf)).toEqual([newUrl, editedUrl].sort());
+      const syncFeeds = await (await mf.getD1Database('DB')).prepare(
+        'SELECT feed_id, feed_url FROM feeds WHERE deleted = 0 ORDER BY feed_id',
+      ).all<{ feed_id: string; feed_url: string }>();
+      expect(syncFeeds.results).toEqual([
+        { feed_id: 'edited-feed-id', feed_url: editedUrl },
+        { feed_id: 'second-feed-id', feed_url: newUrl },
+        { feed_id: 'stable-feed-id', feed_url: newUrl },
+      ]);
+      const itemRows = await (await pollDb(mf)).prepare(
+        'SELECT guid FROM polled_items WHERE feed_url = ? ORDER BY guid',
+      ).bind(newUrl).all<{ guid: string }>();
+      expect(itemRows.results.map((row) => row.guid)).toEqual(['from-new', 'shared']);
+      expect(feedRequests(upstream, '/old.xml')).toBe(2);
     } finally {
       await mf.dispose();
     }

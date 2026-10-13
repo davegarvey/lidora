@@ -11,12 +11,14 @@ export interface ConditionalHeaders {
 export interface FeedSourceStatus {
   sourceAgeMs: number;
   nextCheckInMs?: number;
+  permanentRedirectUrl?: string;
+  independentObservation: boolean;
 }
 
 export type FeedFetchResult =
   | ({ kind: 'not-modified' } & FeedSourceStatus)
   | ({ kind: 'modified'; body: string; etag?: string | null; lastModified?: string | null } & FeedSourceStatus)
-  | { kind: 'error'; status: number; message: string; retryAfterMs?: number };
+  | ({ kind: 'error'; status: number; message: string; retryAfterMs?: number } & Partial<FeedSourceStatus>);
 
 function parseRetryAfter(header: string | null): number | undefined {
   if (header == null) return undefined;
@@ -35,9 +37,17 @@ function sourceStatus(headers: Headers): FeedSourceStatus {
   const age = Number(headers.get('Age'));
   const retry = headers.get('X-Sift-Retry-After');
   const retrySeconds = retry == null ? NaN : Number(retry);
+  const cacheState = headers.get('X-Sift-Cache');
+  const independentObservation = cacheState === 'miss' || cacheState === 'revalidated'
+    || headers.get('X-Sift-Request-Source') === 'upstream';
+  const permanentRedirectUrl = cacheState === 'miss' || cacheState === 'revalidated'
+    ? headers.get('X-Sift-Permanent-Redirect') ?? undefined
+    : undefined;
   return {
     sourceAgeMs: Number.isFinite(age) && age > 0 ? age * 1000 : 0,
     nextCheckInMs: Number.isFinite(retrySeconds) && retrySeconds > 0 ? retrySeconds * 1000 : undefined,
+    permanentRedirectUrl,
+    independentObservation,
   };
 }
 
@@ -65,6 +75,7 @@ export async function fetchFeed(
       kind: 'error',
       status: res.status,
       message: `HTTP ${res.status}`,
+      ...sourceStatus(res.headers),
       retryAfterMs: res.status === 429 || res.status === 419
         ? parseRetryAfter(res.headers.get('Retry-After'))
         : undefined,

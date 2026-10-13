@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchUpstream } from '../server/fetch';
+import { fetchUpstream, fetchUpstreamWithPolicy, READER_USER_AGENT } from '../server/fetch';
+import packageMetadata from '../package.json';
 import { clearOriginGovernorForTests } from '../server/origin-governor';
 
 const PUBLIC_ORIGIN = 'http://93.184.216.34';
@@ -10,6 +11,10 @@ afterEach(() => {
 });
 
 describe('fetchUpstream redirects', () => {
+  it('uses the package version and public About URL in its User-Agent', () => {
+    expect(READER_USER_AGENT).toBe(`Sift/${packageMetadata.version} (+https://sift.davegarvey.workers.dev/about)`);
+  });
+
   it('follows public HTTP-to-HTTPS redirects and forces manual mode', async () => {
     const requests: string[] = [];
     const redirectModes: unknown[] = [];
@@ -28,6 +33,7 @@ describe('fetchUpstream redirects', () => {
     const response = await fetchUpstream(`${PUBLIC_ORIGIN}/start`);
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('X-Sift-Permanent-Redirect')).toBe('https://93.184.216.34/feed.xml');
     expect(await response.text()).toBe('final feed');
     expect(requests).toEqual([`${PUBLIC_ORIGIN}/start`, 'https://93.184.216.34/feed.xml']);
     expect(redirectModes).toEqual(['manual', 'manual']);
@@ -44,6 +50,32 @@ describe('fetchUpstream redirects', () => {
 
     await expect(fetchUpstream(`${PUBLIC_ORIGIN}/start`)).resolves.toMatchObject({ status: 200 });
     expect(requests).toEqual([`${PUBLIC_ORIGIN}/start`, `${PUBLIC_ORIGIN}/final`]);
+  });
+
+  it('does not report a temporary redirect as a permanent destination', async () => {
+    let calls = 0;
+    vi.stubGlobal('fetch', (async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response(null, { status: 302, headers: { Location: '/final' } })
+        : new Response('final', { status: 200 });
+    }) as typeof globalThis.fetch);
+
+    const response = await fetchUpstream(`${PUBLIC_ORIGIN}/start`);
+    expect(response.headers.get('X-Sift-Permanent-Redirect')).toBeNull();
+  });
+
+  it('keeps permanent redirect metadata limited to feed requests', async () => {
+    let calls = 0;
+    vi.stubGlobal('fetch', (async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response(null, { status: 301, headers: { Location: '/final' } })
+        : new Response('final', { status: 200 });
+    }) as typeof globalThis.fetch);
+
+    const response = await fetchUpstreamWithPolicy(`${PUBLIC_ORIGIN}/start`, {}, { route: 'article' });
+    expect(response.headers.get('X-Sift-Permanent-Redirect')).toBeNull();
   });
 
   it('blocks a private redirect before requesting its destination', async () => {

@@ -2,9 +2,10 @@ import { clearSharedFeedFailure, getSharedFeedFailure, recordSharedFeedFailure }
 import { fetchOriginRequest, type OriginPolicyOptions } from './origin-governor';
 import { sha256Hex } from './sync/tokens';
 import { FEED_MAX_BYTES } from './body-cap';
+import packageMetadata from '../package.json';
 
 export const UPSTREAM_TIMEOUT_MS = 15_000;
-export const READER_USER_AGENT = 'sift/0.0 (+https://github.com/dave/sift)';
+export const READER_USER_AGENT = `Sift/${packageMetadata.version} (+https://sift.davegarvey.workers.dev/about)`;
 export const FEED_CACHE_TTL_MS = 15 * 60_000;
 export const FEED_CACHE_MAX_FRESHNESS_MS = 24 * 60 * 60_000;
 export const FEED_STALE_RETENTION_MS = 24 * 60 * 60_000;
@@ -37,6 +38,7 @@ interface CachedFeed {
   lastModified: string | null;
   fetchedAt: number;
   freshUntil: number;
+  permanentRedirectUrl: string | null;
 }
 
 interface FeedRepresentationStore {
@@ -71,6 +73,7 @@ type RevalidationResult =
 const WORKER_FETCHED_AT_HEADER = 'X-Sift-Cache-Fetched-At';
 const WORKER_RETRY_AT_HEADER = 'X-Sift-Cache-Retry-At';
 const WORKER_FRESH_UNTIL_HEADER = 'X-Sift-Cache-Fresh-Until';
+const WORKER_REDIRECT_URL_HEADER = 'X-Sift-Permanent-Redirect';
 const feedCache = new Map<string, CachedFeed>();
 const feedRevalidations = new Map<string, Promise<RevalidationResult>>();
 const upstreamRequests = new Map<string, Promise<Response>>();
@@ -356,6 +359,8 @@ async function performUpstreamWithPolicy(
   try {
     let current = await validateUpstreamUrl(upstream, controller.signal);
     if (!current) throw new Error('Unsafe upstream URL');
+    const initial = current;
+    let sawPermanentRedirect = false;
 
     for (let redirects = 0; ; redirects += 1) {
       const response = await fetchOriginRequest(current, {
@@ -365,7 +370,10 @@ async function performUpstreamWithPolicy(
         signal: controller.signal,
       }, policy);
       if (response.status === 304 || response.status < 300 || response.status >= 400) {
-        return response;
+        if (policy.route !== 'feed' || !sawPermanentRedirect || current === initial) return response;
+        const responseHeaders = new Headers(response.headers);
+        responseHeaders.set('X-Sift-Permanent-Redirect', current);
+        return new Response(response.body, { status: response.status, statusText: response.statusText, headers: responseHeaders });
       }
       if (!REDIRECT_STATUSES.has(response.status) || redirects >= MAX_REDIRECTS) {
         await cancelResponse(response);
@@ -385,6 +393,7 @@ async function performUpstreamWithPolicy(
         throw new Error('Upstream redirect has an invalid location');
       }
       await cancelResponse(response);
+      if (response.status === 301 || response.status === 308) sawPermanentRedirect = true;
       current = await validateUpstreamUrl(next, controller.signal);
       if (!current) throw new Error('Unsafe upstream redirect');
     }
@@ -490,6 +499,7 @@ function responseHeaders(entry: CachedFeed, ageSeconds: number, state: FeedCache
   });
   if (entry.etag) headers.set('ETag', entry.etag);
   if (entry.lastModified) headers.set('Last-Modified', entry.lastModified);
+  if (entry.permanentRedirectUrl) headers.set('X-Sift-Permanent-Redirect', entry.permanentRedirectUrl);
   return headers;
 }
 
@@ -554,6 +564,7 @@ function workerCacheResponse(entry: CachedFeed): Response {
   });
   if (entry.etag) headers.set('ETag', entry.etag);
   if (entry.lastModified) headers.set('Last-Modified', entry.lastModified);
+  if (entry.permanentRedirectUrl) headers.set(WORKER_REDIRECT_URL_HEADER, entry.permanentRedirectUrl);
   return new Response(entry.body.slice(), { status: 200, headers });
 }
 
@@ -575,6 +586,7 @@ function workerFeedStore(cache: CacheApiLike): FeedRepresentationStore {
           lastModified: response.headers.get('Last-Modified'),
           fetchedAt,
           freshUntil,
+          permanentRedirectUrl: response.headers.get(WORKER_REDIRECT_URL_HEADER),
         };
         return isRetained(entry, Date.now()) ? entry : undefined;
       } catch {
@@ -734,6 +746,7 @@ async function revalidateFeed(
       lastModified: response.headers.get('Last-Modified') ?? previous.lastModified,
       fetchedAt,
       freshUntil: fetchedAt + feedFreshnessMs(response.headers, previous.body),
+      permanentRedirectUrl: response.headers.get('X-Sift-Permanent-Redirect'),
     };
     await storeCachedFeed(upstream, entry);
     await clearFeedRetry(upstream, db);
@@ -810,6 +823,7 @@ async function revalidateFeed(
     lastModified: response.headers.get('Last-Modified'),
     fetchedAt,
     freshUntil: fetchedAt + feedFreshnessMs(response.headers, bytes),
+    permanentRedirectUrl: response.headers.get('X-Sift-Permanent-Redirect'),
   };
   await storeCachedFeed(upstream, entry);
   await clearFeedRetry(upstream, db);

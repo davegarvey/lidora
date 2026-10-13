@@ -70,6 +70,9 @@ queries and 555 subrequests, within Workers Paid limits but above the Free
 plan's 50 subrequests per invocation. Remove `FEED_POLLING` to disable polling;
 browsers continue fetching feeds either way.
 
+The upstream User-Agent identifies the current Sift package version and links
+to the public About page.
+
 Two Workers rate limiting bindings, `PROXY_FETCH_LIMITER` and
 `PROXY_IMAGE_LIMITER`, enforce the per-client proxy limits described under
 [Proxy limits](#proxy-limits). They are declared in `wrangler.toml` and need
@@ -249,6 +252,12 @@ only to accounts that currently subscribe to that exact URL. Enable polling
 only if you are comfortable storing those URLs and feed entries on the server.
 If `FEED_POLLING` is not `true` or `POLL_DB` is not bound, the server stores
 no polled feed entries.
+
+For feed URLs, Sift adopts a 301 or 308 destination after two independent
+upstream fetches confirm the same validated URL. Temporary redirects do not
+change subscriptions. A feed that returns 410 is marked removed in the reader
+and is no longer refreshed automatically; server polling also stops for it.
+The feed editor lets you unsubscribe or change its URL.
 
 Sync data is kept until you delete it or the account expires. Settings → Sync
 → Delete sync data calls `DELETE /sync/account` (master key only), which in

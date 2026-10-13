@@ -40,14 +40,17 @@ interface DueFeed {
   etag: string | null;
   last_modified: string | null;
   failures: number;
+  redirect_url: string | null;
+  redirect_observations: number;
 }
 
-type PollOutcome = 'updated' | 'unchanged' | 'deferred' | 'failed';
+type PollOutcome = 'updated' | 'unchanged' | 'redirected' | 'deferred' | 'failed';
 
 export interface PollSummary {
   due: number;
   updated: number;
   unchanged: number;
+  redirected: number;
   deferred: number;
   failed: number;
   inserted: number;
@@ -166,6 +169,52 @@ async function recordFailure(pollDb: D1Database, feed: DueFeed, status: number, 
   }, now).run();
 }
 
+async function updateRedirectEvidence(
+  pollDb: D1Database,
+  feed: DueFeed,
+  destination: string | null,
+  observations: number,
+  now: number,
+): Promise<void> {
+  await pollDb.prepare(
+    'UPDATE polled_feeds SET redirect_url = ?, redirect_observations = ?, updated_at = ? WHERE feed_url = ?',
+  ).bind(destination, observations, now, feed.feed_url).run();
+}
+
+async function migrateConfirmedFeedUrl(
+  syncDb: D1Database,
+  pollDb: D1Database,
+  oldUrl: string,
+  newUrl: string,
+  validators: { etag: string | null; lastModified: string | null },
+  now: number,
+): Promise<boolean> {
+  const changed = await syncDb.prepare(
+    `UPDATE feeds SET feed_url = ?, feed_url_at = ?, row_at = ?
+     WHERE deleted = 0 AND feed_url = ?`,
+  ).bind(newUrl, now, now, oldUrl).run();
+  if ((changed.meta?.changes ?? 0) === 0) return false;
+  await syncDb.prepare(
+    'UPDATE feed_stats SET feed_url = ?, row_at = ? WHERE feed_url = ?',
+  ).bind(newUrl, now, oldUrl).run();
+  await pollDb.batch([
+    pollDb.prepare(
+      `INSERT INTO polled_feeds (feed_url, etag, last_modified, next_poll_at, failures, last_status, updated_at)
+       VALUES (?, ?, ?, ?, 0, 200, ?)
+       ON CONFLICT (feed_url) DO NOTHING`,
+    ).bind(newUrl, validators.etag, validators.lastModified, now + POLL_INTERVAL_MS, now),
+    pollDb.prepare(
+      `INSERT OR IGNORE INTO polled_items
+         (feed_url, guid, title, link, author, published_at, excerpt, html, thumbnail, first_seen_at)
+       SELECT ?, guid, title, link, author, published_at, excerpt, html, thumbnail, first_seen_at
+       FROM polled_items WHERE feed_url = ?`,
+    ).bind(newUrl, oldUrl),
+    pollDb.prepare('DELETE FROM polled_items WHERE feed_url = ?').bind(oldUrl),
+    pollDb.prepare('DELETE FROM polled_feeds WHERE feed_url = ?').bind(oldUrl),
+  ]);
+  return true;
+}
+
 async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, now: number): Promise<{ outcome: PollOutcome; inserted: number }> {
   const upstream = await validateUpstreamUrl(feed.feed_url);
   if (!upstream) {
@@ -174,33 +223,74 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
   }
 
   let response: Response;
+  let fetchState: string;
   try {
-    response = (await fetchFeedCached(upstream, {
+    const result = await fetchFeedCached(upstream, {
       etag: feed.etag ?? undefined,
       lastModified: feed.last_modified ?? undefined,
-    }, syncDb)).response;
+    }, syncDb);
+    response = result.response;
+    fetchState = result.state;
   } catch {
     await recordFailure(pollDb, feed, 502, undefined, now);
     return { outcome: 'failed', inserted: 0 };
   }
 
+  let feedUrl = feed.feed_url;
+  const independentObservation = fetchState === 'miss' || fetchState === 'revalidated'
+    || response.headers.get('X-Sift-Request-Source') === 'upstream';
+  if (independentObservation) {
+    const redirectUrl = response.status === 200 || response.status === 304
+      ? response.headers.get('X-Sift-Permanent-Redirect')
+      : null;
+    if (redirectUrl) {
+      const observations = feed.redirect_url === redirectUrl ? feed.redirect_observations + 1 : 1;
+      if (observations >= 2) {
+        const migrated = await migrateConfirmedFeedUrl(syncDb, pollDb, feed.feed_url, redirectUrl, {
+          etag: response.headers.get('ETag'),
+          lastModified: response.headers.get('Last-Modified'),
+        }, now);
+        if (migrated) feedUrl = redirectUrl;
+        else await updateRedirectEvidence(pollDb, feed, null, 0, now);
+      } else {
+        await updateRedirectEvidence(pollDb, feed, redirectUrl, observations, now);
+      }
+    } else if (feed.redirect_url) {
+      await updateRedirectEvidence(pollDb, feed, null, 0, now);
+    }
+  }
+
   if (response.status === 304) {
     const wait = retryAfterMs(response.headers, 'X-Sift-Retry-After') ?? 0;
-    await scheduleStatement(pollDb, feed.feed_url, {
+    await scheduleStatement(pollDb, feedUrl, {
       etag: feed.etag,
       lastModified: feed.last_modified,
       nextPollAt: now + Math.max(POLL_INTERVAL_MS, wait),
       failures: 0,
       status: 304,
     }, now).run();
-    return { outcome: 'unchanged', inserted: 0 };
+    return { outcome: feedUrl === feed.feed_url ? 'unchanged' : 'redirected', inserted: 0 };
   }
 
   if (response.status !== 200) {
     await response.body?.cancel();
     const retryMs = retryAfterMs(response.headers, 'Retry-After');
-    if (LOCAL_REQUEST_SOURCES.has(response.headers.get('X-Sift-Request-Source') ?? '')) {
+    const requestSource = response.headers.get('X-Sift-Request-Source') ?? '';
+    if (requestSource === 'upstream' && feed.redirect_url) {
+      await updateRedirectEvidence(pollDb, feed, null, 0, now);
+    }
+    if (response.status === 410 && ['', 'upstream', 'url-cooldown'].includes(requestSource)) {
       await scheduleStatement(pollDb, feed.feed_url, {
+        etag: feed.etag,
+        lastModified: feed.last_modified,
+        nextPollAt: Number.MAX_SAFE_INTEGER,
+        failures: feed.failures,
+        status: 410,
+      }, now).run();
+      return { outcome: 'failed', inserted: 0 };
+    }
+    if (LOCAL_REQUEST_SOURCES.has(requestSource)) {
+      await scheduleStatement(pollDb, feedUrl, {
         etag: feed.etag,
         lastModified: feed.last_modified,
         nextPollAt: now + Math.min(Math.max(retryMs ?? 0, POLL_DEFER_MIN_MS), POLL_RETRY_MAX_MS),
@@ -213,7 +303,7 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
     return { outcome: 'failed', inserted: 0 };
   }
 
-  const parsed = parseFeed(await response.text(), upstream);
+  const parsed = parseFeed(await response.text(), response.headers.get('X-Sift-Permanent-Redirect') ?? feedUrl);
   if (!parsed) {
     await recordFailure(pollDb, feed, 200, undefined, now);
     return { outcome: 'failed', inserted: 0 };
@@ -222,8 +312,8 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
   const chunks = chunkItemRows(parsed.items.slice(0, MAX_ITEMS_PER_POLL));
   const wait = retryAfterMs(response.headers, 'X-Sift-Retry-After') ?? 0;
   const results = await pollDb.batch([
-    ...chunks.map((rows) => insertItemsStatement(pollDb, feed.feed_url, rows, now)),
-    scheduleStatement(pollDb, feed.feed_url, {
+    ...chunks.map((rows) => insertItemsStatement(pollDb, feedUrl, rows, now)),
+    scheduleStatement(pollDb, feedUrl, {
       etag: response.headers.get('ETag'),
       lastModified: response.headers.get('Last-Modified'),
       nextPollAt: now + Math.max(POLL_INTERVAL_MS, wait),
@@ -234,7 +324,7 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
   const inserted = results
     .slice(0, chunks.length)
     .reduce((sum, result) => sum + (result.meta?.changes ?? 0), 0);
-  return { outcome: 'updated', inserted };
+  return { outcome: feedUrl === feed.feed_url ? 'updated' : 'redirected', inserted };
 }
 
 export function hostLanes<T extends { feed_url: string }>(feeds: T[]): T[][] {
@@ -355,7 +445,7 @@ export async function runPollMaintenance(syncDb: D1Database, pollDb: D1Database,
 export async function pollFeeds(syncDb: D1Database, pollDb: D1Database, options: PollOptions = {}): Promise<PollSummary> {
   const now = options.now ?? Date.now;
   const summary: PollSummary = {
-    due: 0, updated: 0, unchanged: 0, deferred: 0, failed: 0, inserted: 0, maintenance: false, storageFull: false,
+    due: 0, updated: 0, unchanged: 0, redirected: 0, deferred: 0, failed: 0, inserted: 0, maintenance: false, storageFull: false,
   };
 
   if (await maintenanceDue(pollDb, now())) {
@@ -368,8 +458,9 @@ export async function pollFeeds(syncDb: D1Database, pollDb: D1Database, options:
   const startedAt = now();
   const due = await pollDb
     .prepare(
-      `SELECT feed_url, etag, last_modified, failures FROM polled_feeds
-       WHERE next_poll_at <= ? ORDER BY next_poll_at ASC LIMIT ?`,
+      `SELECT feed_url, etag, last_modified, failures, redirect_url, redirect_observations FROM polled_feeds
+       WHERE next_poll_at <= ? AND (last_status IS NULL OR last_status != 410)
+       ORDER BY next_poll_at ASC LIMIT ?`,
     )
     .bind(startedAt, options.batch ?? DEFAULT_POLL_BATCH)
     .all<DueFeed>();

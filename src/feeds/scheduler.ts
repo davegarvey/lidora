@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { listFeeds, updateFeed, upsertFeed } from '../db/feeds';
+import { getFeed, listFeeds, updateFeed, upsertFeed } from '../db/feeds';
 import { bulkUpsertItems } from '../db/items';
 import { fetchFeed, type FeedSourceStatus } from './fetch';
 import { parseFeed, parsedToItems } from './parse';
@@ -13,6 +13,7 @@ import {
 } from '../db/types';
 import { isIdle } from '../util/idle';
 import { ensureFeedStats, getFeedStats } from '../db/stats';
+import { adoptFeedUrl } from './service';
 import { enqueueStatsIfSync } from '../sync/queue';
 import { runStorageRetention } from '../db/storage-retention';
 
@@ -73,6 +74,7 @@ export async function refreshStaleFeeds(options: RefreshOptions = {}): Promise<v
   const now = Date.now();
   const stale = feeds.filter((f) => {
     if (!f.url) return false;
+    if (f.removedAt != null) return false;
     if (target !== undefined && !target.has(f.id)) return false;
     if (f.refreshError && f.refreshError.retryAt > now) return false;
     if (forceAll) return true;
@@ -107,7 +109,7 @@ async function scheduleAutomaticRun(): Promise<void> {
   if (dueTimer) clearTimeout(dueTimer);
   const feeds = await listFeeds();
   const nextAt = feeds
-    .filter((feed) => Boolean(feed.url))
+    .filter((feed) => Boolean(feed.url) && feed.removedAt == null)
     .reduce((earliest, feed) => Math.min(earliest, scheduledFeedDueAt(feed, schedulerEpoch)), Number.POSITIVE_INFINITY);
   if (!Number.isFinite(nextAt)) return;
   dueTimer = setTimeout(() => {
@@ -163,6 +165,11 @@ async function recordFeedError(feed: Feed, message: string, status: number, retr
   } else {
     setFeedErrors((prev) => ({ ...prev, [feed.id]: message }));
   }
+  if (status === 410) {
+    await updateFeed(feed.id, { removedAt: Date.now(), refreshError: null, lastError: message });
+    onRefresh?.();
+    return;
+  }
   const attempts = (feed.refreshError?.attempts ?? 0) + 1;
   const refreshError: FeedRefreshError = {
     retryAt: nextRetryAt(status, retryAfterMs, attempts),
@@ -170,7 +177,7 @@ async function recordFeedError(feed: Feed, message: string, status: number, retr
     lastStatus: status,
     lastRetryAfter: retryAfterMs ?? null,
   };
-  await updateFeed(feed.id, { refreshError, lastError: message });
+  await updateFeed(feed.id, { refreshError, lastError: message, removedAt: null });
 }
 
 function clearFeedError(feed: Feed): void {
@@ -201,43 +208,75 @@ async function refreshFeedOnce(feed: Feed): Promise<void> {
       etag: feed.etag,
       lastModified: feed.lastModified,
     });
+    let workingFeed = feed;
+    if (result.independentObservation) {
+      const redirectUrl = result.kind === 'error' ? undefined : result.permanentRedirectUrl;
+      if (redirectUrl) {
+        const count = feed.redirectCandidateUrl === redirectUrl ? (feed.redirectCandidateCount ?? 0) + 1 : 1;
+        if (count >= 2) {
+          try {
+            await adoptFeedUrl(feed.id, redirectUrl);
+            const adopted = await getFeed(feed.id);
+            workingFeed = {
+              ...feed,
+              ...adopted,
+              url: redirectUrl,
+              redirectCandidateUrl: null,
+              redirectCandidateCount: 0,
+              removedAt: null,
+              etag: null,
+              lastModified: null,
+            };
+          } catch {
+            await updateFeed(feed.id, { redirectCandidateUrl: null, redirectCandidateCount: 0 });
+          }
+        } else {
+          workingFeed = { ...feed, redirectCandidateUrl: redirectUrl, redirectCandidateCount: count };
+          await updateFeed(feed.id, { redirectCandidateUrl: redirectUrl, redirectCandidateCount: count });
+        }
+      } else if (feed.redirectCandidateUrl) {
+        workingFeed = { ...feed, redirectCandidateUrl: null, redirectCandidateCount: 0 };
+        await updateFeed(feed.id, { redirectCandidateUrl: null, redirectCandidateCount: 0 });
+      }
+    }
     if (result.kind === 'error') {
-      await recordFeedError(feed, result.message, result.status, result.retryAfterMs);
+      await recordFeedError(workingFeed, result.message, result.status, result.retryAfterMs);
       return;
     }
     if (result.kind === 'not-modified') {
       const now = Date.now();
-      await updateFeed(feed.id, {
+      await updateFeed(workingFeed.id, {
         lastFetched: now,
         ...sourceFields(result, now),
         lastError: null,
         refreshError: null,
+        removedAt: null,
       });
-      clearFeedError(feed);
+      clearFeedError(workingFeed);
       return;
     }
-    const parsed = parseFeed(result.body, feed.url);
+    const parsed = parseFeed(result.body, result.permanentRedirectUrl ?? workingFeed.url);
     if (!parsed) {
-      await recordFeedError(feed, 'Failed to parse feed', 200);
+      await recordFeedError(workingFeed, 'Failed to parse feed', 200);
       return;
     }
-    const items = parsedToItems(parsed, feed.id);
+    const items = parsedToItems(parsed, workingFeed.id);
     let newItemIds: string[] = [];
     if (items.length > 0) {
       newItemIds = await bulkUpsertItems(items);
     }
     const lastItemPublishedAt = items.length
       ? Math.max(...items.map((i) => i.publishedAt))
-      : feed.lastItemPublishedAt ?? null;
+      : workingFeed.lastItemPublishedAt ?? null;
     const learnedIntervalMs =
-      feed.learnedIntervalMs > DEFAULT_LEARNED_INTERVAL_MS
+      workingFeed.learnedIntervalMs > DEFAULT_LEARNED_INTERVAL_MS
         ? DEFAULT_LEARNED_INTERVAL_MS
-        : adaptInterval(feed, newItemIds.length, Date.now() - (feed.lastFetched ?? Date.now()));
+        : adaptInterval(workingFeed, newItemIds.length, Date.now() - (workingFeed.lastFetched ?? Date.now()));
     const updatedFeed: Feed = {
-      ...feed,
-      title: feed.title || parsed.title,
-      htmlUrl: feed.htmlUrl ?? parsed.htmlUrl,
-      htmlUrlAt: feed.htmlUrlAt ?? (feed.htmlUrl == null && parsed.htmlUrl ? Date.now() : undefined),
+      ...workingFeed,
+      title: workingFeed.title || parsed.title,
+      htmlUrl: workingFeed.htmlUrl ?? parsed.htmlUrl,
+      htmlUrlAt: workingFeed.htmlUrlAt ?? (workingFeed.htmlUrl == null && parsed.htmlUrl ? Date.now() : undefined),
       lastFetched: Date.now(),
       ...sourceFields(result, Date.now()),
       etag: result.etag ?? null,
@@ -256,7 +295,7 @@ async function refreshFeedOnce(feed: Feed): Promise<void> {
       feedUrl: updatedFeed.url,
       title: updatedFeed.title,
     });
-    clearFeedError(feed);
+    clearFeedError(workingFeed);
   } finally {
     setFetchingFeeds((prev) => {
       const next = new Set(prev);
