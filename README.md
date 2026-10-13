@@ -15,6 +15,7 @@ provides multi-device sync and AI agent integration.
 - **Deploy anywhere**: local dev, Node/Bun server, Docker, or Cloudflare Workers — all from one codebase.
 - **Unread filter**: switch between Unread and All within the selected feed or tags. The choice is remembered on each device; Starred shows both read and unread saved articles.
 - **Full-text**: summary-only feeds get full-text extraction via Readability.
+- **Sanitised articles**: feed and extracted article HTML passes through an allowlist sanitiser (DOMPurify) before it is stored and again before it is displayed. Scripts, styles, forms, event handlers, `javascript:` links and same-origin frames are removed; images, figures, tables, links and media embeds are kept.
 
 Learn more about [Sift](https://sift.davegarvey.workers.dev/about), including its [privacy policy](https://sift.davegarvey.workers.dev/privacy) and [terms](https://sift.davegarvey.workers.dev/terms).
 
@@ -420,6 +421,9 @@ Connect agents through the MCP connector instead.
   without appearing in a feed refresh or sync pull. Unstarred unread records are
   removed after 365 days; read and starred records remain. Settings shows local
   storage usage and lets you request persistent browser storage.
+- **No Content-Security-Policy on the app shell.** Article HTML is sanitised, but
+  the app pages do not yet send a policy that would block inline script as a
+  second barrier.
 - **OPML import/export covers only the subscription list.** Read/starred state is
   intentionally not exported in v0 (no standard format).
 

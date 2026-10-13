@@ -2,6 +2,7 @@ import { createSignal, createEffect, createMemo, Show, onMount, onCleanup } from
 import { useApp } from '../state';
 import { ArrowLeft, ChevronLeft, ChevronRight, CircleQuestionMark, ExternalLink, Star } from 'lucide-solid';
 import { openItemForReading } from '../articles/service';
+import { sanitiseArticleHtml } from '../articles/sanitise';
 import { FocusModeToggle } from './FocusModeToggle';
 import { navigateReaderByOffset } from '../readerNavigation';
 import { humanRelativeTime } from '../util/time';
@@ -10,6 +11,7 @@ import { SWIPE, swipeDirection, isVerticalDominant, clampTranslate } from '../ut
 export function ReadingView() {
   const ctx = useApp();
   const [body, setBody] = createSignal<string>('');
+  const safeBody = createMemo(() => sanitiseArticleHtml(body()));
   const [extractionFailed, setExtractionFailed] = createSignal(false);
   const [loading, setLoading] = createSignal(true);
   const [showChromeTitle, setShowChromeTitle] = createSignal(false);
@@ -234,7 +236,7 @@ export function ReadingView() {
                   </a>
                 </div>
               </Show>
-              <div innerHTML={body()} />
+              <div innerHTML={safeBody()} />
             </div>
           </Show>
         </Show>
