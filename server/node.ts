@@ -8,6 +8,7 @@ import { parseTrustedProxyHops } from './proxy-guard';
 import { createSelfHostedDatabases } from './sqlite-d1';
 import { openNodeSqlite } from './node-sqlite';
 import { startSelfHostedJobs } from './self-hosted-jobs';
+import { mountAppShellPages } from './app-shell';
 
 loadEnv();
 
@@ -33,6 +34,7 @@ for (const page of ['about', 'privacy', 'terms']) {
   app.get(`/${page}`, serveStatic({ path: `./dist/${page}.html` }));
 }
 app.get('/connect', serveStatic({ path: './dist/connect.html' }));
+mountAppShellPages(app, serveStatic({ path: './dist/index.html' }));
 app.use('/assets/*', serveStatic({ root: './dist/assets' }));
 app.use('*', serveStatic({ root: './dist' }));
 
