@@ -32,6 +32,7 @@ function makeContext(collapsed = false, view: 'river' | 'reading' | 'settings' =
     modal: { kind: 'none' },
     returnToItemId: null,
     settingsPath: null,
+    pairResult: null,
   });
   const [feeds] = createSignal<Feed[]>([{
     id: 'f1',

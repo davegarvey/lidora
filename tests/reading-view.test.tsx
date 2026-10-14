@@ -46,6 +46,7 @@ describe('reading view focus-mode navigation', () => {
       modal: { kind: 'none' },
       returnToItemId: null,
       settingsPath: null,
+      pairResult: null,
     });
     const closeReading = vi.fn(async () => {});
     contextRef.value = {
@@ -127,6 +128,7 @@ describe('reading view article body', () => {
       modal: { kind: 'none' },
       returnToItemId: null,
       settingsPath: null,
+      pairResult: null,
     });
     contextRef.value = {
       state,

@@ -25,6 +25,12 @@ export function expiryLabel(expiresAt: number): string {
   return `${minutes} min`;
 }
 
+/** Format a remaining duration in milliseconds as "m:ss". */
+export function countdownLabel(remainingMs: number): string {
+  const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
 /** Format a Date as human-readable relative time with decaying precision.
  *  "2h ago" → "Wednesday" → "last month" → "Jun 2026" */
 export function humanRelativeTime(date: Date): string {

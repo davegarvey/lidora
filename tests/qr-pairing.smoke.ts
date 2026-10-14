@@ -83,12 +83,11 @@ test.describe('QR pairing', () => {
     // Inject sync key into IDB, then reload so bootSync registers with server.
     await injectSyncKey(pageA, syncKeyA);
 
-    // Open settings and verify sync became enabled.
-    await pageA.getByRole('button', { name: 'Settings' }).click({ force: true });
-    await pageA.waitForSelector('.modal');
-    await pageA.locator('.toggle[aria-checked="true"]').waitFor({ state: 'attached', timeout: 15_000 });
-    await pageA.getByRole('button', { name: 'Done' }).click({ force: true });
-    await pageA.waitForSelector('.modal', { state: 'detached' });
+    // Open Devices and verify sync became enabled.
+    await pageA.goto('/settings/devices');
+    await expect(pageA.getByRole('button', { name: 'Sync now' })).toBeVisible({ timeout: 15_000 });
+    await pageA.goto('/');
+    await pageA.waitForSelector('.sidebar');
 
     // Add a feed via the UI.
     await pageA.getByRole('button', { name: 'Add feed' }).click();
@@ -107,39 +106,33 @@ test.describe('QR pairing', () => {
       { timeout: 10_000 },
     );
 
-    // Generate a pairing code via the PairDeviceModal (source mode).
-    await pageA.getByRole('button', { name: 'Settings' }).click({ force: true });
-    await pageA.waitForSelector('.modal');
-    await pageA.getByRole('button', { name: 'Pair' }).click({ force: true });
-    await pageA.waitForSelector('.sync-grid__qr svg', { timeout: 5000 });
-    const displayCode = await pageA.locator('.sync-grid__code').textContent();
+    // Generate a pairing code from the Add a device card.
+    await pageA.goto('/settings/devices');
+    await pageA.getByRole('button', { name: 'Show pairing code' }).click();
+    await pageA.waitForSelector('.pair-code__qr svg', { timeout: 5000 });
+    const displayCode = await pageA.locator('.pair-code__value').textContent();
     expect(displayCode).toBeTruthy();
     const pairCode = displayCode!.replace('-', '');
-    await pageA.locator('.modal-center .btn.primary').click({ force: true });
-    await pageA.waitForSelector('.modal', { state: 'detached' });
 
     // ── Device B (target) ─────────────────────────────────────────────
     const ctxB = await browser.newContext();
     const pageB = await ctxB.newPage();
     await disableSw(pageB);
 
+    const redeemResponse = pageB.waitForResponse((res) => res.url().includes('/sync/redeem'), { timeout: 15_000 });
+    const pullResponse = pageB.waitForResponse((res) => res.url().includes('/sync/pull'), { timeout: 15_000 });
     await pageB.goto('/?pair=' + pairCode);
-    await pageB.waitForSelector('.sidebar');
 
-    // Wait for redeem to respond and return the sync key.
-    const redeemRes = await pageB.waitForResponse(
-      (res) => res.url().includes('/sync/redeem'),
-      { timeout: 10_000 },
-    );
+    const redeemRes = await redeemResponse;
     expect(redeemRes.status()).toBe(200);
     const redeemBody = await redeemRes.json() as { syncKey: string };
     expect(redeemBody.syncKey).toBeTruthy();
+    await pullResponse;
 
-    // Wait for the pull to respond.
-    await pageB.waitForResponse(
-      (res) => res.url().includes('/sync/pull'),
-      { timeout: 10_000 },
-    );
+    await expect(pageB.getByRole('status')).toHaveText('This device is now syncing', { timeout: 15_000 });
+    await expect(pageB).toHaveURL(/\/settings\/devices$/);
+    await pageB.goto('/');
+    await pageB.waitForSelector('.sidebar');
 
     // Verify the feed appears on Device B's sidebar (synced via push/pull).
     const feedTitleB = pageB.locator('.sidebar .feed .title').filter({ hasText: 'Test Feed' });

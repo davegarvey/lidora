@@ -6,6 +6,7 @@ import { createStore } from 'solid-js/store';
 import { listFeeds } from './db/feeds';
 import { getItem, listSelectedItems, markRead, toggleStar as dbToggleStar } from './db/items';
 import type { Feed, Item } from './db/types';
+import { pairingErrorMessage } from './sync/pairing';
 import { writeItemHistory, parseItemIdFromUrl, hashId, isStatsPath, itemIdFromHistoryState, parseSettingsPath, settingsUrl } from './routing';
 import type { SettingsSection } from './routing';
 import { getMeta, setMeta } from './db/meta';
@@ -95,14 +96,16 @@ type ModalKind =
   | { kind: 'shortcuts' }
   | { kind: 'add-feed' }
   | { kind: 'feed-editor'; feedId: string }
-  | { kind: 'pair-result'; success: boolean; message: string }
-  | { kind: 'confirm'; title: string; message: string; hint?: string; confirmLabel: string; danger?: boolean; onConfirm: () => void | Promise<void>; returnTo?: ModalKind }
-  | { kind: 'pair-device' }
+  | { kind: 'confirm'; title: string; message: string; hint?: string; confirmLabel: string; busyLabel?: string; danger?: boolean; onConfirm: () => void | Promise<void>; returnTo?: ModalKind }
   | { kind: 'agents' }
   ;
 
+export type PairResult = { kind: 'success' } | { kind: 'failure'; code: string; message: string };
+
 export interface AppState {
   view: ViewKind;
+  /** The outcome of a `?pair=` link, shown once by the Devices section. */
+  pairResult: PairResult | null;
   /** The Settings section on show; null shows the section list (Appearance on wide screens). */
   settingsPath: SettingsSection | null;
   /** The feed ID the river is currently scoped to; null = All. */
@@ -188,6 +191,7 @@ export const useApp = (): AppContext => {
 export const AppProvider: ParentComponent = (props) => {
   const [state, setStateInternal] = createStore<AppState>({
     view: typeof window !== 'undefined' && isStatsPath(window.location.pathname) ? 'stats' : isSettingsLocation() ? 'settings' : 'river',
+    pairResult: null,
     settingsPath: initialSettingsSection(),
     riverScope: null,
     activeTags: [],
@@ -624,11 +628,20 @@ export const AppProvider: ParentComponent = (props) => {
     if (!isValidSyncKey(key)) {
       throw new Error('Invalid sync key format');
     }
+    const previousKey = settings().syncKey ?? null;
     await setStoredSyncKey(key);
     await updateSettingsWith({ syncKey: key });
     try {
       // runFirstTimeSetup registers the key before its first pull.
       await triggerFirstTime();
+    } catch (e) {
+      if (previousKey) {
+        await setStoredSyncKey(previousKey);
+        await updateSettingsWith({ syncKey: previousKey });
+      } else {
+        await disableSync();
+      }
+      throw e;
     } finally {
       await reloadFeeds();
       await reloadItems();
@@ -654,6 +667,7 @@ export const AppProvider: ParentComponent = (props) => {
       await rotateSyncKey(oldKey, newKey);
     } catch (e) {
       console.error('Failed to rotate sync key on server:', e);
+      throw e;
     }
   };
 
@@ -799,18 +813,17 @@ export const AppProvider: ParentComponent = (props) => {
     const params = new URLSearchParams(window.location.search);
     const pairCode = params.get('pair');
     if (pairCode) {
-      let success = false;
-      let message = '';
+      let result: PairResult;
       try {
         const key = await redeemCode(pairCode);
         await pairSyncWithKey(key);
-        success = true;
-        message = 'Paired successfully';
+        result = { kind: 'success' };
       } catch (e) {
-        message = e instanceof Error ? e.message : 'Pairing failed';
+        result = { kind: 'failure', code: pairCode, message: pairingErrorMessage(e) };
       }
       history.replaceState(null, '', window.location.pathname);
-      openModal({ kind: 'pair-result', success, message });
+      setState({ pairResult: result });
+      openSettings('devices');
     }
   })().finally(() => setHydrated(true));
 

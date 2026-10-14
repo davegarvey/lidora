@@ -22,14 +22,14 @@
 
 ## 4. Devices, pairing and server data
 
-- [ ] 4.1 Devices sync-off state: explanation, the Add a device and Join cards side by side (stacked on narrow screens), and Collect new posts while Sift is closed when `/sync/capabilities` reports `items: true`.
-- [ ] 4.2 Devices sync-on state: status card with the full error text, Sync now, the collapsed Add a device card, Join a different sync instead, and the rejected-key message with a link to Server data.
-- [ ] 4.3 Add a device card: turn sync on when needed, issue a code only on expansion, refresh it while open, clear timers on collapse or leaving, QR, copy, countdown and waiting text beside the code, and inline errors with Retry.
-- [ ] 4.4 Join card: widened input, the sync key disclosure, Scan beside Pair, the no-camera text, the leaving-current-sync warning, success switching the section to sync-on in place, and errors that keep the entered value.
-- [ ] 4.5 Make `QrScannerOverlay` report results to the card that opened it, instead of opening the pair-result modal.
-- [ ] 4.6 Route `?pair=` boot results to the Devices section: the success status, or the join card expanded with the code filled in and the error shown.
-- [ ] 4.7 Server data: description, key ID, Stop syncing with an inline confirmation (including the agents warning), and Sign out other devices and agents and Delete data from the server with the confirmation dialog, returning to Devices after stopping or deleting.
-- [ ] 4.8 Update the rejected-key message in the sync status store.
+- [x] 4.1 Devices sync-off state: explanation, the Add a device and Join cards side by side (stacked on narrow screens), and Collect new posts while Sift is closed when `/sync/capabilities` reports `items: true`.
+- [x] 4.2 Devices sync-on state: status card with the full error text, Sync now, the collapsed Add a device card, Join a different sync instead, and the rejected-key message with a link to Server data.
+- [x] 4.3 Add a device card: turn sync on when needed, issue a code only on expansion, refresh it while open, clear timers on collapse or leaving, QR, copy, countdown and waiting text beside the code, and inline errors with Retry.
+- [x] 4.4 Join card: widened input, the sync key disclosure, Scan beside Pair, the no-camera text, the leaving-current-sync warning, success switching the section to sync-on in place, and errors that keep the entered value.
+- [x] 4.5 Make `QrScannerOverlay` report results to the card that opened it, instead of opening the pair-result modal.
+- [x] 4.6 Route `?pair=` boot results to the Devices section: the success status, or the join card expanded with the code filled in and the error shown.
+- [x] 4.7 Server data: description, key ID, Stop syncing with an inline confirmation (including the agents warning), and Sign out other devices and agents and Delete data from the server with the confirmation dialog, returning to Devices after stopping or deleting.
+- [x] 4.8 Update the rejected-key message in the sync status store.
 
 ## 5. Agents
 
@@ -40,7 +40,7 @@
 
 ## 6. Confirmation dialog and clean-up
 
-- [ ] 6.1 Rebuild `ConfirmModal` on a native `<dialog>` with a busy state, errors shown in the dialog and focus return. Remove `returnTo` and its handling in `App.tsx`, make callers rethrow failures, and check the feed editor's delete confirmation still works.
+- [x] 6.1 Rebuild `ConfirmModal` on a native `<dialog>` with a busy state, errors shown in the dialog and focus return. Make callers rethrow failures and check the feed editor's delete confirmation still works. `returnTo` stays until phase 3 removes `AgentsModal`, its only caller.
 - [ ] 6.2 Delete `SettingsDrawer`, `PairDeviceModal`, `PairResultModal` and `AgentsModal`, remove the `settings`, `pair-device`, `pair-result` and `agents` modal kinds, and remove unused styles (`.settings .*`, `.mcp-url-bar*`, `.sync-grid__label`, `.sync-grid__hint`).
 - [ ] 6.3 Update the README's Settings paths (Settings → Agents, Settings → Server data) and any other text that describes the old Sync section.
 

@@ -11,6 +11,7 @@ import { DevicesSection } from './DevicesSection';
 import { AgentsSection } from './AgentsSection';
 import { StorageSection } from './StorageSection';
 import { AboutSection } from './AboutSection';
+import { ServerDataSection } from './ServerDataSection';
 
 const TITLES: Record<SettingsSection, string> = {
   appearance: 'Appearance',
@@ -22,8 +23,6 @@ const TITLES: Record<SettingsSection, string> = {
   about: 'About',
 };
 
-const NOT_BUILT: readonly SettingsSection[] = ['server-data'];
-
 export function SettingsView() {
   const ctx = useApp();
   const [sync, setSync] = createSignal<boolean | null>(null);
@@ -34,8 +33,7 @@ export function SettingsView() {
   onCleanup(() => window.removeEventListener('resize', onResize));
 
   const sections = createMemo(() =>
-    availableSettingsSections({ sync: sync() === true, syncKey: Boolean(ctx.syncKey()) })
-      .filter((section) => !NOT_BUILT.includes(section)),
+    availableSettingsSections({ sync: sync() === true, syncKey: Boolean(ctx.syncKey()) }),
   );
 
   const requested = () => ctx.state.settingsPath;
@@ -125,6 +123,7 @@ export function SettingsView() {
                   <Match when={section === 'devices'}><DevicesSection /></Match>
                   <Match when={section === 'agents'}><AgentsSection /></Match>
                   <Match when={section === 'storage'}><StorageSection /></Match>
+                  <Match when={section === 'server-data'}><ServerDataSection /></Match>
                   <Match when={section === 'about'}><AboutSection /></Match>
                 </Switch>
               </div>

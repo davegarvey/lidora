@@ -2,6 +2,7 @@ import { Show, createSignal, onMount, onCleanup } from 'solid-js';
 import { X } from 'lucide-solid';
 import { useApp } from '../state';
 import { redeemCode } from '../sync/client';
+import { pairingErrorMessage } from '../sync/pairing';
 
 type ScanState = 'scanning' | 'pairing' | 'error';
 
@@ -76,9 +77,9 @@ export function QrScannerOverlay(props: { onClose: (paired?: boolean) => void; o
       await ctx.pairSyncWithKey(key);
       if (navigator.vibrate) navigator.vibrate(100);
       setTimeout(() => { if (mounted) props.onClose(true); }, 1200);
-    } catch {
+    } catch (e) {
       setState('error');
-      setErrorMsg('Failed to pair. The code may have expired. Try again or enter the code manually.');
+      setErrorMsg(`Couldn't pair: ${pairingErrorMessage(e)}. Try again or enter the code manually.`);
     }
   };
 
@@ -106,7 +107,7 @@ export function QrScannerOverlay(props: { onClose: (paired?: boolean) => void; o
       } else if (err.name === 'NotReadableError') {
         setErrorMsg('Camera is busy (e.g., in use by another app). Close other apps that use the camera and try again.');
       } else if (err.name === 'AbortError') {
-        setErrorMsg('Camera permission prompt was dismissed. Tap "Scan QR" to try again.');
+        setErrorMsg('Camera permission prompt was dismissed. Tap Try again to retry.');
       } else {
         setErrorMsg('Camera error. Enter the code manually.');
       }

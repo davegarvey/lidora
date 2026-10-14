@@ -45,7 +45,7 @@ export interface ItemsPage {
 }
 
 export const KEY_REJECTED_MESSAGE =
-  'The server no longer recognises this sync key. Pair this device again, or turn sync off.';
+  'The server no longer recognises this sync key. Join from another device again, or stop syncing on this device.';
 
 export class SyncClientError extends Error {
   constructor(

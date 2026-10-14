@@ -260,8 +260,8 @@ change subscriptions. A feed that returns 410 is marked removed in the reader
 and is no longer refreshed automatically; server polling also stops for it.
 The feed editor lets you unsubscribe or change its URL.
 
-Sync data is kept until you delete it or the account expires. Settings → Sync
-→ Delete sync data calls `DELETE /sync/account` (master key only), which in
+Sync data is kept until you delete it or the account expires. Settings →
+Server data → Delete data from the server calls `DELETE /sync/account` (master key only), which in
 one transaction deletes the account and every row keyed by its sync key:
 subscriptions (including removed ones still awaiting cleanup), read and starred
 flags, reading statistics, agent connections, pairing codes and the rate-limit
@@ -384,7 +384,7 @@ date and last use.
   expired or been revoked must be connected again.
 - **Revoke.** Revoke invalidates the grant's access and refresh tokens at once. It
   does not affect your devices.
-- **Kill switch.** Regenerating the sync key (Settings → Sync → Regenerate)
+- **Kill switch.** Regenerating the sync key (Settings → Server data → Sign out other devices and agents)
   stops every agent connection immediately. Deleting sync
   data does the same and removes the account.
 

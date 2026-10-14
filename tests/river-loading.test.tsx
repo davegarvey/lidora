@@ -57,6 +57,7 @@ function makeCtx() {
     modal: { kind: 'none' },
     returnToItemId: null,
     settingsPath: null,
+    pairResult: null,
   });
   const [feeds, setFeeds] = createSignal<Feed[]>([]);
   const [items, setItems] = createSignal<Item[]>([]);

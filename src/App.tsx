@@ -9,8 +9,6 @@ import { ReadingView } from './components/ReadingView';
 import { CommandPalette } from './components/CommandPalette';
 import { AddFeedModal } from './components/AddFeedModal';
 import { SettingsView } from './settings/SettingsView';
-import { PairResultModal } from './components/PairResultModal';
-import { PairDeviceModal } from './components/PairDeviceModal';
 import { AgentsModal } from './components/AgentsModal';
 import { ShortcutsOverlay } from './components/ShortcutsOverlay';
 import { ConfirmModal } from './components/ConfirmModal';
@@ -45,11 +43,11 @@ function Shell() {
     // Don't intercept typing into inputs/textareas.
     const target = e.target as HTMLElement | null;
     if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-      if (e.key === 'Escape' && ctx.state.modal.kind !== 'none') closeModalWithReturn();
+      if (e.key === 'Escape' && ctx.state.modal.kind !== 'none' && ctx.state.modal.kind !== 'confirm') closeModalWithReturn();
       return;
     }
     if (ctx.state.modal.kind !== 'none') {
-      if (e.key === 'Escape') closeModalWithReturn();
+      if (e.key === 'Escape' && ctx.state.modal.kind !== 'confirm') closeModalWithReturn();
       return;
     }
     if (ctx.state.view === 'reading') {
@@ -81,7 +79,7 @@ function Shell() {
       return;
     }
     if (ctx.state.view === 'settings') {
-      if (e.key === 'Escape' && !document.querySelector('dialog[open]')) {
+      if (e.key === 'Escape' && !document.querySelector('dialog[open], .scanner-overlay')) {
         e.preventDefault();
         ctx.closeSettings();
       }
@@ -245,13 +243,7 @@ function Shell() {
         <Backdrop><FeedEditorModal /></Backdrop>
       </Show>
       <Show when={ctx.state.modal.kind === 'confirm'}>
-        <Backdrop><ConfirmModal /></Backdrop>
-      </Show>
-      <Show when={ctx.state.modal.kind === 'pair-result'}>
-        <Backdrop><PairResultModal /></Backdrop>
-      </Show>
-      <Show when={ctx.state.modal.kind === 'pair-device'}>
-        <Backdrop><PairDeviceModal /></Backdrop>
+        <ConfirmModal />
       </Show>
       <Show when={ctx.state.modal.kind === 'agents'}>
         <Backdrop><AgentsModal /></Backdrop>

@@ -151,7 +151,7 @@ Version, a GitHub link, a Keyboard shortcuts row that opens the shortcuts overla
 
 ## Confirmation dialog
 
-`ConfirmModal` is rebuilt on a native `<dialog>` opened with `showModal()`, which gives focus containment, Escape handling and `aria-modal` semantics without custom code. While `onConfirm` runs, both buttons are disabled and the confirm button shows its busy label ("Deleting…"). If `onConfirm` throws, the dialog stays open and shows the error, so callers rethrow instead of swallowing failures. On close, focus returns to the control that opened the dialog. `returnTo` is removed: the page stays underneath, so there is nothing to return to. The feed editor's delete confirmation gets the same improvements.
+`ConfirmModal` is rebuilt on a native `<dialog>` opened with `showModal()`, which gives focus containment, Escape handling and `aria-modal` semantics without custom code. While `onConfirm` runs, both buttons are disabled and the confirm button shows its busy label ("Deleting…"). If `onConfirm` throws, the dialog stays open and shows the error, so callers rethrow instead of swallowing failures. On close, focus returns to the control that opened the dialog. Settings callers never use `returnTo`, because the page stays underneath. The field remains only while `AgentsModal` uses it and is removed with that modal. The feed editor's delete confirmation gets the same improvements.
 
 ## Feedback rules
 

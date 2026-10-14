@@ -21,6 +21,7 @@ vi.mock('../src/state', () => ({
 
 vi.mock('../src/sync/capabilities', () => ({
   isSyncAvailable: async () => syncRef.available,
+  getSyncCapabilities: async () => ({ sync: syncRef.available, stats: false, items: false }),
 }));
 
 let dispose: (() => void) | undefined;

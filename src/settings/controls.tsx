@@ -394,20 +394,22 @@ export function DangerAction(props: {
     onConfirm: () => void | Promise<void>;
   };
   onActivate?: () => void;
+  tone?: 'default' | 'danger';
 }) {
   const panel = createPanel();
+  const danger = () => props.tone !== 'default';
   return (
     <div class="danger-action">
-      <SettingRow label={props.label} description={props.description} danger>
+      <SettingRow label={props.label} description={props.description} danger={danger()}>
         <Show
           when={props.inline}
           fallback={
-            <button type="button" class="btn danger-outline" onClick={() => props.onActivate?.()}>
+            <button type="button" class={danger() ? 'btn danger-outline' : 'btn'} onClick={() => props.onActivate?.()}>
               {props.buttonLabel}
             </button>
           }
         >
-          <PanelButton panel={panel} variant="danger-outline" openOnly>{props.buttonLabel}</PanelButton>
+          <PanelButton panel={panel} variant={danger() ? 'danger-outline' : 'default'} openOnly>{props.buttonLabel}</PanelButton>
         </Show>
       </SettingRow>
       <Show when={props.inline}>
