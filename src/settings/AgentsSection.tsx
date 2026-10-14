@@ -29,6 +29,8 @@ const LABEL_MAX = 64;
 const SYNC_OFF_NOTE =
   'Agents use the copy of your subscriptions and reading progress stored on this Sift server. Connecting one turns this on.';
 
+const AGENTS_CHANGED_EVENT = 'sift:agents-changed';
+
 function approvalErrorMessage(e: unknown): string {
   if (e instanceof AgentApiError) {
     if (e.status === 404) return 'No request matches that code. Check it and try again.';
@@ -97,6 +99,7 @@ function ConnectCard() {
     if (!ctx.syncKey()) {
       try {
         await ctx.enableSync();
+        window.dispatchEvent(new Event(AGENTS_CHANGED_EVENT));
       } catch (e) {
         console.error('Failed to enable sync:', e);
         setError("Couldn't turn on sync");
@@ -193,7 +196,6 @@ function ConnectCard() {
 
 type ListState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; tokens: AgentTokenInfo[] };
 
-const AGENTS_CHANGED_EVENT = 'sift:agents-changed';
 
 function ConnectedAgents() {
   const ctx = useApp();
@@ -220,7 +222,9 @@ function ConnectedAgents() {
   };
 
   const reload = () => load(false);
-  createEffect(on(() => ctx.syncKey(), () => void load(list().kind !== 'ready')));
+  createEffect(on(() => ctx.syncKey(), (key, previous) => {
+    if (previous === undefined || !key) void load(list().kind !== 'ready');
+  }));
   window.addEventListener(AGENTS_CHANGED_EVENT, reload);
   onCleanup(() => window.removeEventListener(AGENTS_CHANGED_EVENT, reload));
 
@@ -356,6 +360,7 @@ function ApprovalCode() {
     if (ctx.syncKey()) return true;
     try {
       await ctx.enableSync();
+      window.dispatchEvent(new Event(AGENTS_CHANGED_EVENT));
       return true;
     } catch (e) {
       console.error('Failed to enable sync:', e);

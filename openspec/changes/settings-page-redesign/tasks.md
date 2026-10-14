@@ -46,7 +46,7 @@
 
 ## 7. Verification
 
-- [ ] 7.1 Run typecheck, lint, tests and `openspec validate settings-page-redesign --strict`.
-- [ ] 7.2 In the dev server, check every section on wide and narrow screens in light, dark and high-contrast themes, including back, Escape, reload and deep links.
+- [x] 7.1 Run typecheck, lint, tests and `openspec validate settings-page-redesign --strict`.
+- [x] 7.2 In the dev server, check every section on wide and narrow screens in light, dark and high-contrast themes, including back, Escape, reload and deep links.
 - [ ] 7.3 Check pairing between two browser profiles, by code, by pair link and by scanning, starting from both sync-off and sync-on states, and confirm no pairing code is issued until Add a device is expanded.
 - [ ] 7.4 Check with a screen reader that switches, the theme control, navigation and messages are announced.

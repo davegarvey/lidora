@@ -168,6 +168,26 @@ describe('Agents section', () => {
     expect(text()).not.toContain('Connecting one turns this on.');
   });
 
+  it('loads connected agents only after turning sync on has finished', async () => {
+    const [key, setKey] = createSignal<string | null>(null);
+    let finishRegistration: () => void = () => {};
+    enableSync = vi.fn(async () => {
+      await setStoredSyncKey(KEY);
+      setKey(KEY);
+      await new Promise<void>((resolve) => { finishRegistration = resolve; });
+    });
+    contextRef.value = { syncKey: key, enableSync } as unknown as AppContext;
+    await mount();
+    button('Connect an agent').click();
+    await vi.waitFor(() => expect(key()).toBe(KEY));
+    await flush();
+    expect(calls.some((c) => c.url === '/sync/tokens')).toBe(false);
+    finishRegistration();
+    await vi.waitFor(() => expect(calls.some((c) => c.url === '/sync/tokens')).toBe(true));
+    await vi.waitFor(() => expect(text()).toContain('No agents connected'));
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+  });
+
   it('shows an error and mints nothing when turning sync on fails', async () => {
     setContext({ key: null, enableFails: true });
     await mount();
