@@ -6,17 +6,14 @@ export function ConfirmModal() {
   const ctx = useApp();
   const modal = ctx.state.modal;
   if (modal.kind !== 'confirm') return null;
-  const { title, message, hint, confirmLabel, busyLabel, danger, onConfirm, returnTo } = modal;
+  const { title, message, hint, confirmLabel, busyLabel, danger, onConfirm } = modal;
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   let dialog: HTMLDialogElement | undefined;
   let alive = true;
 
-  const dismiss = () => {
-    ctx.closeModal();
-    if (returnTo) ctx.openModal(returnTo);
-  };
+  const dismiss = () => ctx.closeModal();
 
   const confirm = async () => {
     if (busy()) return;

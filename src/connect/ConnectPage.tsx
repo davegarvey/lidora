@@ -188,7 +188,7 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
               <button class="btn primary" disabled={busy()} onClick={() => void decide('approve')}>Allow</button>
               <button class="btn subtle" disabled={busy()} onClick={() => void decide('deny')}>Deny</button>
             </div>
-            <p class="connect__muted">Only allow agents you started yourself. You can disconnect an agent at any time in Settings → Sync → Agent access.</p>
+            <p class="connect__muted">Only allow agents you started yourself. You can disconnect an agent at any time in Settings → Agents.</p>
           </Match>
           <Match when={mode() === 'code'}>
             <h1>Connect {view()?.clientName} to your Sift?</h1>
@@ -203,8 +203,8 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
               </div>
               <div class="connect__qr" innerHTML={renderSyncKeyQr(view()!.approvalCode!)} aria-label="QR code of the approval code" />
             </Show>
-            <p>Open Sift on the device where you use it, go to Settings → Sync → Agent access, tap “Have an approval code?” and enter this code.</p>
-            <p class="connect__muted">Approval needs Sift with sync turned on. This page continues by itself once you approve.</p>
+            <p>Open Sift on the device where you use it, go to Settings → Agents, tap “Have an approval code?” and enter this code.</p>
+            <p class="connect__muted">Approving in Sift turns sync on if it is off. This page continues by itself once you approve.</p>
             <Show when={problem()}>
               <p class="error" role="alert">{problem()}</p>
             </Show>

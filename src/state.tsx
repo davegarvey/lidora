@@ -96,9 +96,7 @@ type ModalKind =
   | { kind: 'shortcuts' }
   | { kind: 'add-feed' }
   | { kind: 'feed-editor'; feedId: string }
-  | { kind: 'confirm'; title: string; message: string; hint?: string; confirmLabel: string; busyLabel?: string; danger?: boolean; onConfirm: () => void | Promise<void>; returnTo?: ModalKind }
-  | { kind: 'agents' }
-  ;
+  | { kind: 'confirm'; title: string; message: string; hint?: string; confirmLabel: string; busyLabel?: string; danger?: boolean; onConfirm: () => void | Promise<void> };
 
 export type PairResult = { kind: 'success' } | { kind: 'failure'; code: string; message: string };
 

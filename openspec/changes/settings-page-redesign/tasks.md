@@ -33,16 +33,16 @@
 
 ## 5. Agents
 
-- [ ] 5.1 Move Agent access into the Agents section, with the sync-off note and turning sync on before minting a link or approving a code.
-- [ ] 5.2 Add the Connected agents heading and the loading, empty and error states, an inline revoke confirmation within each row, reload after revoke, and report rename and revoke failures.
-- [ ] 5.3 Show the setup-instructions confirmation as a status line and the expired-link message.
-- [ ] 5.4 Update the consent page's sync-off message to point to Settings → Agents.
+- [x] 5.1 Move Agent access into the Agents section, with the sync-off note and turning sync on before minting a link or approving a code.
+- [x] 5.2 Add the Connected agents heading and the loading, empty and error states, an inline revoke confirmation within each row, reload after revoke, and report rename and revoke failures.
+- [x] 5.3 Show the setup-instructions confirmation as a status line and the expired-link message.
+- [x] 5.4 Update the consent page's sync-off message to point to Settings → Agents.
 
 ## 6. Confirmation dialog and clean-up
 
 - [x] 6.1 Rebuild `ConfirmModal` on a native `<dialog>` with a busy state, errors shown in the dialog and focus return. Make callers rethrow failures and check the feed editor's delete confirmation still works. `returnTo` stays until phase 3 removes `AgentsModal`, its only caller.
-- [ ] 6.2 Delete `SettingsDrawer`, `PairDeviceModal`, `PairResultModal` and `AgentsModal`, remove the `settings`, `pair-device`, `pair-result` and `agents` modal kinds, and remove unused styles (`.settings .*`, `.mcp-url-bar*`, `.sync-grid__label`, `.sync-grid__hint`).
-- [ ] 6.3 Update the README's Settings paths (Settings → Agents, Settings → Server data) and any other text that describes the old Sync section.
+- [x] 6.2 Delete `SettingsDrawer`, `PairDeviceModal`, `PairResultModal` and `AgentsModal`, remove the `settings`, `pair-device`, `pair-result` and `agents` modal kinds, and remove unused styles (`.settings .*`, `.mcp-url-bar*`, `.sync-grid__label`, `.sync-grid__hint`).
+- [x] 6.3 Update the README's Settings paths (Settings → Agents, Settings → Server data) and any other text that describes the old Sync section.
 
 ## 7. Verification
 

@@ -115,10 +115,4 @@ describe('ConfirmModal', () => {
     await vi.waitFor(() => expect(state.modal.kind).toBe('none'));
     expect(onConfirm).toHaveBeenCalledTimes(2);
   });
-
-  it('reopens the modal named by returnTo on close', () => {
-    const { openModal } = setup({ returnTo: { kind: 'agents' } });
-    button('Cancel').click();
-    expect(openModal).toHaveBeenLastCalledWith({ kind: 'agents' });
-  });
 });

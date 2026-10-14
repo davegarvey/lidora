@@ -304,12 +304,14 @@ export function PanelButton(props: {
   variant?: ButtonVariant;
   openOnly?: boolean;
   disabled?: boolean;
+  ariaLabel?: string;
 }) {
   const row = useContext(RowContext);
   return (
     <button
       type="button"
       class={`btn${props.variant && props.variant !== 'default' ? ` ${props.variant}` : ''}`}
+      aria-label={props.ariaLabel}
       ref={props.panel.triggerRef}
       aria-expanded={props.panel.expanded()}
       aria-controls={props.panel.id}

@@ -125,7 +125,7 @@ The `?pair=` boot flow redeems the code as now. On success it opens `/settings/d
 - When sync is off, a note under the button says: "Agents use the copy of your subscriptions and reading progress stored on this Sift server. Connecting one turns this on." **Connect an agent** then calls `enableSync` before minting the link. A failure is shown inline and leaves sync off.
 - The connection link panel is unchanged in function. The "setup instructions copied" confirmation becomes a separate status line with a check icon, and an expired link says "This link has expired" above **Create a new link**.
 - A **Connected agents** heading, then one of: a loading line, "No agents connected", a load error with Retry, or the agent list (unchanged identity and inline rename). Revoke expands an inline confirmation within the agent's row ("Revoke access for Claude? It loses access immediately and can be connected again later."). The list reloads after a revoke, and a failed revoke keeps the confirmation open with the error.
-- The "Have an approval code?" disclosure stays collapsed by default, because it is a rarely used fallback. It follows the same sync-off rule as Connect an agent, and its Scan button opens the same full-screen scanner.
+- The "Have an approval code?" disclosure stays collapsed by default, because it is a rarely used fallback. It follows the same sync-off rule as Connect an agent, and its Scan button opens the same full-screen scanner. Looking up a code needs the sync key, so with no key sync is turned on at lookup, before the user approves or denies. A failure is shown in the disclosure and leaves sync off.
 
 ### Storage
 
@@ -151,7 +151,7 @@ Version, a GitHub link, a Keyboard shortcuts row that opens the shortcuts overla
 
 ## Confirmation dialog
 
-`ConfirmModal` is rebuilt on a native `<dialog>` opened with `showModal()`, which gives focus containment, Escape handling and `aria-modal` semantics without custom code. While `onConfirm` runs, both buttons are disabled and the confirm button shows its busy label ("Deleting…"). If `onConfirm` throws, the dialog stays open and shows the error, so callers rethrow instead of swallowing failures. On close, focus returns to the control that opened the dialog. Settings callers never use `returnTo`, because the page stays underneath. The field remains only while `AgentsModal` uses it and is removed with that modal. The feed editor's delete confirmation gets the same improvements.
+`ConfirmModal` is rebuilt on a native `<dialog>` opened with `showModal()`, which gives focus containment, Escape handling and `aria-modal` semantics without custom code. While `onConfirm` runs, both buttons are disabled and the confirm button shows its busy label ("Deleting…"). If `onConfirm` throws, the dialog stays open and shows the error, so callers rethrow instead of swallowing failures. On close, focus returns to the control that opened the dialog. Settings callers never use `returnTo`, because the page stays underneath. The `returnTo` field has been removed along with `AgentsModal`, its only caller. The feed editor's delete confirmation gets the same improvements.
 
 ## Feedback rules
 
