@@ -98,7 +98,7 @@ export function ServerDataSection() {
             buttonLabel="Stop syncing"
             inline={{
               consequence: STOP_CONSEQUENCE + (agents() ? STOP_AGENTS : ''),
-              confirmLabel: 'Stop syncing',
+              confirmLabel: 'Yes, stop syncing',
               busyLabel: 'Stopping…',
               onConfirm: stop,
             }}

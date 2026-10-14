@@ -1,5 +1,5 @@
 import { Show, createSignal, createUniqueId, onMount } from 'solid-js';
-import { ScanLine } from 'lucide-solid';
+import { ChevronRight, ScanLine } from 'lucide-solid';
 import { useApp } from '../state';
 import { redeemCode } from '../sync/client';
 import { pairingErrorMessage, parsePairingInput } from '../sync/pairing';
@@ -135,7 +135,7 @@ export function JoinForm(props: JoinFormProps) {
           </div>
         </Show>
         <details class="join-form__key">
-          <summary>Use a sync key instead</summary>
+          <summary><ChevronRight size={14} aria-hidden="true" />Use a sync key instead</summary>
           <p>Enter a 22-character sync key in the same field. Keys are case-sensitive.</p>
         </details>
       </form>

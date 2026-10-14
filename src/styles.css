@@ -3441,7 +3441,7 @@ a:hover { text-decoration: underline; }
 }
 
 .device-cards--pair {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
 }
 
 .device-card {
@@ -3571,14 +3571,15 @@ a:hover { text-decoration: underline; }
 
 .join-form__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
 .join-form__input {
-  flex: 1 1 auto;
+  flex: 1 1 14rem;
   width: 100%;
-  min-width: 25ch;
+  min-width: 0;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
@@ -3598,7 +3599,23 @@ a:hover { text-decoration: underline; }
 }
 
 .join-form__key summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   cursor: pointer;
+  list-style: none;
+}
+
+.join-form__key summary::-webkit-details-marker {
+  display: none;
+}
+
+.join-form__key summary svg {
+  transition: transform 0.15s ease;
+}
+
+.join-form__key[open] summary svg {
+  transform: rotate(90deg);
 }
 
 .join-form__key p {

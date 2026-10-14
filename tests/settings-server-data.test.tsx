@@ -124,7 +124,7 @@ describe('Server data', () => {
     expect(panel.textContent).not.toContain('Agents will only see');
     expect(state.modal.kind).toBe('none');
     expect(disableSync).not.toHaveBeenCalled();
-    button('Stop syncing', panel)!.click();
+    button('Yes, stop syncing', panel)!.click();
     await vi.waitFor(() => expect(disableSync).toHaveBeenCalledTimes(1));
     expect(selectSettingsSection).toHaveBeenCalledWith('devices');
   });

@@ -66,6 +66,7 @@ The Devices section SHALL offer a Join from another device card with a "Pairing 
 - **WHEN** redeeming a code or the first-time sync fails
 - **THEN** the card SHALL show the error under the input
 - **AND** SHALL keep the entered value so the user can correct it and retry
+- **AND** the device's sync state SHALL be restored to what it was before the attempt: the previous key when it had one, otherwise sync off
 
 ### Requirement: Pair link results
 
