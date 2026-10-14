@@ -1,24 +1,24 @@
 ## 1. View and routing
 
-- [ ] 1.1 Add the `settings` view and `settingsPath` to app state, with `parseSettingsPath` and `settingsUrl` in `src/routing.ts` and unit tests for every path, unknown paths and sync-only paths when sync is unavailable.
-- [ ] 1.2 Implement the history rules (open pushes; wide-screen section switches replace; narrow-screen section opens push; panels never touch history; close returns or replaces with `/`) and restore the view on `popstate`.
-- [ ] 1.3 Handle Escape from the top layer down: the scanner or dialog closes first, then an expanded panel collapses, and Settings closes only when nothing is open and no input has focus.
-- [ ] 1.4 Point the sidebar Settings items (expanded and collapsed) and the River empty-state links at the new routes, with the active state and `aria-current`.
-- [ ] 1.5 Check direct requests for `/settings/...` on the Vite dev server, Workers, Node and Bun, and add an app-shell fallback to the Node and Bun adapters where it is missing.
+- [x] 1.1 Add the `settings` view and `settingsPath` to app state, with `parseSettingsPath` and `settingsUrl` in `src/routing.ts` and unit tests for every path, unknown paths and sync-only paths when sync is unavailable.
+- [x] 1.2 Implement the history rules (open pushes; wide-screen section switches replace; narrow-screen section opens push; panels never touch history; close returns or replaces with `/`) and restore the view on `popstate`.
+- [x] 1.3 Handle Escape from the top layer down: the scanner or dialog closes first, then an expanded panel collapses, and Settings closes only when nothing is open and no input has focus.
+- [x] 1.4 Point the sidebar Settings items (expanded and collapsed) and the River empty-state links at the new routes, with the active state and `aria-current`.
+- [x] 1.5 Check direct requests for `/settings/...` on the Vite dev server, Workers, Node and Bun, and add an app-shell fallback to the Node and Bun adapters where it is missing.
 
 ## 2. Layout and shared controls
 
-- [ ] 2.1 Build `SettingsView` with the wide layout (header, close button, section navigation, content) and the narrow layout (section list, back headers).
-- [ ] 2.2 Add `SettingRow`, `Switch`, `SegmentedControl`, `ActionButton`, `InlineMessage`, `ExpandingPanel`, `InlineConfirm` and `DangerAction` in `src/settings/controls.tsx`, with tests for labelling, keyboard use, focus movement, one-panel-per-section, busy states and failed confirmations.
-- [ ] 2.3 Add the styles to `styles.css` using existing tokens: Green for switches that are on, `--red` for danger actions, and the selection style only for the current section. Keep touch targets at least 44 px on narrow screens.
-- [ ] 2.4 Move focus to the section heading on navigation.
+- [x] 2.1 Build `SettingsView` with the wide layout (header, close button, section navigation, content) and the narrow layout (section list, back headers).
+- [x] 2.2 Add `SettingRow`, `Switch`, `SegmentedControl`, `ActionButton`, `InlineMessage`, `ExpandingPanel`, `InlineConfirm` and `DangerAction` in `src/settings/controls.tsx`, with tests for labelling, keyboard use, focus movement, one-panel-per-section, busy states and failed confirmations.
+- [x] 2.3 Add the styles to `styles.css` using existing tokens: Green for switches that are on, `--red` for danger actions, and the selection style only for the current section. Keep touch targets at least 44 px on narrow screens.
+- [x] 2.4 Move focus to the section heading on navigation.
 
 ## 3. Sections
 
-- [ ] 3.1 Appearance: theme segmented control and high-contrast switch.
-- [ ] 3.2 Subscriptions: feed count, Export (disabled with no feeds), and Import with an inline preview and an error for unreadable or empty files.
-- [ ] 3.3 Storage: summary line, persistence notice and action, the details list, and KB/MB/GB formatting with tests.
-- [ ] 3.4 About: version, repository link, Keyboard shortcuts action and public page links.
+- [x] 3.1 Appearance: theme segmented control and high-contrast switch.
+- [x] 3.2 Subscriptions: feed count, Export (disabled with no feeds), and Import with an inline preview and an error for unreadable or empty files.
+- [x] 3.3 Storage: summary line, persistence notice and action, the details list, and KB/MB/GB formatting with tests.
+- [x] 3.4 About: version, repository link, Keyboard shortcuts action and public page links.
 
 ## 4. Devices, pairing and server data
 

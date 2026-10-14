@@ -1,6 +1,6 @@
 import { createEffect, onMount, onCleanup, Show, type JSX } from 'solid-js';
 import { AppProvider, useApp } from './state';
-import { hashId, isStatsPath, itemIdFromHistoryState, parseItemIdFromUrl } from './routing';
+import { hashId, isStatsPath, itemIdFromHistoryState, parseItemIdFromUrl, parseSettingsPath } from './routing';
 import { navigateReaderByOffset } from './readerNavigation';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
@@ -8,7 +8,7 @@ import { ArticleListPane } from './components/ArticleListPane';
 import { ReadingView } from './components/ReadingView';
 import { CommandPalette } from './components/CommandPalette';
 import { AddFeedModal } from './components/AddFeedModal';
-import { SettingsDrawer } from './components/SettingsDrawer';
+import { SettingsView } from './settings/SettingsView';
 import { PairResultModal } from './components/PairResultModal';
 import { PairDeviceModal } from './components/PairDeviceModal';
 import { AgentsModal } from './components/AgentsModal';
@@ -80,6 +80,13 @@ function Shell() {
       }
       return;
     }
+    if (ctx.state.view === 'settings') {
+      if (e.key === 'Escape' && !document.querySelector('dialog[open]')) {
+        e.preventDefault();
+        ctx.closeSettings();
+      }
+      return;
+    }
     if (ctx.state.view === 'stats') return;
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
@@ -125,9 +132,17 @@ function Shell() {
   const onKey = (e: KeyboardEvent) => nav(e);
   const onPop = (event: PopStateEvent) => {
     const path = window.location.pathname;
-    if (path === '/') {
+    const settingsRoute = parseSettingsPath(path, { sync: true, syncKey: true });
+    if (settingsRoute) {
+      ctx.setState({
+        view: 'settings',
+        settingsPath: settingsRoute.section,
+        currentItem: null,
+        sidebarOpen: false,
+      });
+    } else if (path === '/') {
       if (ctx.state.view === 'reading') ctx.closeReading();
-      else if (ctx.state.view === 'stats') ctx.setState({ view: 'river' });
+      else if (ctx.state.view === 'stats' || ctx.state.view === 'settings') ctx.setState({ view: 'river' });
     } else if (isStatsPath(path)) {
       ctx.setState({
         view: 'stats',
@@ -183,6 +198,7 @@ function Shell() {
 
   const reading = () => ctx.state.view === 'reading';
   const stats = () => ctx.state.view === 'stats';
+  const settingsOpen = () => ctx.state.view === 'settings';
   const sidebarOpenAttr = () => String(ctx.state.sidebarOpen);
 
   return (
@@ -203,11 +219,14 @@ function Shell() {
         class="sidebar-backdrop"
         onClick={() => ctx.setState({ sidebarOpen: false })}
       />
-      <Show when={!stats()}>
+      <Show when={!stats() && !settingsOpen()}>
         <ArticleListPane />
       </Show>
       <Show when={stats()}>
         <Stats />
+      </Show>
+      <Show when={settingsOpen()}>
+        <SettingsView />
       </Show>
       <Show when={reading()}>
         <ReadingView />
@@ -218,9 +237,6 @@ function Shell() {
       </Show>
       <Show when={ctx.state.modal.kind === 'add-feed'}>
         <Backdrop><AddFeedModal /></Backdrop>
-      </Show>
-      <Show when={ctx.state.modal.kind === 'settings'}>
-        <Backdrop><SettingsDrawer /></Backdrop>
       </Show>
       <Show when={ctx.state.modal.kind === 'shortcuts'}>
         <Backdrop><ShortcutsOverlay /></Backdrop>

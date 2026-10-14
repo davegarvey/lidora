@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'solid-js/web';
 import { getDb } from '../src/db/open';
 import { setStoredSyncKey } from '../src/sync/key';
-import { SettingsDrawer } from '../src/components/SettingsDrawer';
+import { DevicesSection } from '../src/settings/DevicesSection';
 import type { AppContext } from '../src/state';
 
 const contextRef = vi.hoisted(() => ({ value: null as AppContext | null }));
@@ -46,8 +46,8 @@ function rowButton(label: string): HTMLButtonElement {
   return button;
 }
 
-async function mountDrawer(): Promise<() => void> {
-  const dispose = render(() => <SettingsDrawer />, document.body);
+async function mountSection(): Promise<() => void> {
+  const dispose = render(() => <DevicesSection />, document.body);
   await vi.waitFor(() => expect(document.body.textContent).toContain('Delete sync data'));
   return dispose;
 }
@@ -68,7 +68,7 @@ describe('settings: delete sync data', () => {
     const { modals } = makeContext();
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    const dispose = await mountDrawer();
+    const dispose = await mountSection();
     rowButton('Delete sync data').click();
 
     expect(modals).toHaveLength(1);
@@ -78,7 +78,7 @@ describe('settings: delete sync data', () => {
     expect(modal.danger).toBe(true);
     expect(modal.message).toContain('other paired devices will stop syncing');
     expect(modal.message).toContain('on this device is kept');
-    expect(modal.returnTo).toEqual({ kind: 'settings' });
+    expect(modal.returnTo).toBeUndefined();
     expect(fetchMock).not.toHaveBeenCalled();
     dispose();
   });
@@ -92,7 +92,7 @@ describe('settings: delete sync data', () => {
     });
     disableSync.mockImplementation(async () => { order.push('disable'); });
     vi.stubGlobal('fetch', fetchMock);
-    const dispose = await mountDrawer();
+    const dispose = await mountSection();
     rowButton('Delete sync data').click();
 
     await (modals[0] as ConfirmModal).onConfirm();
@@ -111,7 +111,7 @@ describe('settings: delete sync data', () => {
     const { modals, disableSync } = makeContext();
     vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 500 })));
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const dispose = await mountDrawer();
+    const dispose = await mountSection();
     rowButton('Delete sync data').click();
 
     await (modals[0] as ConfirmModal).onConfirm();
@@ -126,7 +126,7 @@ describe('settings: disable sync confirmation', () => {
   it('says server data is kept and points to the delete action', async () => {
     const { modals } = makeContext();
     vi.stubGlobal('fetch', vi.fn());
-    const dispose = await mountDrawer();
+    const dispose = await mountSection();
     const row = [...document.querySelectorAll<HTMLElement>('.row')].find((r) => r.textContent?.includes('Enable sync'));
     row?.querySelector<HTMLElement>('.toggle')?.click();
 

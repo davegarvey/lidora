@@ -6,11 +6,12 @@ import { createStore } from 'solid-js/store';
 import { listFeeds } from './db/feeds';
 import { getItem, listSelectedItems, markRead, toggleStar as dbToggleStar } from './db/items';
 import type { Feed, Item } from './db/types';
-import { writeItemHistory, parseItemIdFromUrl, hashId, isStatsPath, itemIdFromHistoryState } from './routing';
+import { writeItemHistory, parseItemIdFromUrl, hashId, isStatsPath, itemIdFromHistoryState, parseSettingsPath, settingsUrl } from './routing';
+import type { SettingsSection } from './routing';
 import { getMeta, setMeta } from './db/meta';
 import { DEFAULT_SETTINGS, DEFAULT_STATS_SORT, SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN } from './db/types';
 import type { AppSettings, StatsSortColumn, StatsSortDirection, StatsSortPreference, ThemePreference } from './db/types';
-import { defaultArticleListWidth, normalizeDesktopLayoutSettings, viewAfterScopeChange } from './desktopLayout';
+import { defaultArticleListWidth, isNarrowViewport, normalizeDesktopLayoutSettings, viewAfterScopeChange } from './desktopLayout';
 
 const SETTINGS_KEY = 'settings';
 
@@ -71,12 +72,27 @@ import { refreshTargetForSelection } from './feeds/scope';
 import { isIdle, onCatchup, clearActivityOnHide } from './util/idle';
 import { getFeedStats, getReadMarker } from './db/stats';
 
-type ViewKind = 'river' | 'reading' | 'stats';
+type ViewKind = 'river' | 'reading' | 'stats' | 'settings';
+
+const OPEN_SETTINGS_STATE = { settingsFromApp: true } as const;
+
+function historyFlag(name: 'settingsFromApp' | 'settingsListBelow'): boolean {
+  const current: unknown = history.state;
+  return typeof current === 'object' && current !== null && (current as Record<string, unknown>)[name] === true;
+}
+
+function initialSettingsSection(): SettingsSection | null {
+  if (typeof window === 'undefined') return null;
+  return parseSettingsPath(window.location.pathname, { sync: true, syncKey: true })?.section ?? null;
+}
+
+function isSettingsLocation(): boolean {
+  return typeof window !== 'undefined' && parseSettingsPath(window.location.pathname, { sync: true, syncKey: true }) !== null;
+}
 type ModalKind =
   | { kind: 'none' }
   | { kind: 'palette' }
   | { kind: 'shortcuts' }
-  | { kind: 'settings' }
   | { kind: 'add-feed' }
   | { kind: 'feed-editor'; feedId: string }
   | { kind: 'pair-result'; success: boolean; message: string }
@@ -87,6 +103,8 @@ type ModalKind =
 
 export interface AppState {
   view: ViewKind;
+  /** The Settings section on show; null shows the section list (Appearance on wide screens). */
+  settingsPath: SettingsSection | null;
   /** The feed ID the river is currently scoped to; null = All. */
   riverScope: string | null;
   /** Active tag filters (OR semantics). Mutually exclusive with riverScope. */
@@ -154,6 +172,9 @@ export interface AppContext {
   toggleStar: (item: Item) => Promise<void>;
   statsRevision: () => number;
   openStats: () => void;
+  openSettings: (section?: SettingsSection | null) => void;
+  selectSettingsSection: (section: SettingsSection | null) => void;
+  closeSettings: () => void;
 }
 
 const Ctx = createContext<AppContext>();
@@ -166,7 +187,8 @@ export const useApp = (): AppContext => {
 
 export const AppProvider: ParentComponent = (props) => {
   const [state, setStateInternal] = createStore<AppState>({
-    view: typeof window !== 'undefined' && isStatsPath(window.location.pathname) ? 'stats' : 'river',
+    view: typeof window !== 'undefined' && isStatsPath(window.location.pathname) ? 'stats' : isSettingsLocation() ? 'settings' : 'river',
+    settingsPath: initialSettingsSection(),
     riverScope: null,
     activeTags: [],
     currentItem: null,
@@ -336,7 +358,7 @@ export const AppProvider: ParentComponent = (props) => {
   };
 
   const setRiverScope = (feedId: string | null) => {
-    if (state.view === 'stats') history.pushState(null, '', '/');
+    if (state.view === 'stats' || state.view === 'settings') history.pushState(null, '', '/');
     const view = viewAfterScopeChange(state.view, typeof window === 'undefined' ? 0 : window.innerWidth);
     setState({ riverScope: feedId, activeTags: [], focusedIndex: -1, view });
   };
@@ -355,8 +377,51 @@ export const AppProvider: ParentComponent = (props) => {
     if (hadRiverSelection) void reloadItems();
   };
 
+  const openSettings = (section: SettingsSection | null = null) => {
+    if (state.view === 'settings') {
+      setState({ sidebarOpen: false });
+      if (section !== state.settingsPath) selectSettingsSection(section);
+      return;
+    }
+    const focused = state.view === 'river' ? items()[state.focusedIndex] : undefined;
+    history.pushState(OPEN_SETTINGS_STATE, '', settingsUrl(section));
+    setState({
+      view: 'settings',
+      settingsPath: section,
+      currentItem: null,
+      sidebarOpen: false,
+      returnToItemId: focused?.id ?? state.returnToItemId,
+    });
+  };
+
+  const selectSettingsSection = (section: SettingsSection | null) => {
+    if (state.view !== 'settings') return;
+    if (section === null) {
+      if (historyFlag('settingsListBelow')) {
+        history.back();
+        return;
+      }
+      history.replaceState({ settingsFromApp: historyFlag('settingsFromApp') }, '', settingsUrl(null));
+    } else if (isNarrowViewport() && state.settingsPath === null) {
+      history.pushState({ settingsFromApp: historyFlag('settingsFromApp'), settingsListBelow: true }, '', settingsUrl(section));
+    } else {
+      history.replaceState({ settingsFromApp: historyFlag('settingsFromApp') }, '', settingsUrl(section));
+    }
+    setState({ settingsPath: section });
+  };
+
+  const closeSettings = () => {
+    if (state.view !== 'settings') return;
+    if (historyFlag('settingsFromApp')) {
+      history.back();
+      return;
+    }
+    history.replaceState(null, '', '/');
+    setState({ view: 'river', settingsPath: null });
+  };
+
   const toggleTag = (tag: string) => {
-    if (state.view === 'stats') history.pushState(null, '', '/');
+    if (state.view === 'stats' || state.view === 'settings') history.pushState(null, '', '/');
     const view = viewAfterScopeChange(state.view, typeof window === 'undefined' ? 0 : window.innerWidth);
     const current = state.activeTags;
     const idx = current.indexOf(tag);
@@ -663,6 +728,9 @@ export const AppProvider: ParentComponent = (props) => {
     toggleStar,
     statsRevision,
     openStats,
+    openSettings,
+    selectSettingsSection,
+    closeSettings,
   };
 
   // Boot: load settings + initial feeds/items, then kick the scheduler.
