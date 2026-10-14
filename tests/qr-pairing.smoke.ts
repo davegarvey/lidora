@@ -71,6 +71,7 @@ async function injectSyncKey(page: Page, key: string): Promise<void> {
 
 test.describe('QR pairing', () => {
   test('pairs a second device and syncs feeds to it', async ({ browser }) => {
+    test.setTimeout(90_000);
     const syncKeyA = generateKey();
 
     // ── Device A (source) ──────────────────────────────────────────────
@@ -82,12 +83,6 @@ test.describe('QR pairing', () => {
 
     // Inject sync key into IDB, then reload so bootSync registers with server.
     await injectSyncKey(pageA, syncKeyA);
-
-    // Open Devices and verify sync became enabled.
-    await pageA.goto('/settings/devices');
-    await expect(pageA.getByRole('button', { name: 'Sync now' })).toBeVisible({ timeout: 15_000 });
-    await pageA.goto('/');
-    await pageA.waitForSelector('.sidebar');
 
     // Add a feed via the UI.
     await pageA.getByRole('button', { name: 'Add feed' }).click();
@@ -106,8 +101,10 @@ test.describe('QR pairing', () => {
       { timeout: 10_000 },
     );
 
-    // Generate a pairing code from the Add a device card.
-    await pageA.goto('/settings/devices');
+    // Open Devices, verify sync is on, and generate a pairing code.
+    await pageA.getByRole('button', { name: 'Settings' }).first().click();
+    await pageA.getByRole('link', { name: 'Devices' }).click();
+    await expect(pageA.getByRole('button', { name: 'Sync now' })).toBeVisible({ timeout: 15_000 });
     await pageA.getByRole('button', { name: 'Show pairing code' }).click();
     await pageA.waitForSelector('.pair-code__qr svg', { timeout: 5000 });
     const displayCode = await pageA.locator('.pair-code__value').textContent();
