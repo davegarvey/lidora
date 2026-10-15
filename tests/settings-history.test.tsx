@@ -3,6 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'solid-js/web';
 import { AppProvider, useApp, type AppContext } from '../src/state';
 import { App } from '../src/App';
+import { bootSync } from '../src/sync/init';
+
+vi.mock('../src/sync/init', () => ({
+  bootSync: vi.fn(async () => {}),
+  pullIfStale: vi.fn(async () => {}),
+  pullNow: vi.fn(async () => {}),
+  triggerFirstTime: vi.fn(async () => {}),
+}));
 
 vi.mock('../src/sync/capabilities', () => ({
   isSyncAvailable: async () => false,
@@ -43,6 +51,23 @@ afterEach(() => {
 });
 
 describe('settings history', () => {
+  it('stops startup when the provider unmounts while sync initialization is pending', async () => {
+    let finishSyncInitialization: (() => void) | undefined;
+    vi.mocked(bootSync).mockReturnValueOnce(new Promise<void>((resolve) => {
+      finishSyncInitialization = resolve;
+    }));
+    window.innerWidth = 1200;
+    document.body.innerHTML = '';
+    dispose = render(() => <AppProvider><Probe /></AppProvider>, document.body);
+    await vi.waitFor(() => expect(bootSync).toHaveBeenCalled());
+
+    dispose();
+    dispose = undefined;
+    vi.stubGlobal('URLSearchParams', undefined);
+    finishSyncInitialization?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
   it('opens the view from a direct request', async () => {
     await mount('/settings/storage');
     expect(ctx.state.view).toBe('settings');

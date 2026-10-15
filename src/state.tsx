@@ -252,6 +252,36 @@ export const AppProvider: ParentComponent = (props) => {
   });
   /** True once the boot sequence has finished reading feeds/items from IndexedDB. */
   const [hydrated, setHydrated] = createSignal(false);
+  let disposed = false;
+  let hiddenAt = 0;
+  let idleAtHide = false;
+  const onVisibilityChange = async () => {
+    if (disposed) return;
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      idleAtHide = isIdle();
+      clearActivityOnHide();
+    } else if (document.visibilityState === 'visible' && readMigrationState() === 'idle') {
+      const away = Date.now() - hiddenAt;
+      if (away > 5 * 60_000) {
+        await reloadFeeds();
+        if (disposed) return;
+        await reloadItems();
+        if (disposed) return;
+        if (!idleAtHide) {
+          await pullIfStale(30_000);
+        }
+      }
+    }
+  };
+  const onOnline = () => {
+    if (!disposed && readMigrationState() === 'idle') void pullIfStale(120_000);
+  };
+  onCleanup(() => {
+    disposed = true;
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibilityChange);
+    if (typeof window !== 'undefined') window.removeEventListener('online', onOnline);
+  });
   const [statsRevision, setStatsRevision] = createSignal(0);
   const [settings, setSettings] = createSignal<AppSettings>({
     theme: 'system',
@@ -769,10 +799,12 @@ export const AppProvider: ParentComponent = (props) => {
       return;
     }
     const s = await getSettings();
+    if (disposed) return;
     setSettings(s);
     applyTheme(s.theme, s.highContrast);
 
     await reloadFeeds();
+    if (disposed) return;
     const matchingFeed = s.lastFeedUrl ? feeds().find((f) => f.url === s.lastFeedUrl) : undefined;
     const validFeedId = matchingFeed?.id ?? null;
     setState({
@@ -784,19 +816,23 @@ export const AppProvider: ParentComponent = (props) => {
       focusMode: s.focusMode ?? false,
     });
     await reloadItems();
+    if (disposed) return;
     const hash = parseItemIdFromUrl();
     if (hash) {
       const historyId = itemIdFromHistoryState(history.state, hash);
       const item = items().find(i => hashId(i.id) === hash)
         ?? (historyId ? await getItem(historyId) : (await listSelectedItems({ feedIds: new Set(feeds().map((feed) => feed.id)), unreadOnly: false, starredOnly: false, limit: Infinity })).items.find((entry) => hashId(entry.id) === hash));
+      if (disposed) return;
       if (item) {
         setState({ view: 'reading', currentItem: item, sidebarOpen: false, returnToItemId: item.id });
         writeItemHistory(item, true);
         if (!storedItems().some((entry) => entry.id === item.id)) setItems([...storedItems(), item].sort((a, b) => b.publishedAt - a.publishedAt));
         if (!item.read) {
           await markReadAndSync(item, true);
+          if (disposed) return;
         }
         await reloadItems();
+        if (disposed) return;
       }
     }
     if (readMigrationState() === 'idle') startScheduler();
@@ -804,29 +840,11 @@ export const AppProvider: ParentComponent = (props) => {
     setOnSync(() => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
     onCatchup(() => { if (readMigrationState() === 'idle') { void pullIfStale(30_000); void reloadItems(); } });
 
-    let hiddenAt = 0;
-    let idleAtHide = false;
-
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'hidden') {
-        hiddenAt = Date.now();
-        idleAtHide = isIdle();
-        clearActivityOnHide();
-      } else if (document.visibilityState === 'visible' && readMigrationState() === 'idle') {
-        const away = Date.now() - hiddenAt;
-        if (away > 5 * 60_000) {
-          await reloadFeeds();
-          await reloadItems();
-          if (!idleAtHide) {
-            await pullIfStale(30_000);
-          }
-        }
-      }
-    }, { once: false });
-
-    window.addEventListener('online', () => { if (readMigrationState() === 'idle') void pullIfStale(120_000); });
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', onOnline);
 
     if (readMigrationState() === 'idle') await bootSync();
+    if (disposed) return;
     const params = new URLSearchParams(window.location.search);
     const pairCode = params.get('pair');
     if (pairCode) {
@@ -842,7 +860,9 @@ export const AppProvider: ParentComponent = (props) => {
       setState({ pairResult: result });
       openSettings('devices');
     }
-  })().finally(() => setHydrated(true));
+  })().finally(() => {
+    if (!disposed) setHydrated(true);
+  });
 
   return <Ctx.Provider value={value}>{props.children}</Ctx.Provider>;
 };

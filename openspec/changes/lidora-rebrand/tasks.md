@@ -20,12 +20,12 @@
 ## 4. Validate before release
 - [x] 4.1 Run typecheck, lint, build, unit/integration tests, MCP conformance and strict main/change OpenSpec validation.
 - [x] 4.2 Verify public/app branding, proxy behavior and custom headers; browser-check the routed Settings UX and migration, including interrupted recovery and concurrent tabs.
-- [ ] 4.3 Verify Vite, Node, Bun and Docker persistence against existing local data; Node/Bun tests and a Docker restart reused the SQLite files, while Vite/browser and live Cloudflare account continuity remain rollout checks.
+- [x] 4.3 Verify Vite, Node, Bun and Docker persistence against existing local data; browser smoke covered Vite, Node/Bun suites passed, and a Docker restart reused the SQLite files. Live Cloudflare account continuity remains a rollout check.
 - [ ] 4.4 Verify OAuth discovery, issuer/audience checks and reauthorization against the configured new origin; local protocol suites run, live cutover remains pending.
 - [x] 4.5 Audit tracked and generated names and document retained storage/infrastructure and old-origin migration exceptions.
 
 ## 5. Coordinate release and migration
-- [ ] 5.1 Prepare reviewable breaking-change PR/release notes with user and operator migration instructions; verify automated major-release detection. PR will be drafted with the release evidence and breaking-change instructions; automated major detection remains an operator check because the required local release command is intentionally not run.
+- [ ] 5.1 Prepare reviewable breaking-change PR/release notes with user and operator migration instructions; verify automated major-release detection. Draft PR #686 includes release evidence and breaking-change instructions; automated major detection remains an operator check because the required local release command is intentionally not run.
 - [ ] 5.2 Publish guided automatic migration and retain access for returning/offline devices; verify no user is stranded before any retirement.
 - [ ] 5.3 Release Lidora on current infrastructure with existing server data and one scheduler; verify both domains and the complete browser transfer before making the new domain primary.
 - [ ] 5.4 Coordinate repository/GHCR rename, build integration and local remotes; publish/pull the new image.
