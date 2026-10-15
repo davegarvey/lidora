@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1e1e2e" />
+    <title>Move your library to Lidora</title>
+    <style>
+      :root { color-scheme: light dark; font: 16px/1.55 system-ui, sans-serif; background: #1e1e2e; color: #cdd6f4; }
+      body { box-sizing: border-box; margin: 0 auto; padding: 48px 24px; max-width: 640px; }
+      h1 { color: #cba6f7; font: 500 2rem/1.2 Georgia, serif; }
+      p { max-width: 60ch; }
+      button, .button { display: inline-block; margin: 12px 12px 0 0; padding: 10px 16px; border: 0; border-radius: 8px; background: #cba6f7; color: #1e1e2e; font: inherit; font-weight: 650; cursor: pointer; text-decoration: none; }
+      button:focus-visible, .button:focus-visible { outline: 3px solid #f9e2af; outline-offset: 3px; }
+      #status { min-height: 3em; padding: 12px 0; }
+      #error { color: #f38ba8; }
+      #recovery { margin-top: 36px; padding-top: 20px; border-top: 1px solid #45475a; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Move your library to Lidora</h1>
+      <p id="status" role="status" aria-live="polite">Waiting for the Lidora page you opened from your previous library.</p>
+      <p id="error" role="alert" hidden></p>
+      <a id="open-app" class="button" href="/" hidden>Open Lidora</a>
+      <section id="recovery">
+        <h2>Restore a library backup</h2>
+        <p>A full backup can include private feed addresses and sync keys. Keep the file somewhere private.</p>
+        <button id="choose-backup" class="button" type="button">Choose backup file</button>
+        <input id="backup-file" type="file" accept="application/json,.json" hidden />
+      </section>
+    </main>
+    <script type="module" src="/src/migration/receive.ts"></script>
+  </body>
+</html>

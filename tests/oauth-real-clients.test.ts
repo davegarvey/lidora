@@ -42,7 +42,7 @@ async function setup(runtime: 'Node' | 'Workers' | 'Bun', documents: Record<stri
     const port = address.port;
     await new Promise<void>((resolve) => listener.close(() => resolve()));
     const child = spawn(bun, ['tests/oauth-bun-server.ts'], {
-      env: { ...process.env, PORT: String(port), SIFT_DATA_DIR: directory, DOCUMENTS: JSON.stringify(documents) },
+      env: { ...process.env, PORT: String(port), LIDORA_DATA_DIR: directory, DOCUMENTS: JSON.stringify(documents) },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let output = '';

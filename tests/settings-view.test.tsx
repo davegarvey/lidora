@@ -302,7 +302,7 @@ describe('Storage', () => {
     expect(details).toEqual(['Quota5.0 GB', 'Persistent storageOff', 'Article records1', 'Saved article bodies0']);
     const keep = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Keep data on this device');
     expect(keep).toBeDefined();
-    expect(document.body.textContent).toContain("Your browser may clear Sift's data when space runs low");
+    expect(document.body.textContent).toContain("Your browser may clear Lidora's data when space runs low");
   });
 
   it('says Unavailable where the browser reports nothing', async () => {
@@ -322,8 +322,8 @@ describe('About', () => {
     const { openModal } = makeContext('about');
     mount();
     expect(document.body.textContent).toMatch(/v\d+\.\d+\.\d+/);
-    expect(document.querySelector<HTMLAnchorElement>('a[href="https://github.com/davegarvey/sift"]')).not.toBeNull();
-    expect([...document.querySelectorAll('nav[aria-label="About Sift"] a')].map((a) => a.getAttribute('href'))).toEqual(['/about', '/privacy', '/terms']);
+    expect(document.querySelector<HTMLAnchorElement>('a[href="https://github.com/davegarvey/lidora"]')).not.toBeNull();
+    expect([...document.querySelectorAll('nav[aria-label="About Lidora"] a')].map((a) => a.getAttribute('href'))).toEqual(['/about', '/privacy', '/terms']);
     [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Show shortcuts')!.click();
     expect(openModal).toHaveBeenCalledWith({ kind: 'shortcuts' });
   });

@@ -94,7 +94,7 @@ beforeEach(async () => {
         body: typeof init?.body === 'string' ? init.body : null,
       };
       calls.push(call);
-      if (url === '/sync/connections') return respond({ connectionId: 'c1', url: 'https://sift.example/mcp/c/c1', expiresAt: Date.now() + mintExpiresIn });
+      if (url === '/sync/connections') return respond({ connectionId: 'c1', url: 'https://lidora.example/mcp/c/c1', expiresAt: Date.now() + mintExpiresIn });
       if (url === '/sync/tokens' && call.method === 'GET') return listStatus === 200 ? respond({ tokens }) : respond({}, listStatus);
       if (url === '/sync/tokens') return writeStatus === 204 ? respond(null, 204) : respond({}, writeStatus);
       if (url === '/oauth/approvals/abcd2345') return respond(pendingView);
@@ -146,7 +146,6 @@ describe('Agents section', () => {
     expect(text()).toContain('Connect an agent');
     expect(text()).toContain('Have an approval code?');
     expect(text()).not.toContain('Agents use the copy of your subscriptions');
-    expect(text()).not.toContain('siftctl');
     expect(text()).not.toContain('/mcp');
     expect(text().toLowerCase()).not.toContain('sync key');
     expect(document.querySelector('a[href="/openapi.json"]')).toBeNull();
@@ -162,7 +161,7 @@ describe('Agents section', () => {
     expect(text()).toContain('No agents connected');
     expect(calls.some((c) => c.url === '/sync/tokens')).toBe(false);
     button('Connect an agent').click();
-    await vi.waitFor(() => expect(text()).toContain('https://sift.example/mcp/c/c1'));
+    await vi.waitFor(() => expect(text()).toContain('https://lidora.example/mcp/c/c1'));
     expect(enableSync).toHaveBeenCalledTimes(1);
     expect(calls.findIndex((c) => c.url === '/sync/connections')).toBeGreaterThan(-1);
     expect(text()).not.toContain('Connecting one turns this on.');
@@ -201,8 +200,8 @@ describe('Agents section', () => {
   it('mints a link, copies the instructions and announces it in its own status line', async () => {
     await mount();
     button('Connect an agent').click();
-    await vi.waitFor(() => expect(text()).toContain('https://sift.example/mcp/c/c1'));
-    expect(writeText).toHaveBeenCalledWith(agentSetupPrompt('https://sift.example/mcp/c/c1'));
+    await vi.waitFor(() => expect(text()).toContain('https://lidora.example/mcp/c/c1'));
+    expect(writeText).toHaveBeenCalledWith(agentSetupPrompt('https://lidora.example/mcp/c/c1'));
     const mint = calls.find((c) => c.url === '/sync/connections');
     expect(mint?.method).toBe('POST');
     expect(mint?.headers['X-Sync-Key']).toBe(KEY);
@@ -218,9 +217,9 @@ describe('Agents section', () => {
     mintExpiresIn = 1100;
     await mount();
     button('Connect an agent').click();
-    await vi.waitFor(() => expect(text()).toContain('https://sift.example/mcp/c/c1'));
+    await vi.waitFor(() => expect(text()).toContain('https://lidora.example/mcp/c/c1'));
     await vi.waitFor(() => expect(text()).toContain('This link has expired'), { timeout: 4000 });
-    expect(text()).not.toContain('https://sift.example/mcp/c/c1');
+    expect(text()).not.toContain('https://lidora.example/mcp/c/c1');
     const note = [...document.querySelectorAll('p')].find((p) => p.textContent === 'This link has expired')!;
     const create = button('Create a new link');
     expect(note.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

@@ -153,7 +153,7 @@ function rejection(status: number, message: string, source: string, retryAfter?:
   const headers = new Headers({
     'Cache-Control': 'no-store',
     'Content-Type': 'text/plain; charset=utf-8',
-    'X-Sift-Request-Source': source,
+    'X-Lidora-Request-Source': source,
   });
   if (retryAfter !== undefined) headers.set('Retry-After', String(retryAfter));
   return new Response(message, { status, headers });

@@ -1,15 +1,15 @@
-# Sift
+# Lidora
 
-> Sift is a browser-first RSS reader. An AI agent can connect to a user's Sift account through a remote MCP server to read subscriptions, reading statistics and recent articles, and to manage subscriptions.
+> Lidora is a browser-first RSS reader. An AI agent can connect to a user's Lidora account through a remote MCP server to read subscriptions, reading statistics and recent articles, and to manage subscriptions.
 
 Paths in this file are relative to the origin that serves it, written `<origin>` where a full URL is meant.
 
 ## Connect
 
 - MCP endpoint: `<origin>/mcp` (Streamable HTTP, stateless, `POST` only). An unauthenticated request returns `401` with a `WWW-Authenticate` header that points to the OAuth metadata.
-- Connection URL: the user opens Settings → Agents → Connect an agent in Sift, which produces a single-use URL of the form `<origin>/mcp/c/<id>` that is valid for ten minutes. They paste it into the agent as a custom connector or remote MCP server, then press Allow on the consent page. The URL keeps working as an alias of `/mcp` afterwards, because clients store it.
-- Hand-configured clients: a client given only `<origin>/mcp` can still connect. The consent page shows an 8-character approval code, which the user enters in Sift under Settings → Agents → Have an approval code?
-- Sync must be turned on in Sift first. Without a sync account there is nothing to connect to.
+- Connection URL: the user opens Settings → Agents → Connect an agent in Lidora, which produces a single-use URL of the form `<origin>/mcp/c/<id>` that is valid for ten minutes. They paste it into the agent as a custom connector or remote MCP server, then press Allow on the consent page. The URL keeps working as an alias of `/mcp` afterwards, because clients store it.
+- Hand-configured clients: a client given only `<origin>/mcp` can still connect. The consent page shows an 8-character approval code, which the user enters in Lidora under Settings → Agents → Have an approval code?
+- Sync must be turned on in Lidora first. Without a sync account there is nothing to connect to.
 
 ## Authorisation
 
@@ -40,5 +40,5 @@ Identify feeds by `feedId` and items by `<feedId>::<guid>`, exactly as returned.
 ## HTTP clients
 
 - [OpenAPI document](/openapi.json): the sync API (`/sync/pull`, `/sync/push`, `/sync/items`, `/sync/stats/pull`) with the scope each operation needs. Send an OAuth access token as `Authorization: Bearer <token>`.
-- [About Sift](/about): what Sift is and how it handles data.
-- [Source and README](https://github.com/davegarvey/sift): deployment and configuration.
+- [About Lidora](/about): what Lidora is and how it handles data.
+- [Source and README](https://github.com/davegarvey/lidora): deployment and configuration.

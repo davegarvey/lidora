@@ -1,6 +1,6 @@
 import { For, Show, createMemo } from 'solid-js';
 import { useApp } from '../state';
-import { Settings, Plus, Search, ChevronLeft, ChevronRight, TriangleAlert, Star, CircleDot, MoreHorizontal, GripVertical, ChartNoAxesCombined } from 'lucide-solid';
+import { Settings, Plus, Search, ChevronLeft, ChevronRight, TriangleAlert, Star, CircleDot, MoreHorizontal, GripVertical, ChartNoAxesCombined, Rss } from 'lucide-solid';
 import { HelpIcon, RefreshIcon } from './Icons';
 import { SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN } from '../db/types';
 import { usesCollapsedFeedNavigation } from '../desktopLayout';
@@ -87,7 +87,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
     <nav class="sidebar" aria-label="Feeds" data-collapsed={String(collapsed())}>
       <Show when={!collapsed()}>
         <div class="sidebar-header">
-          <a class="sidebar-wordmark" href="/" title="Sift">sift</a>
+          <a class="sidebar-wordmark" href="/" title="Lidora">lidora</a>
           <button
             class="sidebar-collapse desktop-only"
             title="Close sidebar"
@@ -245,7 +245,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
 
       <div class="collapsed-rail" onClick={onCollapsedRailClick}>
           <div class="collapsed-brand">
-            <span class="sift-mark">s</span>
+            <Rss class="lidora-mark" size={20} />
             <span class="expand-icon">
               <ChevronRight size={14} />
             </span>

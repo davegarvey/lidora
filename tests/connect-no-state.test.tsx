@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('consent page in a browser that has never run Sift', () => {
+describe('consent page in a browser that has never run Lidora', () => {
   it('creates no IndexedDB database, local storage or sync registration', async () => {
     const view = {
       requestId: 'req1',

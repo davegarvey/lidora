@@ -105,7 +105,7 @@ export function createOAuthRoutes({ db, publicUrl, secret, fetchMetadata }: OAut
       const query = new URLSearchParams(signedQuery);
       const clientId = query.get('client_id') ?? '';
       const resource = `${base}/mcp${id ? `/c/${id}` : ''}`;
-      if (query.getAll('resource').length !== 1 || query.get('resource') !== resource) return errorPage(c, 'This request does not identify the Sift connection. Start again from your agent.');
+      if (query.getAll('resource').length !== 1 || query.get('resource') !== resource) return errorPage(c, 'This request does not identify the Lidora connection. Start again from your agent.');
       const auth = ctx.provider(issuer);
       try {
         await auth.api.getOAuthClientPublicPrelogin({ body: { client_id: clientId, oauth_query: signedQuery } });

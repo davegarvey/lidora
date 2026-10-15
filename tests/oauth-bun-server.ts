@@ -2,7 +2,7 @@ import { createApp } from '../server/handle';
 import { openBunSqlite } from '../server/bun-sqlite';
 import { createSelfHostedDatabases } from '../server/sqlite-d1';
 
-const databases = await createSelfHostedDatabases(process.env.SIFT_DATA_DIR!, openBunSqlite);
+const databases = await createSelfHostedDatabases(process.env.LIDORA_DATA_DIR!, openBunSqlite);
 const documents = JSON.parse(process.env.DOCUMENTS ?? '{}') as Record<string, unknown>;
 const app = createApp({
   db: databases.sync as unknown as D1Database,

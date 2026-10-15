@@ -26,7 +26,7 @@ export function AddDeviceCard() {
     <div class="device-card">
       <h3 class="device-card__title">Add a device</h3>
       <p class="device-card__text">
-        Pair another phone or computer with a code. Sync keeps your subscriptions and reading progress on this Sift server so your devices can stay in step.
+        Pair another phone or computer with a code. Sync keeps your subscriptions and reading progress on this Lidora server so your devices can stay in step.
       </p>
       <div>
         <PanelButton panel={panel}>{panel.expanded() ? 'Hide code' : 'Show pairing code'}</PanelButton>

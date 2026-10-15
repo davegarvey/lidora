@@ -112,7 +112,7 @@ export function ServerDataSection() {
           />
           <DangerAction
             label="Delete data from the server"
-            description="Removes everything Sift stores on the server for your devices and agents. Data on this device is kept."
+            description="Removes everything Lidora stores on the server for your devices and agents. Data on this device is kept."
             buttonLabel="Delete"
             onActivate={remove}
           />

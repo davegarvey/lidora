@@ -141,7 +141,11 @@ export interface DBSchema {
   readMarkers: ReadMarker;
 }
 
-export const DB_NAME = 'sift';
+export function databaseNameForHost(hostname: string): string {
+  return hostname === 'lidora.app' || hostname === 'lidora.localhost' ? 'lidora' : 'sift';
+}
+
+export const DB_NAME = databaseNameForHost(typeof window === 'undefined' ? '' : window.location.hostname);
 export const DB_VERSION = 11;
 
 export const DEFAULT_LEARNED_INTERVAL_MS = 60 * 60 * 1000;

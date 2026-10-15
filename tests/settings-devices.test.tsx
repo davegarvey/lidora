@@ -122,8 +122,8 @@ describe('Devices: sync off', () => {
     const { enableSync } = makeContext();
     stubFetch(() => new Response(null, { status: 500 }));
     await mount();
-    expect(text()).toContain('Collect new posts while Sift is closed');
-    expect(text()).toContain('stores your subscriptions on this Sift server');
+    expect(text()).toContain('Collect new posts while Lidora is closed');
+    expect(text()).toContain('stores your subscriptions on this Lidora server');
     button('Turn on')!.click();
     await vi.waitFor(() => expect(enableSync).toHaveBeenCalledTimes(1));
   });

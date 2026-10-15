@@ -31,7 +31,7 @@ function isolateProxyResponse(csp: string): MiddlewareHandler {
 
 function proxyError(response: Response): Response {
   const headers = new Headers({ 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' });
-  for (const name of ['Retry-After', 'X-Sift-Retry-After', 'X-Sift-Request-Source', 'X-Sift-Cache']) {
+  for (const name of ['Retry-After', 'X-Lidora-Retry-After', 'X-Lidora-Request-Source', 'X-Lidora-Cache']) {
     const value = response.headers.get(name);
     if (value) headers.set(name, value);
   }
@@ -91,19 +91,19 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     }
 
     // Pass through 304 with no body.
-    const retryAfter = upstreamRes.headers.get('X-Sift-Retry-After');
+    const retryAfter = upstreamRes.headers.get('X-Lidora-Retry-After');
 
     if (upstreamRes.status === 304) {
       const headers = new Headers({
         ETag: upstreamRes.headers.get('ETag') ?? '',
         'Last-Modified': upstreamRes.headers.get('Last-Modified') ?? '',
         Age: upstreamRes.headers.get('Age') ?? '0',
-        'X-Sift-Cache': upstreamRes.headers.get('X-Sift-Cache') ?? feedResult.state,
-        'X-Sift-Request-Source': upstreamRes.headers.get('X-Sift-Request-Source') ?? 'feed-cache',
+        'X-Lidora-Cache': upstreamRes.headers.get('X-Lidora-Cache') ?? feedResult.state,
+        'X-Lidora-Request-Source': upstreamRes.headers.get('X-Lidora-Request-Source') ?? 'feed-cache',
       });
-      if (retryAfter) headers.set('X-Sift-Retry-After', retryAfter);
-      const permanentRedirectUrl = upstreamRes.headers.get('X-Sift-Permanent-Redirect');
-      if (permanentRedirectUrl) headers.set('X-Sift-Permanent-Redirect', permanentRedirectUrl);
+      if (retryAfter) headers.set('X-Lidora-Retry-After', retryAfter);
+      const permanentRedirectUrl = upstreamRes.headers.get('X-Lidora-Permanent-Redirect');
+      if (permanentRedirectUrl) headers.set('X-Lidora-Permanent-Redirect', permanentRedirectUrl);
       return new Response(null, { status: 304, headers });
     }
 
@@ -119,15 +119,15 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     headers.set('Content-Type', 'application/xml; charset=utf-8');
     headers.set('Cache-Control', 'no-cache, no-store');
     headers.set('Age', upstreamRes.headers.get('Age') ?? '0');
-    headers.set('X-Sift-Cache', upstreamRes.headers.get('X-Sift-Cache') ?? feedResult.state);
-    headers.set('X-Sift-Request-Source', upstreamRes.headers.get('X-Sift-Request-Source') ?? 'upstream');
+    headers.set('X-Lidora-Cache', upstreamRes.headers.get('X-Lidora-Cache') ?? feedResult.state);
+    headers.set('X-Lidora-Request-Source', upstreamRes.headers.get('X-Lidora-Request-Source') ?? 'upstream');
     const etagHeader = upstreamRes.headers.get('ETag');
     if (etagHeader) headers.set('ETag', etagHeader);
     const lastModified = upstreamRes.headers.get('Last-Modified');
     if (lastModified) headers.set('Last-Modified', lastModified);
-    if (retryAfter) headers.set('X-Sift-Retry-After', retryAfter);
-    const permanentRedirectUrl = upstreamRes.headers.get('X-Sift-Permanent-Redirect');
-    if (permanentRedirectUrl) headers.set('X-Sift-Permanent-Redirect', permanentRedirectUrl);
+    if (retryAfter) headers.set('X-Lidora-Retry-After', retryAfter);
+    const permanentRedirectUrl = upstreamRes.headers.get('X-Lidora-Permanent-Redirect');
+    if (permanentRedirectUrl) headers.set('X-Lidora-Permanent-Redirect', permanentRedirectUrl);
     return new Response(capBody(upstreamRes.body, FEED_MAX_BYTES), { status: 200, headers });
   });
 
@@ -147,7 +147,7 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     } catch {
       const response = badGateway('Failed to fetch upstream article');
       response.headers.set('Cache-Control', 'no-store');
-      response.headers.set('X-Sift-Request-Source', 'local-gate');
+      response.headers.set('X-Lidora-Request-Source', 'local-gate');
       return response;
     }
 
@@ -166,7 +166,7 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     const headers = new Headers();
     headers.set('Content-Type', 'text/html; charset=utf-8');
     headers.set('Cache-Control', 'no-cache, no-store');
-    headers.set('X-Sift-Request-Source', upstreamRes.headers.get('X-Sift-Request-Source') ?? 'upstream');
+    headers.set('X-Lidora-Request-Source', upstreamRes.headers.get('X-Lidora-Request-Source') ?? 'upstream');
     const etagHeader = upstreamRes.headers.get('ETag');
     if (etagHeader) headers.set('ETag', etagHeader);
     const lastModified = upstreamRes.headers.get('Last-Modified');
@@ -192,7 +192,7 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     } catch {
       const response = badGateway('Failed to fetch upstream image');
       response.headers.set('Cache-Control', 'no-store');
-      response.headers.set('X-Sift-Request-Source', 'local-gate');
+      response.headers.set('X-Lidora-Request-Source', 'local-gate');
       return response;
     }
 
@@ -217,7 +217,7 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     const headers = new Headers();
     headers.set('Content-Type', contentType);
     headers.set('Cache-Control', 'public, max-age=2592000, immutable');
-    headers.set('X-Sift-Request-Source', upstreamRes.headers.get('X-Sift-Request-Source') ?? 'upstream');
+    headers.set('X-Lidora-Request-Source', upstreamRes.headers.get('X-Lidora-Request-Source') ?? 'upstream');
     return new Response(capBody(upstreamRes.body, IMAGE_MAX_BYTES), { status: upstreamRes.status, headers });
   });
 

@@ -152,7 +152,7 @@ export function River() {
   const [dbStatus, setDbStatus] = createSignal(getDbStatus());
   onCleanup(onDbStatusChange(() => setDbStatus(getDbStatus())));
   const loadingMessage = () => {
-    if (dbStatus() === 'blocked') return 'Close other Sift tabs to finish updating…';
+    if (dbStatus() === 'blocked') return 'Close other Lidora tabs to finish updating…';
     if (dbStatus() === 'upgrading') return 'Updating your library…';
     const fetching = ctx.fetchingFeeds();
     const scope = refreshTargetForSelection(ctx.feeds(), ctx.state.riverScope, ctx.state.activeTags);
@@ -284,7 +284,7 @@ function EmptyState() {
     };
     return (
       <div class="empty-state">
-        <div class="headline">Welcome to Sift</div>
+        <div class="headline">Welcome to Lidora</div>
         <p class="welcome-copy">Follow the websites you like and read their new posts in one place. Everything stays in this browser; no account needed.</p>
         <div class="welcome-actions">
         <button type="button" class="primary-cta" onClick={() => ctx.openModal({ kind: 'add-feed' })}>
@@ -301,7 +301,7 @@ function EmptyState() {
         </button>
         </div>
         <Show when={sampleError()}><p class="welcome-copy" role="status">A sample feed could not be added. Try again or add a feed manually.</p></Show>
-        <a class="welcome-about" href="/about">About Sift</a>
+        <a class="welcome-about" href="/about">About Lidora</a>
       </div>
     );
   }

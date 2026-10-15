@@ -96,7 +96,7 @@ Settings SHALL include a Devices section, rendered only when the server reports 
 
 #### Scenario: Collecting posts without another device
 - **WHEN** sync is disabled and `/sync/capabilities` reports `items: true`
-- **THEN** the section SHALL display a secondary "Collect new posts while Sift is closed" action that turns sync on for this device
+- **THEN** the section SHALL display a secondary "Collect new posts while Lidora is closed" action that turns sync on for this device
 - **AND** SHALL state that this stores the subscriptions on the server
 
 #### Scenario: Sync-on state
@@ -150,7 +150,7 @@ The Server data section SHALL offer three actions, each with a one-sentence desc
 
 ### Requirement: Sync key generation and storage
 
-When the user takes an action that turns device sync on, the system SHALL generate a 128-bit cryptographically random sync key, encode it as URL-safe base64 (22 characters), and persist it in the browser's IndexedDB. The actions that turn sync on are Add a device, Collect new posts while Sift is closed, Connect an agent and approving an agent with an approval code. The sync key SHALL be the user's identity for sync purposes; no account, email, or password is required.
+When the user takes an action that turns device sync on, the system SHALL generate a 128-bit cryptographically random sync key, encode it as URL-safe base64 (22 characters), and persist it in the browser's IndexedDB. The actions that turn sync on are Add a device, Collect new posts while Lidora is closed, Connect an agent and approving an agent with an approval code. The sync key SHALL be the user's identity for sync purposes; no account, email, or password is required.
 
 #### Scenario: User enables sync for the first time
 - **WHEN** the user takes an action that turns sync on and no sync key is currently stored
@@ -235,7 +235,7 @@ If `triggerFirstTime()` (and thus the initial push + pull) fails for any reason 
 When turning sync on fails, the card or section whose action turned it on SHALL display an inline error next to that action, with a Retry action, and SHALL log the error details to the browser console.
 
 #### Scenario: Error shown on sync failure
-- **WHEN** the user activates Add a device, Collect new posts while Sift is closed, or Connect an agent
+- **WHEN** the user activates Add a device, Collect new posts while Lidora is closed, or Connect an agent
 - **AND** turning sync on fails
 - **THEN** an inline error message SHALL appear next to that action
 - **AND** the error details SHALL be logged to the browser console via `console.error`
@@ -247,7 +247,7 @@ When turning sync on fails, the card or section whose action turned it on SHALL 
 
 ### Requirement: Sync is opt-in
 
-The system SHALL NOT enable, configure, or perform sync until the user takes an action that turns sync on: Add a device, Join from another device, Collect new posts while Sift is closed, Connect an agent, approving an agent with an approval code, or opening a pairing link. Existing users SHALL see no change in behavior until they take one of these actions.
+The system SHALL NOT enable, configure, or perform sync until the user takes an action that turns sync on: Add a device, Join from another device, Collect new posts while Lidora is closed, Connect an agent, approving an agent with an approval code, or opening a pairing link. Existing users SHALL see no change in behavior until they take one of these actions.
 
 #### Scenario: User with sync disabled sees no sync activity
 - **WHEN** sync is not enabled in the user's settings

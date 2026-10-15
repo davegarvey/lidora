@@ -69,7 +69,7 @@ describe('shared feed cache', () => {
     expect(calls).toBe(1);
     expect(await hit.response.text()).toBe('<rss>one</rss>');
     expect(hit.response.headers.get('Age')).toBe(String(Math.floor((FEED_CACHE_TTL_MS - 1000) / 1000)));
-    expect(hit.response.headers.get('X-Sift-Cache')).toBe('hit');
+    expect(hit.response.headers.get('X-Lidora-Cache')).toBe('hit');
 
     vi.advanceTimersByTime(2000);
     await fetchFeedCached(url);
@@ -227,7 +227,7 @@ describe('shared feed cache', () => {
     const second = await fetchFeedCached(url);
     expect(first.response.status).toBe(419);
     expect(second.response.status).toBe(419);
-    expect(second.response.headers.get('X-Sift-Cache')).toBe('cooldown');
+    expect(second.response.headers.get('X-Lidora-Cache')).toBe('cooldown');
     expect(calls).toBe(1);
 
     expect(first.response.headers.get('Retry-After')).toBe(String(6 * 60 * 60));
@@ -301,7 +301,7 @@ describe('shared feed cache', () => {
     expect(first.response.status).toBe(200);
     expect(await first.response.text()).toBe('<rss>redirected</rss>');
     expect(second.response.status).toBe(200);
-    expect(second.response.headers.get('X-Sift-Cache')).not.toBe('cooldown');
+    expect(second.response.headers.get('X-Lidora-Cache')).not.toBe('cooldown');
     expect(calls).toBe(2);
   });
 
@@ -319,7 +319,7 @@ describe('shared feed cache', () => {
     clearFeedCacheForTests();
     const suppressed = await fetchFeedCached(url);
     expect(suppressed.response.status).toBe(419);
-    expect(suppressed.response.headers.get('X-Sift-Cache')).toBe('cooldown');
+    expect(suppressed.response.headers.get('X-Lidora-Cache')).toBe('cooldown');
     expect(calls).toBe(1);
   });
 
@@ -354,7 +354,7 @@ describe('shared feed cache', () => {
     clearFeedCacheForTests();
     const suppressed = await fetchFeedCached(url, {}, db);
     expect(suppressed.response.status).toBe(419);
-    expect(suppressed.response.headers.get('X-Sift-Cache')).toBe('cooldown');
+    expect(suppressed.response.headers.get('X-Lidora-Cache')).toBe('cooldown');
     expect(calls).toBe(1);
   });
 
@@ -395,7 +395,7 @@ describe('shared feed cache', () => {
     vi.advanceTimersByTime(FEED_CACHE_TTL_MS + 1);
     const failed = await fetchFeedCached(url);
     expect(failed.response.status).toBe(200);
-    expect(failed.response.headers.get('X-Sift-Cache')).toBe('stale');
+    expect(failed.response.headers.get('X-Lidora-Cache')).toBe('stale');
     expect(await failed.response.text()).toBe('<rss>one</rss>');
 
     vi.advanceTimersByTime(6 * 60 * 60_000);
@@ -494,7 +494,7 @@ describe('shared feed cache', () => {
     await fetchFeedCached(url);
     const hit = await fetchFeedCached(url);
     expect(await hit.response.text()).toBe('<rss>fallback</rss>');
-    expect(hit.response.headers.get('X-Sift-Cache')).toBe('hit');
+    expect(hit.response.headers.get('X-Lidora-Cache')).toBe('hit');
     expect(calls).toBe(1);
   });
 
@@ -536,7 +536,7 @@ describe('feed cache freshness and stale serving', () => {
 
     await fetchFeedCached(url);
     const hit = await fetchFeedCached(url);
-    expect(hit.response.headers.get('X-Sift-Cache')).toBe('hit');
+    expect(hit.response.headers.get('X-Lidora-Cache')).toBe('hit');
     expect(hit.response.headers.has('Set-Cookie')).toBe(false);
     expect(calls()).toBe(1);
   });
@@ -549,7 +549,7 @@ describe('feed cache freshness and stale serving', () => {
 
     await fetchFeedCached(url);
     vi.advanceTimersByTime(60 * 60_000 - 1000);
-    expect((await fetchFeedCached(url)).response.headers.get('X-Sift-Cache')).toBe('hit');
+    expect((await fetchFeedCached(url)).response.headers.get('X-Lidora-Cache')).toBe('hit');
     vi.advanceTimersByTime(2000);
     await fetchFeedCached(url);
     expect(calls()).toBe(2);
@@ -652,7 +652,7 @@ describe('feed cache freshness and stale serving', () => {
     vi.advanceTimersByTime(FEED_CACHE_TTL_MS + 1);
     await fetchFeedCached(url);
     vi.advanceTimersByTime(2 * 60 * 60_000 - 1000);
-    expect((await fetchFeedCached(url)).response.headers.get('X-Sift-Cache')).toBe('hit');
+    expect((await fetchFeedCached(url)).response.headers.get('X-Lidora-Cache')).toBe('hit');
     expect(calls()).toBe(2);
   });
 
@@ -668,17 +668,17 @@ describe('feed cache freshness and stale serving', () => {
     vi.advanceTimersByTime(FEED_CACHE_TTL_MS + 60_000);
     const first = await fetchFeedCached(url);
     expect(first.response.status).toBe(200);
-    expect(first.response.headers.get('X-Sift-Cache')).toBe('stale');
-    expect(first.response.headers.get('X-Sift-Retry-After')).toBe('600');
+    expect(first.response.headers.get('X-Lidora-Cache')).toBe('stale');
+    expect(first.response.headers.get('X-Lidora-Retry-After')).toBe('600');
     expect(first.response.headers.get('Age')).toBe(String((FEED_CACHE_TTL_MS + 60_000) / 1000));
 
     vi.advanceTimersByTime(100_000);
     const other = await fetchFeedCached(url);
     expect(await other.response.text()).toBe('<rss>kept</rss>');
-    expect(other.response.headers.get('X-Sift-Retry-After')).toBe('500');
+    expect(other.response.headers.get('X-Lidora-Retry-After')).toBe('500');
     const current = await fetchFeedCached(url, { etag: '"kept"' });
     expect(current.response.status).toBe(304);
-    expect(current.response.headers.get('X-Sift-Cache')).toBe('stale');
+    expect(current.response.headers.get('X-Lidora-Cache')).toBe('stale');
     expect(calls()).toBe(2);
   });
 
@@ -695,7 +695,7 @@ describe('feed cache freshness and stale serving', () => {
     vi.advanceTimersByTime(FEED_CACHE_TTL_MS + 1);
     const result = await fetchFeedCached(url);
     expect(result.response.status).toBe(200);
-    expect(result.response.headers.get('X-Sift-Cache')).toBe('stale');
+    expect(result.response.headers.get('X-Lidora-Cache')).toBe('stale');
   });
 
   it('returns non-transient failures even when a copy is retained', async () => {
@@ -744,7 +744,7 @@ describe('feed cache freshness and stale serving', () => {
 
     const result = await fetchFeedCached(url);
     expect(await result.response.text()).toBe('<rss>worker</rss>');
-    expect(result.response.headers.get('X-Sift-Cache')).toBe('stale');
+    expect(result.response.headers.get('X-Lidora-Cache')).toBe('stale');
     expect(calls()).toBe(2);
   });
 
@@ -752,7 +752,7 @@ describe('feed cache freshness and stale serving', () => {
     const url = feedUrl();
     const cache = testCache();
     cache.entries.set(url, new Response('<rss>legacy</rss>', {
-      headers: { 'X-Sift-Cache-Fetched-At': String(Date.now()) },
+      headers: { 'X-Lidora-Cache-Fetched-At': String(Date.now()) },
     }));
     vi.stubGlobal('caches', { default: cache });
     const calls = countingFetch(() => response('<rss>fresh</rss>'));

@@ -176,12 +176,12 @@ describe('River loading vs empty state', () => {
     vi.advanceTimersByTime(600);
 
     setDbStatus('blocked');
-    expect(document.body.textContent).toContain('Close other Sift tabs');
+    expect(document.body.textContent).toContain('Close other Lidora tabs');
     expect(document.body.textContent).not.toContain('Updating your library');
 
     setDbStatus('upgrading');
     expect(document.body.textContent).toContain('Updating your library…');
-    expect(document.body.textContent).not.toContain('Close other Sift tabs');
+    expect(document.body.textContent).not.toContain('Close other Lidora tabs');
   });
 
   it('shows the Welcome empty state once boot completes with zero feeds', () => {
@@ -200,7 +200,7 @@ describe('River loading vs empty state', () => {
     m.setItems([]);
     m.setHydrated(true);
 
-    expect(document.body.textContent).toContain('Welcome to Sift');
+    expect(document.body.textContent).toContain('Welcome to Lidora');
     expect(document.body.textContent).not.toContain('Loading');
   });
 
@@ -222,7 +222,7 @@ describe('River loading vs empty state', () => {
 
     expect(document.body.textContent).toContain('First article');
     expect(document.body.textContent).not.toContain('Loading');
-    expect(document.body.textContent).not.toContain('Welcome to Sift');
+    expect(document.body.textContent).not.toContain('Welcome to Lidora');
   });
 
   it('shows the filtered empty state when feeds exist but no items match', () => {
@@ -241,7 +241,7 @@ describe('River loading vs empty state', () => {
 
     expect(document.body.textContent).toContain('No items yet');
     expect(document.body.textContent).not.toContain('Loading');
-    expect(document.body.textContent).not.toContain('Welcome to Sift');
+    expect(document.body.textContent).not.toContain('Welcome to Lidora');
   });
   it.each([
     { stored: true, failed: false, message: 'You’re caught up' },

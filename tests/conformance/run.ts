@@ -59,7 +59,7 @@ async function waitForServer(): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error('The Sift server did not start.');
+  throw new Error('The Lidora server did not start.');
 }
 
 function startProxy(token: string) {
@@ -90,7 +90,7 @@ let code = 1;
 try {
   server = run('npx', ['tsx', 'server/node.ts'], {
     PORT: String(SERVER_PORT),
-    SIFT_DATA_DIR: directory,
+    LIDORA_DATA_DIR: directory,
     FEED_POLLING: 'true',
     BETTER_AUTH_SECRET: SECRET,
   });

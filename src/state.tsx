@@ -72,6 +72,9 @@ import { subscribeFeed as subscribeFeedSvc, unsubscribeFeed as unsubscribeFeedSv
 import { refreshTargetForSelection } from './feeds/scope';
 import { isIdle, onCatchup, clearActivityOnHide } from './util/idle';
 import { getFeedStats, getReadMarker } from './db/stats';
+import { readMigrationState, setMigrationState, subscribeMigrationState } from './migration/source-lock';
+import { stopScheduler } from './feeds/scheduler';
+import { stopScheduledFlush } from './sync/push';
 
 type ViewKind = 'river' | 'reading' | 'stats' | 'settings';
 
@@ -187,6 +190,17 @@ export const useApp = (): AppContext => {
 };
 
 export const AppProvider: ParentComponent = (props) => {
+  let migrationPaused = readMigrationState() !== 'idle';
+  const stopMigrationSubscription = subscribeMigrationState((state) => {
+    if (state !== 'idle') {
+      migrationPaused = true;
+      stopScheduler();
+      stopScheduledFlush();
+    } else if (migrationPaused && (window.location.hostname === 'lidora.app' || (import.meta.env.DEV && window.location.port === '8788'))) {
+      window.location.reload();
+    }
+  });
+  onCleanup(stopMigrationSubscription);
   const [state, setStateInternal] = createStore<AppState>({
     view: typeof window !== 'undefined' && isStatsPath(window.location.pathname) ? 'stats' : isSettingsLocation() ? 'settings' : 'river',
     pairResult: null,
@@ -749,6 +763,11 @@ export const AppProvider: ParentComponent = (props) => {
   // The `finally` guarantees the loading state is released even if any
   // boot step rejects (e.g. a blocked IndexedDB open).
   void (async () => {
+    if (readMigrationState() !== 'idle') return;
+    if (await getMeta<boolean>('lidora-migration-complete', false)) {
+      setMigrationState('complete');
+      return;
+    }
     const s = await getSettings();
     setSettings(s);
     applyTheme(s.theme, s.highContrast);
@@ -780,10 +799,10 @@ export const AppProvider: ParentComponent = (props) => {
         await reloadItems();
       }
     }
-    startScheduler();
-    setOnRefresh(() => { if (manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
-    setOnSync(() => { if (manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
-    onCatchup(() => { void pullIfStale(30_000); void reloadItems(); });
+    if (readMigrationState() === 'idle') startScheduler();
+    setOnRefresh(() => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
+    setOnSync(() => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
+    onCatchup(() => { if (readMigrationState() === 'idle') { void pullIfStale(30_000); void reloadItems(); } });
 
     let hiddenAt = 0;
     let idleAtHide = false;
@@ -793,7 +812,7 @@ export const AppProvider: ParentComponent = (props) => {
         hiddenAt = Date.now();
         idleAtHide = isIdle();
         clearActivityOnHide();
-      } else if (document.visibilityState === 'visible') {
+      } else if (document.visibilityState === 'visible' && readMigrationState() === 'idle') {
         const away = Date.now() - hiddenAt;
         if (away > 5 * 60_000) {
           await reloadFeeds();
@@ -805,9 +824,9 @@ export const AppProvider: ParentComponent = (props) => {
       }
     }, { once: false });
 
-    window.addEventListener('online', () => { void pullIfStale(120_000); });
+    window.addEventListener('online', () => { if (readMigrationState() === 'idle') void pullIfStale(120_000); });
 
-    await bootSync();
+    if (readMigrationState() === 'idle') await bootSync();
     const params = new URLSearchParams(window.location.search);
     const pairCode = params.get('pair');
     if (pairCode) {

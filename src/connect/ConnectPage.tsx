@@ -40,7 +40,7 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
 
   const go = (redirect: string) => {
     if (!isSafeRedirect(redirect)) {
-      setBlocked('Sift received an unexpected address to return to, so it has stopped. Start again from your agent.');
+      setBlocked('Lidora received an unexpected address to return to, so it has stopped. Start again from your agent.');
       return;
     }
     setLeaving(true);
@@ -95,7 +95,7 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
       go(await decideRequest(requestId, decision, usingKey ? (syncKey() ?? undefined) : undefined));
     } catch (e) {
       if (!(e instanceof AgentApiError)) {
-        setProblem('Could not reach Sift. Check your connection and try again.');
+        setProblem('Could not reach Lidora. Check your connection and try again.');
       } else if (e.status === 410) {
         const current = view();
         if (current) setView({ ...current, status: 'expired' });
@@ -103,7 +103,7 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
         await refresh();
       } else if (e.status === 401 && usingKey) {
         setKeyRejected(true);
-        setProblem('Sift on this browser could not confirm your account. Approve with the code below instead.');
+        setProblem('Lidora on this browser could not confirm your account. Approve with the code below instead.');
       } else if (e.status === 401) {
         setProblem('This link can no longer be used.');
         await refresh();
@@ -131,7 +131,7 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
 
   return (
     <main class="connect">
-      <div class="connect__brand">Sift</div>
+      <div class="connect__brand">Lidora</div>
       <div class="connect__card">
         <Switch>
           <Match when={load() === 'loading'}>
@@ -143,10 +143,10 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
           </Match>
           <Match when={load() === 'notfound'}>
             <h1>Request not found</h1>
-            <p>Sift does not recognise this request. Start again from your agent.</p>
+            <p>Lidora does not recognise this request. Start again from your agent.</p>
           </Match>
           <Match when={load() === 'unreachable'}>
-            <h1>Cannot reach Sift</h1>
+            <h1>Cannot reach Lidora</h1>
             <p>Check your connection and try again.</p>
             <div class="connect__actions">
               <button class="btn primary" onClick={retry}>Try again</button>
@@ -173,13 +173,13 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
             <p>This request has already been answered. Return to your agent, or restart the connection from it.</p>
           </Match>
           <Match when={mode() === 'connection' || mode() === 'key'}>
-            <h1>Connect {view()?.clientName} to your Sift?</h1>
+            <h1>Connect {view()?.clientName} to your Lidora?</h1>
             <ClientSummary view={view()!} />
             <Show when={mode() === 'connection' && view()?.connection.createdAt}>
               <p class="connect__muted">Link created at {clockTime(view()!.connection.createdAt!)}</p>
             </Show>
             <Show when={mode() === 'key'}>
-              <p class="connect__muted">You are approving as the Sift account saved in this browser.</p>
+              <p class="connect__muted">You are approving as the Lidora account saved in this browser.</p>
             </Show>
             <Show when={problem()}>
               <p class="error" role="alert">{problem()}</p>
@@ -191,7 +191,7 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
             <p class="connect__muted">Only allow agents you started yourself. You can disconnect an agent at any time in Settings → Agents.</p>
           </Match>
           <Match when={mode() === 'code'}>
-            <h1>Connect {view()?.clientName} to your Sift?</h1>
+            <h1>Connect {view()?.clientName} to your Lidora?</h1>
             <ClientSummary view={view()!} />
             <Show when={view()?.approvalCode}>
               <div class="connect__code" aria-label="Approval code">{displayApprovalCode(view()!.approvalCode!)}</div>
@@ -203,8 +203,8 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
               </div>
               <div class="connect__qr" innerHTML={renderSyncKeyQr(view()!.approvalCode!)} aria-label="QR code of the approval code" />
             </Show>
-            <p>Open Sift on the device where you use it, go to Settings → Agents, tap “Have an approval code?” and enter this code.</p>
-            <p class="connect__muted">Approving in Sift turns sync on if it is off. This page continues by itself once you approve.</p>
+            <p>Open Lidora on the device where you use it, go to Settings → Agents, tap “Have an approval code?” and enter this code.</p>
+            <p class="connect__muted">Approving in Lidora turns sync on if it is off. This page continues by itself once you approve.</p>
             <Show when={problem()}>
               <p class="error" role="alert">{problem()}</p>
             </Show>

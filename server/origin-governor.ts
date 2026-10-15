@@ -122,7 +122,7 @@ function localCooldownResponse(status: number, retryAt: number, source: string):
     headers: {
       'Cache-Control': 'no-store',
       'Retry-After': String(retryAfter),
-      'X-Sift-Request-Source': source,
+      'X-Lidora-Request-Source': source,
     },
   });
 }
@@ -405,7 +405,7 @@ export async function fetchOriginRequest(
   }
   try {
     const headers = new Headers(response.headers);
-    headers.set('X-Sift-Request-Source', 'upstream');
+    headers.set('X-Lidora-Request-Source', 'upstream');
     if (response.status === 429 || response.status === 419) {
       const cooldown = await recordCooldown(origin, response, options);
       const sentDelay = parseRetryAfter(headers.get('Retry-After'), Date.now()) ?? 0;

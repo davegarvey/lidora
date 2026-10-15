@@ -463,7 +463,7 @@ describe('refresh status', () => {
   it('records when the server received the feed and its next check', async () => {
     const { refreshFeed } = await import('../src/feeds/scheduler');
     await seed('status-feed', null);
-    stubFetch(200, RSS, { Age: '2400', 'X-Sift-Retry-After': '900' });
+    stubFetch(200, RSS, { Age: '2400', 'X-Lidora-Retry-After': '900' });
     const now = Date.now();
     await refreshFeed((await getFeed('status-feed'))!);
     const feed = (await getFeed('status-feed'))!;
@@ -521,7 +521,7 @@ describe('refresh status', () => {
     const destination = 'https://new.example/feed.xml';
     globalThis.fetch = (async () => new Response(RSS, {
       status: 200,
-      headers: { 'X-Sift-Cache': 'miss', 'X-Sift-Permanent-Redirect': destination },
+      headers: { 'X-Lidora-Cache': 'miss', 'X-Lidora-Permanent-Redirect': destination },
     })) as unknown as typeof globalThis.fetch;
 
     await refreshFeed((await getFeed(id))!);
@@ -530,14 +530,14 @@ describe('refresh status', () => {
 
     globalThis.fetch = (async () => new Response(RSS, {
       status: 200,
-      headers: { 'X-Sift-Cache': 'hit', 'X-Sift-Permanent-Redirect': destination },
+      headers: { 'X-Lidora-Cache': 'hit', 'X-Lidora-Permanent-Redirect': destination },
     })) as unknown as typeof globalThis.fetch;
     await refreshFeed((await getFeed(id))!);
     expect((await getFeed(id))?.redirectCandidateCount).toBe(1);
 
     globalThis.fetch = (async () => new Response(RSS, {
       status: 200,
-      headers: { 'X-Sift-Cache': 'revalidated', 'X-Sift-Permanent-Redirect': destination },
+      headers: { 'X-Lidora-Cache': 'revalidated', 'X-Lidora-Permanent-Redirect': destination },
     })) as unknown as typeof globalThis.fetch;
     await refreshFeed((await getFeed(id))!);
     const updated = (await getFeed(id))!;

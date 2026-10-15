@@ -50,7 +50,7 @@ describe('upstream proxy redirect boundary', () => {
       expect(response.headers.get('Location')).toBeNull();
       expect(response.headers.get('Refresh')).toBeNull();
       expect(response.headers.get('Content-Location')).toBeNull();
-      expect(response.headers.get('X-Sift-Request-Source')).toBe(endpoint === '/feed' ? 'upstream' : 'origin-cooldown');
+      expect(response.headers.get('X-Lidora-Request-Source')).toBe(endpoint === '/feed' ? 'upstream' : 'origin-cooldown');
     }
   });
 
@@ -64,7 +64,7 @@ describe('upstream proxy redirect boundary', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('public, max-age=2592000, immutable');
-    expect(response.headers.get('X-Sift-Request-Source')).toBe('upstream');
+    expect(response.headers.get('X-Lidora-Request-Source')).toBe('upstream');
   });
 });
 

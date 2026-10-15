@@ -202,24 +202,24 @@ async function listTools(h: Harness): Promise<ListedTool[]> {
 describe('MCP endpoint', () => {
   it('answers an unauthenticated request with the protected-resource challenge', async () => {
     const h = await setup();
-    const res = await h.app.request('http://sift.test/mcp', { method: 'POST', body: '{}' });
+    const res = await h.app.request('http://lidora.test/mcp', { method: 'POST', body: '{}' });
     expect(res.status).toBe(401);
     expect(res.headers.get('WWW-Authenticate')).toBe(
-      'Bearer resource_metadata="http://sift.test/.well-known/oauth-protected-resource"',
+      'Bearer resource_metadata="http://lidora.test/.well-known/oauth-protected-resource"',
     );
   });
 
   it('points the connection alias at its per-connection metadata', async () => {
     const h = await setup();
-    const res = await h.app.request('http://sift.test/mcp/c/abc123', { method: 'POST', body: '{}' });
+    const res = await h.app.request('http://lidora.test/mcp/c/abc123', { method: 'POST', body: '{}' });
     expect(res.status).toBe(401);
     expect(res.headers.get('WWW-Authenticate')).toBe(
-      'Bearer resource_metadata="http://sift.test/.well-known/oauth-protected-resource/mcp/c/abc123"',
+      'Bearer resource_metadata="http://lidora.test/.well-known/oauth-protected-resource/mcp/c/abc123"',
     );
   });
 
   it('uses the configured public URL and rejects invalid, expired and master credentials', async () => {
-    const h = await setup({ publicUrl: 'https://sift.example.com/ignored' });
+    const h = await setup({ publicUrl: 'https://lidora.example.com/ignored' });
     for (const credential of ['tnotavalidtokenxxxxxxxx', SYNC_KEY]) {
       const res = await h.app.request('http://internal:8787/mcp', {
         method: 'POST',
@@ -228,11 +228,11 @@ describe('MCP endpoint', () => {
       });
       expect(res.status).toBe(401);
       expect(res.headers.get('WWW-Authenticate')).toBe(
-        'Bearer resource_metadata="https://sift.example.com/.well-known/oauth-protected-resource"',
+        'Bearer resource_metadata="https://lidora.example.com/.well-known/oauth-protected-resource"',
       );
     }
     const aliasRes = await h.app.request('http://internal:8787/mcp/c/xyz', { method: 'POST', body: '{}' });
-    expect(aliasRes.headers.get('WWW-Authenticate')).toContain('https://sift.example.com/.well-known/oauth-protected-resource/mcp/c/xyz');
+    expect(aliasRes.headers.get('WWW-Authenticate')).toContain('https://lidora.example.com/.well-known/oauth-protected-resource/mcp/c/xyz');
     expect(publicOrigin('http://a.test/x', 'https://b.test/y')).toBe('https://b.test');
     expect(publicOrigin('http://a.test/x')).toBe('http://a.test');
   });
@@ -277,7 +277,7 @@ describe('MCP endpoint', () => {
     expect((fallback.result as { protocolVersion: string }).protocolVersion).toBe('2025-11-25');
     const result = fallback.result as { instructions: string; capabilities: { tools: object }; serverInfo: { name: string } };
     expect(result.capabilities.tools).toBeDefined();
-    expect(result.serverInfo.name).toBe('sift');
+  expect(result.serverInfo.name).toBe('lidora');
     for (const phrase of ['engagement', 'discover_feeds', 'list_subscriptions', 'list_items', 'get_item', 'feedId', '<feedId>::<guid>']) {
       expect(result.instructions).toContain(phrase);
     }

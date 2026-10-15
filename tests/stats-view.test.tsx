@@ -79,7 +79,7 @@ describe('stats view', () => {
     const dialog = document.querySelector('[role="dialog"]');
     expect(document.activeElement).toBe(dialog);
     expect(help?.parentElement?.querySelector('[role="dialog"]')).toBe(dialog);
-    expect(dialog?.textContent).toContain('Distinct articles Sift encountered');
+    expect(dialog?.textContent).toContain('Distinct articles Lidora encountered');
     expect(dialog?.textContent).toContain('not your current unread list');
     document.querySelector<HTMLButtonElement>('[aria-label="Close stats explanation"]')?.click();
     expect(help?.getAttribute('aria-expanded')).toBe('false');

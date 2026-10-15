@@ -1,6 +1,6 @@
 # OAuth library evaluation and decision
 
-Sift uses Better Auth 1.7.7 with its MCP, OAuth provider, JWT and CIMD plugins across Workers/D1 and Node/Bun SQLite. One implementation avoids maintaining two authorization servers. Runtime adapters select storage and safe outbound metadata transport; no provider-selection environment variable is needed.
+Lidora uses Better Auth 1.7.7 with its MCP, OAuth provider, JWT and CIMD plugins across Workers/D1 and Node/Bun SQLite. One implementation avoids maintaining two authorization servers. Runtime adapters select storage and safe outbound metadata transport; no provider-selection environment variable is needed.
 
 ## Alternatives evaluated
 
@@ -12,17 +12,17 @@ Sift uses Better Auth 1.7.7 with its MCP, OAuth provider, JWT and CIMD plugins a
 
 ## Preserving convenient approval
 
-The user chose to retain temporary connection links because they let someone approve in a browser that has never run Sift. Each link retains its issuer and resource paths. The library validates protocol requests and signs the approval query; Sift resolves the account, requires explicit consent and consumes the link once. Expired or used links can use explicit account/code approval.
+The user chose to retain temporary connection links because they let someone approve in a browser that has never run Lidora. Each link retains its issuer and resource paths. The library validates protocol requests and signs the approval query; Lidora resolves the account, requires explicit consent and consumes the link once. Expired or used links can use explicit account/code approval.
 
-An approval creates an isolated provider identity and session linked to the Sift account in application metadata. Cookies remain server-side. JWT access tokens carry an opaque identity, not the sync key. Online account, grant, session and refresh-family checks preserve immediate revocation. Separate identities prevent one agent’s refresh replay or revocation from affecting another approval to the same client.
+An approval creates an isolated provider identity and session linked to the Lidora account in application metadata. Cookies remain server-side. JWT access tokens carry an opaque identity, not the sync key. Online account, grant, session and refresh-family checks preserve immediate revocation. Separate identities prevent one agent’s refresh replay or revocation from affecting another approval to the same client.
 
 ## Verification and limits
 
 Automated integration tests exercise dynamic registration, captured Codex metadata and ChatGPT metadata with synthetic signed client assertions on Node 26.5.0, Bun 1.3.0 and workerd/D1. These are fixture-based compatibility checks, not observed live connections from Codex or ChatGPT. ChatGPT’s preferred `private_key_jwt` method is validated; assertions are no longer ignored.
 
-Node and Bun use the library’s public-DNS validation and connection-pinned HTTPS transport. Workers combine Sift public-address validation with platform public Internet egress (`global_fetch_strictly_public`); Workers fetch does not expose DNS pinning. Both transports refuse redirect following and apply shared origin pacing, a ten-second deadline and a 64 KiB body cap. Tests cover private-address refusal and wrapper boundaries.
+Node and Bun use the library’s public-DNS validation and connection-pinned HTTPS transport. Workers combine Lidora public-address validation with platform public Internet egress (`global_fetch_strictly_public`); Workers fetch does not expose DNS pinning. Both transports refuse redirect following and apply shared origin pacing, a ten-second deadline and a 64 KiB body cap. Tests cover private-address refusal and wrapper boundaries.
 
-Refresh reuse has zero overlap. Access tokens last one hour; refresh tokens require `offline_access`. The agent session expires after one year. Protocol revocation supports refresh tokens, while Settings removes the isolated identity and invalidates all credentials immediately. DPoP is disabled because Sift accepts bearer credentials.
+Refresh reuse has zero overlap. Access tokens last one hour; refresh tokens require `offline_access`. The agent session expires after one year. Protocol revocation supports refresh tokens, while Settings removes the isolated identity and invalidates all credentials immediately. DPoP is disabled because Lidora accepts bearer credentials.
 
 ## Migration and operation
 

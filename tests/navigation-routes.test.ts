@@ -54,6 +54,10 @@ describe('service worker navigation fallback', () => {
       expect(denied(path)).toBe(true);
     }
   });
+
+  it('keeps the migration receiver out of the offline app-shell fallback', () => {
+    expect(denied('/migrate.html')).toBe(true);
+  });
 });
 
 function globMatches(pattern: string, path: string): boolean {

@@ -31,8 +31,8 @@ async function refresh(request: Awaited<ReturnType<typeof connected>>, token = r
   return fetcher(request.prefix + '/oauth2/token', form({ grant_type: 'refresh_token', refresh_token: token, client_id: request.client.client_id as string, resource: request.resource }));
 }
 
-describe('library-managed OAuth and Sift approvals', () => {
-  it('connects across browsers without a Sift key and never exposes a provider session', async () => {
+describe('library-managed OAuth and Lidora approvals', () => {
+  it('connects across browsers without a Lidora key and never exposes a provider session', async () => {
     const request = await connected(fetcher);
     expect((await read(fetcher, request.tokens.access_token)).status).toBe(200);
     const payload = decodeJwt(request.tokens.access_token);

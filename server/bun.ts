@@ -11,7 +11,7 @@ import { mountAppShellPages } from './app-shell';
 
 loadEnv();
 
-const dataDirectory = process.env.SIFT_DATA_DIR?.trim();
+const dataDirectory = process.env.LIDORA_DATA_DIR?.trim();
 const databases = dataDirectory ? await createSelfHostedDatabases(dataDirectory, openBunSqlite) : undefined;
 if (databases) {
   startSelfHostedJobs(databases, {

@@ -80,7 +80,7 @@ Devices, Agents and Server data SHALL appear only when the server reports sync a
 
 ### Requirement: OPML import and export in Settings
 
-The Subscriptions section SHALL show the number of subscribed feeds. Export subscriptions SHALL download `sift-subscriptions.opml` and SHALL be disabled when there are no feeds. Import from OPML SHALL show an inline preview of the new and already subscribed feeds, with Import and Cancel, before changing anything. An unreadable or empty file SHALL show an inline error.
+The Subscriptions section SHALL show the number of subscribed feeds. Export subscriptions SHALL download `lidora-subscriptions.opml` and SHALL be disabled when there are no feeds. Import from OPML SHALL show an inline preview of the new and already subscribed feeds, with Import and Cancel, before changing anything. An unreadable or empty file SHALL show an inline error.
 
 #### Scenario: Import preview
 - **WHEN** the user chooses an OPML file containing 12 feeds, 3 of which are already subscribed

@@ -5,7 +5,7 @@ import { FEED_MAX_BYTES } from './body-cap';
 import packageMetadata from '../package.json';
 
 export const UPSTREAM_TIMEOUT_MS = 15_000;
-export const READER_USER_AGENT = `Sift/${packageMetadata.version} (+https://sift.davegarvey.workers.dev/about)`;
+export const READER_USER_AGENT = `Lidora/${packageMetadata.version} (+https://lidora.app/about)`;
 export const FEED_CACHE_TTL_MS = 15 * 60_000;
 export const FEED_CACHE_MAX_FRESHNESS_MS = 24 * 60 * 60_000;
 export const FEED_STALE_RETENTION_MS = 24 * 60 * 60_000;
@@ -70,10 +70,10 @@ type RevalidationResult =
   | { kind: 'cached'; entry: CachedFeed; state: 'miss' | 'revalidated' }
   | { kind: 'response'; response: Response; state: 'bypass'; retryAt?: number };
 
-const WORKER_FETCHED_AT_HEADER = 'X-Sift-Cache-Fetched-At';
-const WORKER_RETRY_AT_HEADER = 'X-Sift-Cache-Retry-At';
-const WORKER_FRESH_UNTIL_HEADER = 'X-Sift-Cache-Fresh-Until';
-const WORKER_REDIRECT_URL_HEADER = 'X-Sift-Permanent-Redirect';
+const WORKER_FETCHED_AT_HEADER = 'X-Lidora-Cache-Fetched-At';
+const WORKER_RETRY_AT_HEADER = 'X-Lidora-Cache-Retry-At';
+const WORKER_FRESH_UNTIL_HEADER = 'X-Lidora-Cache-Fresh-Until';
+const WORKER_REDIRECT_URL_HEADER = 'X-Lidora-Permanent-Redirect';
 const feedCache = new Map<string, CachedFeed>();
 const feedRevalidations = new Map<string, Promise<RevalidationResult>>();
 const upstreamRequests = new Map<string, Promise<Response>>();
@@ -372,7 +372,7 @@ async function performUpstreamWithPolicy(
       if (response.status === 304 || response.status < 300 || response.status >= 400) {
         if (policy.route !== 'feed' || !sawPermanentRedirect || current === initial) return response;
         const responseHeaders = new Headers(response.headers);
-        responseHeaders.set('X-Sift-Permanent-Redirect', current);
+        responseHeaders.set('X-Lidora-Permanent-Redirect', current);
         return new Response(response.body, { status: response.status, statusText: response.statusText, headers: responseHeaders });
       }
       if (!REDIRECT_STATUSES.has(response.status) || redirects >= MAX_REDIRECTS) {
@@ -494,12 +494,12 @@ function responseHeaders(entry: CachedFeed, ageSeconds: number, state: FeedCache
     'Content-Type': 'application/xml; charset=utf-8',
     'Cache-Control': 'no-cache, no-store',
     Age: String(ageSeconds),
-    'X-Sift-Cache': state,
-    'X-Sift-Request-Source': 'feed-cache',
+    'X-Lidora-Cache': state,
+    'X-Lidora-Request-Source': 'feed-cache',
   });
   if (entry.etag) headers.set('ETag', entry.etag);
   if (entry.lastModified) headers.set('Last-Modified', entry.lastModified);
-  if (entry.permanentRedirectUrl) headers.set('X-Sift-Permanent-Redirect', entry.permanentRedirectUrl);
+  if (entry.permanentRedirectUrl) headers.set('X-Lidora-Permanent-Redirect', entry.permanentRedirectUrl);
   return headers;
 }
 
@@ -512,7 +512,7 @@ function responseFromEntry(
   const ageSeconds = Math.max(0, Math.floor((Date.now() - entry.fetchedAt) / 1000));
   const headers = responseHeaders(entry, ageSeconds, state);
   if (retryAt !== undefined) {
-    headers.set('X-Sift-Retry-After', String(Math.max(1, Math.ceil((retryAt - Date.now()) / 1000))));
+    headers.set('X-Lidora-Retry-After', String(Math.max(1, Math.ceil((retryAt - Date.now()) / 1000))));
   }
   if (isNotModified(entry, conditional)) {
     return { response: new Response(null, { status: 304, headers }), state, ageSeconds };
@@ -551,7 +551,7 @@ function workerCacheKey(upstream: string): Request {
 
 async function workerFailureKey(upstream: string): Promise<Request> {
   const key = await sha256Hex(upstream);
-  return new Request(`https://sift.invalid/__feed_failures/${key}`, { method: 'GET' });
+  return new Request(`https://lidora.invalid/__feed_failures/${key}`, { method: 'GET' });
 }
 
 function workerCacheResponse(entry: CachedFeed): Response {
@@ -645,8 +645,8 @@ function cooldownResponse(retry: FeedRetry): FeedCacheResult {
   const headers = new Headers({
     'Retry-After': String(retryAfter),
     'Cache-Control': 'no-store',
-    'X-Sift-Cache': 'cooldown',
-    'X-Sift-Request-Source': 'url-cooldown',
+    'X-Lidora-Cache': 'cooldown',
+    'X-Lidora-Request-Source': 'url-cooldown',
   });
   return {
     response: new Response(null, {
@@ -732,7 +732,7 @@ async function revalidateFeed(
       kind: 'response',
       response: new Response(null, {
         status: retry.status,
-        headers: { 'Cache-Control': 'no-store', 'X-Sift-Request-Source': 'local-gate' },
+        headers: { 'Cache-Control': 'no-store', 'X-Lidora-Request-Source': 'local-gate' },
       }),
       state: 'bypass',
       retryAt: retry.retryAt,
@@ -746,7 +746,7 @@ async function revalidateFeed(
       lastModified: response.headers.get('Last-Modified') ?? previous.lastModified,
       fetchedAt,
       freshUntil: fetchedAt + feedFreshnessMs(response.headers, previous.body),
-      permanentRedirectUrl: response.headers.get('X-Sift-Permanent-Redirect'),
+      permanentRedirectUrl: response.headers.get('X-Lidora-Permanent-Redirect'),
     };
     await storeCachedFeed(upstream, entry);
     await clearFeedRetry(upstream, db);
@@ -783,7 +783,7 @@ async function revalidateFeed(
       kind: 'response',
       response: new Response(null, {
         status: 502,
-        headers: { 'Cache-Control': 'no-store', 'X-Sift-Request-Source': 'local-gate' },
+        headers: { 'Cache-Control': 'no-store', 'X-Lidora-Request-Source': 'local-gate' },
       }),
       state: 'bypass',
     };
@@ -823,7 +823,7 @@ async function revalidateFeed(
     lastModified: response.headers.get('Last-Modified'),
     fetchedAt,
     freshUntil: fetchedAt + feedFreshnessMs(response.headers, bytes),
-    permanentRedirectUrl: response.headers.get('X-Sift-Permanent-Redirect'),
+    permanentRedirectUrl: response.headers.get('X-Lidora-Permanent-Redirect'),
   };
   await storeCachedFeed(upstream, entry);
   await clearFeedRetry(upstream, db);
@@ -906,7 +906,7 @@ export function badRequest(message: string): Response {
 export function badGateway(message: string): Response {
   return new Response(message, {
     status: 502,
-    headers: { 'Cache-Control': 'no-store', 'X-Sift-Request-Source': 'local-gate' },
+    headers: { 'Cache-Control': 'no-store', 'X-Lidora-Request-Source': 'local-gate' },
   });
 }
 

@@ -1,0 +1,116 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: Govern every Sift upstream request by origin`
+- TO: `### Requirement: Govern every Lidora upstream request by origin`
+
+## MODIFIED Requirements
+
+### Requirement: Govern every Lidora upstream request by origin
+
+Every upstream HTTP request initiated by Lidora through feed, article, image, discovery, and MCP functionality SHALL use the same origin-scoped request policy. The policy key SHALL consist of the normalized scheme, hostname, and effective port, independent of path and query. Every redirect destination SHALL pass through the policy for its destination origin.
+
+The policy SHALL enforce a configured minimum spacing between request starts across the Worker deployment and a bounded in-flight request limit within each runtime. Concurrent requests for the same complete URL SHALL be coalesced where their request semantics match. If a request cannot obtain a slot within the configured queue bound, Lidora SHALL return a local `429` response with `Retry-After` and SHALL not contact the upstream origin.
+
+#### Scenario: Different feed paths share one origin budget
+
+- **WHEN** requests target different paths or query strings on the same origin
+- **THEN** all requests SHALL consume the same origin request budget
+- **AND** the budget SHALL not be reset by changing the feed URL path or query
+
+#### Scenario: Redirect reaches another origin
+
+- **WHEN** an upstream response redirects to a different origin
+- **THEN** the redirect destination request SHALL acquire a slot from that destination origin's policy
+
+#### Scenario: Origin queue is full
+
+- **WHEN** an upstream request cannot obtain an origin slot within the configured queue bound
+- **THEN** Lidora SHALL return a local `429` response with `Retry-After` and request-source diagnostics
+- **AND** Lidora SHALL not send that request upstream
+
+
+### Requirement: Honor origin retry delays across statuses
+
+Lidora SHALL parse and preserve valid `Retry-After` values on upstream and locally generated cooldown responses for every status subject to cooldown. The browser SHALL persist the returned retry time for feed failures and SHALL not let manual refresh bypass an active server cooldown. A valid upstream delay SHALL not be shortened by a Lidora retry cap.
+
+When Lidora establishes a cooldown because an upstream response omitted `Retry-After`, the proxy SHALL return a `Retry-After` value for the effective Lidora cooldown on the initial failure and subsequent cooldown responses.
+
+Upstream `429` and `419` responses SHALL activate an origin-wide cooldown across all Lidora upstream fetch paths. A `419` without a valid `Retry-After` SHALL use progressive backoff beginning at no less than six hours and increasing after repeated challenge responses, capped at 24 hours. A `429` without a valid `Retry-After` SHALL use the configured origin fallback delay. Jitter MAY extend a valid delay but SHALL not cause an earlier retry.
+
+#### Scenario: 419 includes Retry-After
+
+- **WHEN** an upstream request returns `419` with a valid `Retry-After`
+- **THEN** Lidora SHALL suppress requests to that origin across feed, article, image, discovery, and MCP paths until at least that time
+- **AND** manual refresh SHALL not contact the origin during the cooldown
+
+#### Scenario: Repeated 419 has no Retry-After
+
+- **WHEN** the same origin returns another `419` after its prior cooldown expires and provides no valid `Retry-After`
+- **THEN** the next origin cooldown SHALL increase according to the configured progressive backoff
+- **AND** the cooldown SHALL not exceed 24 hours
+
+#### Scenario: Initial 419 has no Retry-After
+
+- **WHEN** an upstream returns `419` without a valid `Retry-After`
+- **THEN** Lidora SHALL establish the configured progressive cooldown
+- **AND** the initial proxy response SHALL include a `Retry-After` for that cooldown
+
+#### Scenario: 429 delay is honored by the client
+
+- **WHEN** an upstream or Lidora-generated cooldown response returns `429` with `Retry-After`
+- **THEN** the browser SHALL persist that retry time
+- **AND** background and manual feed refreshes SHALL not retry before it
+
+
+### Requirement: Do not cache upstream failures
+
+Proxy responses for upstream or Lidora-generated failures SHALL include `Cache-Control: no-store`. Successful response caching SHALL remain separate from failure cooldown storage. The `/img` route SHALL apply long-lived immutable cache headers only to successful responses.
+
+#### Scenario: Image origin returns a rate limit
+
+- **WHEN** an image upstream returns a non-success response such as `429` or `419`
+- **THEN** the Lidora image response SHALL not be stored as a long-lived immutable response
+- **AND** the response SHALL include `Cache-Control: no-store`
+
+#### Scenario: Feed cooldown is active
+
+- **WHEN** Lidora returns a cached cooldown response for a feed URL
+- **THEN** browser or intermediary caching SHALL not outlive or bypass the server cooldown state
+
+
+### Requirement: Expose privacy-safe upstream diagnostics
+
+Proxy error responses SHALL distinguish an upstream response from a URL cooldown, an origin cooldown, and a local request-governor response. They SHALL expose the upstream status when one exists, the retry delay when applicable, and the route-level cache or policy outcome. Persistent diagnostics SHALL contain only a one-way origin or URL hash, endpoint category, status, timing metadata, and an allowlist of non-sensitive upstream response metadata needed to distinguish origin responses from intermediary or local cooldown responses; they SHALL NOT contain raw URLs, query strings, article identifiers, arbitrary response headers, or response bodies.
+
+#### Scenario: Upstream returns a 419
+
+- **WHEN** the first upstream response for a request is `419`
+- **THEN** the proxy response SHALL identify the upstream status and the initial upstream outcome
+- **AND** persistent diagnostics SHALL not contain the raw URL or response body
+
+#### Scenario: Later request is blocked by cooldown
+
+- **WHEN** a request is rejected because an origin cooldown is active
+- **THEN** the response SHALL identify the origin-cooldown outcome and include the remaining `Retry-After`
+- **AND** the diagnostic SHALL distinguish the Lidora response from a new upstream response
+
+
+### Requirement: Apply client limits before origin governance
+
+The same-site check and the per-client limit for `/feed`, `/article` and `/img` SHALL run before the proxy validates the target, consults a cache, or asks the origin governor for a slot. A request rejected by either SHALL NOT consume an origin in-flight slot, reserve an origin request slot, create or advance origin cooldown state, or write to D1.
+
+#### Scenario: Limited client does not consume origin slots
+
+- **WHEN** a client over its per-client budget requests a proxy URL
+- **THEN** the origin governor SHALL not be invoked for that request
+- **AND** the origin's spacing, in-flight count and cooldown state SHALL be unchanged
+
+#### Scenario: Cross-site request does not reach the governor
+
+- **WHEN** a request is rejected by the same-site check
+- **THEN** the origin governor SHALL not be invoked for that request
+
+#### Scenario: Local rejections are distinguishable
+
+- **WHEN** a proxy request is rejected by the same-site check or the per-client limit
+- **THEN** `X-Lidora-Request-Source` SHALL be `same-site-check` or `client-limit`, distinct from `local-gate`, `origin-cooldown` and `url-cooldown`
