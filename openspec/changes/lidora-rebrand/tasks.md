@@ -9,6 +9,7 @@
 - [x] 2.2 Prepare old-origin migration access, safe destination reconciliation and backup/import recovery; document the PWA reinstall step.
 - [x] 2.3 Rehearse malformed-record rejection, browser backup recovery, interrupted transfer/retry and existing-destination handling with local, alternate credential and pending-sync state.
 - [x] 2.4 Verify code and tests retain D1 bindings, SQLite filenames and volume mounts; document same-directory upgrades and rollback without snapshot restoration. Live configuration remains a rollout check.
+- [x] 2.5 Omit article bodies and state rows left behind after their articles were removed, while keeping source snapshot validation strict for other relationship errors.
 
 ## 3. Implement consistent identity
 - [x] 3.1 Rename UI/public copy, document titles, sidebar mark, CSS, manifest, export filenames, public metadata, sitemap, robots, OpenAPI and llms.txt.
