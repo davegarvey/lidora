@@ -15,7 +15,7 @@ vi.mock('../src/state', () => ({
   },
 }));
 
-function makeContext(collapsed = false, view: 'river' | 'reading' = 'river') {
+function makeContext(collapsed = false, view: 'river' | 'reading' | 'settings' = 'river') {
   const [state] = createStore<AppState>({
     view,
     riverScope: view === 'reading' ? 'f1' : null,
@@ -31,6 +31,8 @@ function makeContext(collapsed = false, view: 'river' | 'reading' = 'river') {
     readMode: 'all',
     modal: { kind: 'none' },
     returnToItemId: null,
+    settingsPath: null,
+    pairResult: null,
   });
   const [feeds] = createSignal<Feed[]>([{
     id: 'f1',
@@ -40,6 +42,7 @@ function makeContext(collapsed = false, view: 'river' | 'reading' = 'river') {
     learnedIntervalMs: 3_600_000,
   }]);
   const openStats = vi.fn();
+  const openSettings = vi.fn();
   const setRiverScope = vi.fn();
   const ctx = {
     state,
@@ -61,8 +64,9 @@ function makeContext(collapsed = false, view: 'river' | 'reading' = 'river') {
     openModal: vi.fn(),
     toggleSidebarDesktop: vi.fn(),
     openStats,
+    openSettings,
   } as unknown as AppContext;
-  return { ctx, openStats, setRiverScope };
+  return { ctx, openStats, openSettings, setRiverScope };
 }
 
 describe('stats navigation', () => {
@@ -100,6 +104,41 @@ describe('stats navigation', () => {
     expect(feed?.classList.contains('active')).toBe(true);
     feed?.click();
     expect(setRiverScope).toHaveBeenCalledWith('f1');
+    dispose();
+  });
+
+  it('opens Settings from the sidebar and marks it as the current page', () => {
+    const { ctx, openSettings } = makeContext(false, 'settings');
+    contextRef.value = ctx;
+    const dispose = render(() => <Sidebar />, document.body);
+    const button = [...document.querySelectorAll<HTMLButtonElement>('.sidebar-actions-bottom .sidebar-action')]
+      .find((candidate) => candidate.textContent?.includes('Settings'));
+    expect(button?.getAttribute('aria-current')).toBe('page');
+    expect(button?.classList.contains('active')).toBe(true);
+    button?.click();
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.feed')?.classList.contains('active')).toBe(false);
+    dispose();
+  });
+
+  it('marks the collapsed rail Settings action as current', () => {
+    const { ctx, openSettings } = makeContext(true, 'settings');
+    contextRef.value = ctx;
+    const dispose = render(() => <Sidebar />, document.body);
+    const button = document.querySelector<HTMLButtonElement>('.collapsed-action[title="Settings"]');
+    expect(button?.getAttribute('aria-current')).toBe('page');
+    button?.click();
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    dispose();
+  });
+
+  it('does not mark Settings as current elsewhere', () => {
+    const { ctx } = makeContext();
+    contextRef.value = ctx;
+    const dispose = render(() => <Sidebar />, document.body);
+    const button = [...document.querySelectorAll<HTMLButtonElement>('.sidebar-actions-bottom .sidebar-action')]
+      .find((candidate) => candidate.textContent?.includes('Settings'));
+    expect(button?.hasAttribute('aria-current')).toBe(false);
     dispose();
   });
 });

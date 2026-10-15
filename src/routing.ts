@@ -44,3 +44,42 @@ export function parseItemIdFromUrl(): string | null {
 export function isStatsPath(pathname: string): boolean {
   return pathname === '/stats' || pathname === '/stats/';
 }
+
+export const SETTINGS_SECTIONS = ['appearance', 'subscriptions', 'devices', 'agents', 'storage', 'server-data', 'about'] as const;
+
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+export interface SettingsAvailability {
+  sync: boolean;
+  syncKey: boolean;
+}
+
+export function isSettingsSection(value: string): value is SettingsSection {
+  return (SETTINGS_SECTIONS as readonly string[]).includes(value);
+}
+
+export function settingsSectionAvailable(section: SettingsSection, availability: SettingsAvailability): boolean {
+  if (section === 'devices' || section === 'agents') return availability.sync;
+  if (section === 'server-data') return availability.sync && availability.syncKey;
+  return true;
+}
+
+export function availableSettingsSections(availability: SettingsAvailability): SettingsSection[] {
+  return SETTINGS_SECTIONS.filter((section) => settingsSectionAvailable(section, availability));
+}
+
+export interface SettingsRoute {
+  section: SettingsSection | null;
+}
+
+export function parseSettingsPath(pathname: string, availability: SettingsAvailability): SettingsRoute | null {
+  const match = /^\/settings(?:\/([^/]*))?\/?$/.exec(pathname);
+  if (!match) return null;
+  const segment = match[1];
+  if (segment === undefined || !isSettingsSection(segment)) return { section: null };
+  return { section: settingsSectionAvailable(segment, availability) ? segment : null };
+}
+
+export function settingsUrl(section: SettingsSection | null): string {
+  return section ? `/settings/${section}` : '/settings';
+}

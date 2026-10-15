@@ -123,7 +123,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
           <Show when={ctx.feeds().length > 0}>
             <div class="tag-chips">
               <button
-                class={`tag-chip ${ctx.state.view !== 'stats' && ctx.state.riverScope === null && !hasActiveTags() ? 'active' : ''}`}
+                class={`tag-chip ${ctx.state.view !== 'stats' && ctx.state.view !== 'settings' && ctx.state.riverScope === null && !hasActiveTags() ? 'active' : ''}`}
                 onClick={selectAll}
                 type="button"
               >
@@ -170,7 +170,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
                     feed={feed}
                     errors={ctx.feedErrors()}
                     fetchingFeeds={ctx.fetchingFeeds()}
-                    active={ctx.state.view !== 'stats' && ctx.state.riverScope === feed.id}
+                    active={ctx.state.view !== 'stats' && ctx.state.view !== 'settings' && ctx.state.riverScope === feed.id}
                     onClick={() => selectFeed(feed)}
                     onEdit={() =>
                       ctx.openModal({
@@ -204,9 +204,10 @@ export function Sidebar(props: { onNavigate?: () => void }) {
             <span>Palette</span>
           </button>
           <button
-            class="sidebar-action"
+            class={`sidebar-action ${ctx.state.view === 'settings' ? 'active' : ''}`}
             title="Settings"
-            onClick={() => ctx.openModal({ kind: 'settings' })}
+            aria-current={ctx.state.view === 'settings' ? 'page' : undefined}
+            onClick={() => { ctx.openSettings(); props.onNavigate?.(); }}
           >
             <Settings size={14} />
             <span>Settings</span>
@@ -299,8 +300,15 @@ export function Sidebar(props: { onNavigate?: () => void }) {
             >
               <ChartNoAxesCombined size={14} />
             </button>
-            <button class="collapsed-action" title="Settings" onClick={() => ctx.openModal({ kind: 'settings' })}>
-            <Settings size={14} />
+            <button
+              class="collapsed-action"
+              classList={{ active: ctx.state.view === 'settings' }}
+              title="Settings"
+              aria-label="Settings"
+              aria-current={ctx.state.view === 'settings' ? 'page' : undefined}
+              onClick={() => ctx.openSettings()}
+            >
+              <Settings size={14} />
             </button>
             <button class="collapsed-action desktop-only" title="Keyboard shortcuts (?)" onClick={() => ctx.openModal({ kind: 'shortcuts' })}>
               <HelpIcon />

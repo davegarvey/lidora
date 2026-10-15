@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openNodeSqlite } from '../server/node-sqlite';
 import { createSelfHostedDatabases } from '../server/sqlite-d1';
 import { createApp } from '../server/handle';
+import { mountAppShellPages } from '../server/app-shell';
 import { APP_SHELL_ROUTES, FETCH_ONLY_ROUTES, SERVER_NAVIGATION_DENYLIST, WORKER_FIRST_ROUTES } from '../server/navigation-routes';
 
 let directory: string;
@@ -69,5 +70,20 @@ describe('Cloudflare asset routing', () => {
     const serverRoutes = paths.filter((path) => !APP_SHELL_ROUTES.includes(path));
     const uncovered = serverRoutes.filter((path) => !WORKER_FIRST_ROUTES.some((pattern) => globMatches(pattern, concrete(path))));
     expect(uncovered).toEqual([]);
+  });
+});
+
+describe('app shell pages', () => {
+  it('serves the shell for Stats and Settings without taking over server routes', async () => {
+    const app = createApp({ db: undefined });
+    mountAppShellPages(app, async (c) => c.text('shell'));
+    for (const path of ['/stats', '/settings', '/settings/storage', '/settings/devices/']) {
+      const response = await app.request(path);
+      expect(await response.text(), path).toBe('shell');
+    }
+    for (const path of ['/sync/capabilities', '/img', '/mcp']) {
+      const response = await app.request(path);
+      expect(await response.text(), path).not.toBe('shell');
+    }
   });
 });

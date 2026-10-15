@@ -293,10 +293,10 @@ function EmptyState() {
         <button type="button" class="secondary-cta" disabled={addingSamples()} onClick={() => void addSampleFeeds()}>
           {addingSamples() ? 'Adding feeds…' : 'Try sample feeds'}
         </button>
-        <button type="button" class="secondary-cta" onClick={() => ctx.openModal({ kind: 'settings' })}>
+        <button type="button" class="secondary-cta" onClick={() => ctx.openSettings('subscriptions')}>
           Import OPML
         </button>
-        <button type="button" class="secondary-cta" onClick={() => ctx.openModal({ kind: 'settings' })}>
+        <button type="button" class="secondary-cta" onClick={() => ctx.openSettings('devices')}>
           Pair a device
         </button>
         </div>

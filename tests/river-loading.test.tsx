@@ -56,6 +56,8 @@ function makeCtx() {
     readMode: 'all',
     modal: { kind: 'none' },
     returnToItemId: null,
+    settingsPath: null,
+    pairResult: null,
   });
   const [feeds, setFeeds] = createSignal<Feed[]>([]);
   const [items, setItems] = createSignal<Item[]>([]);
@@ -113,6 +115,9 @@ function makeCtx() {
     toggleStar: async () => {},
     statsRevision: () => 0,
     openStats: () => {},
+    openSettings: () => {},
+    selectSettingsSection: () => {},
+    closeSettings: () => {},
   };
 
   return { ctx, setFeeds, setItems, setHydrated };

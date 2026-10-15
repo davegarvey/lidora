@@ -1,6 +1,6 @@
 import { createEffect, onMount, onCleanup, Show, type JSX } from 'solid-js';
 import { AppProvider, useApp } from './state';
-import { hashId, isStatsPath, itemIdFromHistoryState, parseItemIdFromUrl } from './routing';
+import { hashId, isStatsPath, itemIdFromHistoryState, parseItemIdFromUrl, parseSettingsPath } from './routing';
 import { navigateReaderByOffset } from './readerNavigation';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
@@ -8,10 +8,7 @@ import { ArticleListPane } from './components/ArticleListPane';
 import { ReadingView } from './components/ReadingView';
 import { CommandPalette } from './components/CommandPalette';
 import { AddFeedModal } from './components/AddFeedModal';
-import { SettingsDrawer } from './components/SettingsDrawer';
-import { PairResultModal } from './components/PairResultModal';
-import { PairDeviceModal } from './components/PairDeviceModal';
-import { AgentsModal } from './components/AgentsModal';
+import { SettingsView } from './settings/SettingsView';
 import { ShortcutsOverlay } from './components/ShortcutsOverlay';
 import { ConfirmModal } from './components/ConfirmModal';
 import { FeedEditorModal } from './components/FeedEditorModal';
@@ -32,24 +29,15 @@ function Shell() {
     }
   });
 
-  const closeModalWithReturn = () => {
-    const modal = ctx.state.modal;
-    if (modal.kind === 'confirm' && modal.returnTo) {
-      ctx.openModal(modal.returnTo);
-    } else {
-      ctx.closeModal();
-    }
-  };
-
   const nav = (e: KeyboardEvent) => {
     // Don't intercept typing into inputs/textareas.
     const target = e.target as HTMLElement | null;
     if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-      if (e.key === 'Escape' && ctx.state.modal.kind !== 'none') closeModalWithReturn();
+      if (e.key === 'Escape' && ctx.state.modal.kind !== 'none' && ctx.state.modal.kind !== 'confirm') ctx.closeModal();
       return;
     }
     if (ctx.state.modal.kind !== 'none') {
-      if (e.key === 'Escape') closeModalWithReturn();
+      if (e.key === 'Escape' && ctx.state.modal.kind !== 'confirm') ctx.closeModal();
       return;
     }
     if (ctx.state.view === 'reading') {
@@ -77,6 +65,13 @@ function Shell() {
       } else if (e.key === '?') {
         e.preventDefault();
         ctx.openModal({ kind: 'shortcuts' });
+      }
+      return;
+    }
+    if (ctx.state.view === 'settings') {
+      if (e.key === 'Escape' && !document.querySelector('dialog[open], .scanner-overlay')) {
+        e.preventDefault();
+        ctx.closeSettings();
       }
       return;
     }
@@ -125,9 +120,17 @@ function Shell() {
   const onKey = (e: KeyboardEvent) => nav(e);
   const onPop = (event: PopStateEvent) => {
     const path = window.location.pathname;
-    if (path === '/') {
+    const settingsRoute = parseSettingsPath(path, { sync: true, syncKey: true });
+    if (settingsRoute) {
+      ctx.setState({
+        view: 'settings',
+        settingsPath: settingsRoute.section,
+        currentItem: null,
+        sidebarOpen: false,
+      });
+    } else if (path === '/') {
       if (ctx.state.view === 'reading') ctx.closeReading();
-      else if (ctx.state.view === 'stats') ctx.setState({ view: 'river' });
+      else if (ctx.state.view === 'stats' || ctx.state.view === 'settings') ctx.setState({ view: 'river' });
     } else if (isStatsPath(path)) {
       ctx.setState({
         view: 'stats',
@@ -183,6 +186,7 @@ function Shell() {
 
   const reading = () => ctx.state.view === 'reading';
   const stats = () => ctx.state.view === 'stats';
+  const settingsOpen = () => ctx.state.view === 'settings';
   const sidebarOpenAttr = () => String(ctx.state.sidebarOpen);
 
   return (
@@ -203,11 +207,14 @@ function Shell() {
         class="sidebar-backdrop"
         onClick={() => ctx.setState({ sidebarOpen: false })}
       />
-      <Show when={!stats()}>
+      <Show when={!stats() && !settingsOpen()}>
         <ArticleListPane />
       </Show>
       <Show when={stats()}>
         <Stats />
+      </Show>
+      <Show when={settingsOpen()}>
+        <SettingsView />
       </Show>
       <Show when={reading()}>
         <ReadingView />
@@ -219,9 +226,6 @@ function Shell() {
       <Show when={ctx.state.modal.kind === 'add-feed'}>
         <Backdrop><AddFeedModal /></Backdrop>
       </Show>
-      <Show when={ctx.state.modal.kind === 'settings'}>
-        <Backdrop><SettingsDrawer /></Backdrop>
-      </Show>
       <Show when={ctx.state.modal.kind === 'shortcuts'}>
         <Backdrop><ShortcutsOverlay /></Backdrop>
       </Show>
@@ -229,16 +233,7 @@ function Shell() {
         <Backdrop><FeedEditorModal /></Backdrop>
       </Show>
       <Show when={ctx.state.modal.kind === 'confirm'}>
-        <Backdrop><ConfirmModal /></Backdrop>
-      </Show>
-      <Show when={ctx.state.modal.kind === 'pair-result'}>
-        <Backdrop><PairResultModal /></Backdrop>
-      </Show>
-      <Show when={ctx.state.modal.kind === 'pair-device'}>
-        <Backdrop><PairDeviceModal /></Backdrop>
-      </Show>
-      <Show when={ctx.state.modal.kind === 'agents'}>
-        <Backdrop><AgentsModal /></Backdrop>
+        <ConfirmModal />
       </Show>
     </div>
   );
@@ -250,14 +245,7 @@ function Backdrop(props: { children: JSX.Element }) {
     <div
       class="modal-backdrop"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          const modal = ctx.state.modal;
-          if (modal.kind === 'confirm' && modal.returnTo) {
-            ctx.openModal(modal.returnTo);
-          } else {
-            ctx.closeModal();
-          }
-        }
+        if (e.target === e.currentTarget) ctx.closeModal();
       }}
     >
       {props.children}

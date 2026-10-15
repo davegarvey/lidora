@@ -36,6 +36,8 @@ function makeContext() {
     readMode: 'all',
     modal: { kind: 'none' },
     returnToItemId: null,
+    settingsPath: null,
+    pairResult: null,
   });
   const saveSettingsPatch = vi.fn(async () => {});
   const ctx = {

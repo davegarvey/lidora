@@ -53,6 +53,13 @@ export function usesCollapsedFeedNavigation(width: number): boolean {
   return width >= DESKTOP_READING_WORKSPACE_MIN_WIDTH && width < DESKTOP_EXPANDED_NAV_MIN_WIDTH;
 }
 
-export function viewAfterScopeChange(view: 'river' | 'reading' | 'stats', width: number): 'river' | 'reading' {
+export function viewAfterScopeChange(view: 'river' | 'reading' | 'stats' | 'settings', width: number): 'river' | 'reading' {
   return view === 'reading' && hasDesktopReadingWorkspace(width) ? 'reading' : 'river';
+}
+
+export const NARROW_VIEWPORT_MAX_WIDTH = 768;
+
+export function isNarrowViewport(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth <= NARROW_VIEWPORT_MAX_WIDTH;
 }
