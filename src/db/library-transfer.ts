@@ -75,7 +75,16 @@ export async function readLibrarySnapshot(): Promise<LibrarySnapshot> {
   const tx = db.transaction([...LIBRARY_STORES], 'readonly');
   const values = await Promise.all(LIBRARY_STORES.map((store) => tx.objectStore(store).getAll()));
   await tx.done;
-  return records(Object.fromEntries([['schemaVersion', DB_VERSION], ...LIBRARY_STORES.map((store, index) => [store, values[index]])]));
+  const snapshot = Object.fromEntries([['schemaVersion', DB_VERSION], ...LIBRARY_STORES.map((store, index) => [store, values[index]])]);
+  const itemIds = new Set((values[LIBRARY_STORES.indexOf('items')] as unknown[])
+    .filter(isRecord)
+    .map((item) => item.id)
+    .filter((id): id is string => typeof id === 'string'));
+  for (const store of ['itemBodies', 'itemFlags', 'readMarkers'] as const) {
+    const rows = snapshot[store] as unknown[];
+    snapshot[store] = rows.filter((row) => !isRecord(row) || typeof row.id !== 'string' || itemIds.has(row.id));
+  }
+  return records(snapshot);
 }
 
 function mergeFeed(source: LibraryRecord, destination: LibraryRecord): LibraryRecord {
