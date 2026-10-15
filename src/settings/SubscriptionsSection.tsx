@@ -37,7 +37,7 @@ export function SubscriptionsSection() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'sift-subscriptions.opml';
+    a.download = 'lidora-subscriptions.opml';
     a.click();
     URL.revokeObjectURL(url);
   };

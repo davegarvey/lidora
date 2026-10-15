@@ -1,7 +1,7 @@
-# Scenarios that cannot apply to Sift. Everything not listed must pass.
+# Scenarios that cannot apply to Lidora. Everything not listed must pass.
 # The runner reports a listed scenario that starts passing, so remove it then.
 server:
-  # Sift offers tools only: no logging, completion, resources or prompts.
+  # Lidora offers tools only: no logging, completion, resources or prompts.
   - logging-set-level
   - completion-complete
   - resources-list
@@ -27,7 +27,7 @@ server:
   - tools-call-error
   - json-schema-2020-12
 
-  # Sift is stateless and answers with plain JSON. It never sends progress,
+  # Lidora is stateless and answers with plain JSON. It never sends progress,
   # logging, sampling or elicitation messages, and it opens no SSE streams.
   - tools-call-with-logging
   - tools-call-with-progress
@@ -38,7 +38,7 @@ server:
   - server-sse-polling
   - server-sse-multiple-streams
 
-  # Targets unauthenticated localhost servers. Sift requires a bearer token,
+  # Targets unauthenticated localhost servers. Lidora requires a bearer token,
   # which a browser never attaches on its own, so a rebound Host header gains
   # an attacker nothing. The suite sends no token, so a token-injecting proxy
   # makes the invalid-Host probe succeed with 200.

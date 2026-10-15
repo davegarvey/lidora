@@ -1,6 +1,6 @@
 # AGENTS.md — Commands and conventions for this repo
 
-Sift — a simple, slick, browser-first RSS reader.
+Lidora — a simple, slick, browser-first RSS reader.
 
 ## Build / lint / test / deploy commands
 

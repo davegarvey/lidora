@@ -1,4 +1,4 @@
-# Sift
+# Lidora
 
 A simple, browser-first RSS reader. Feed parsing, item storage, and reading
 state run in the browser tab; the server proxies network requests (CORS-safe),
@@ -10,14 +10,14 @@ provides multi-device sync and AI agent integration.
 - **Multi-device sync**: optional D1-backed sync via Cloudflare Workers (pairing-code based), including exact group read-once deduplication and approximate observed volume. You can delete your server-side sync data from Settings → Server data.
 - **Server-side polling**: on Workers, synced subscriptions are polled every 30 minutes, so items published while no device is open still arrive.
 - **AI agent connector**: a remote MCP server with OAuth lets chat and coding agents read subscriptions, statistics and recent articles, and manage subscriptions, after one approval. An OpenAPI document describes the sync API for other tools.
-- **Portable**: import/export your subscription list as OPML.
+- **Portable**: export/import subscriptions as OPML, or create a full-library backup for recovery.
 - **Offline**: installable PWA; works offline against cached data.
 - **Deploy anywhere**: local dev, Node/Bun server, Docker, or Cloudflare Workers — all from one codebase.
 - **Unread filter**: switch between Unread and All within the selected feed or tags. The choice is remembered on each device; Starred shows both read and unread saved articles.
 - **Full-text**: summary-only feeds get full-text extraction via Readability.
 - **Sanitised articles**: feed and extracted article HTML passes through an allowlist sanitiser (DOMPurify) before it is stored and again before it is displayed. Scripts, styles, forms, event handlers, `javascript:` links and same-origin frames are removed; images, figures, tables, links and media embeds are kept.
 
-Learn more about [Sift](https://sift.davegarvey.workers.dev/about), including its [privacy policy](https://sift.davegarvey.workers.dev/privacy) and [terms](https://sift.davegarvey.workers.dev/terms).
+Learn more about [Lidora](https://lidora.app/about), including its [privacy policy](https://lidora.app/privacy) and [terms](https://lidora.app/terms).
 
 ## Develop
 
@@ -35,11 +35,11 @@ npm start           # node + tsx serving dist/, proxy, and API routes
 bun server/bun.ts   # bun runtime
 ```
 
-Node and Bun can store sync data in local SQLite files when `SIFT_DATA_DIR` is
+Node and Bun can store sync data in local SQLite files when `LIDORA_DATA_DIR` is
 set. Node requires 22.13 or later for `node:sqlite`; Bun requires 1.3 or later. The sync and polling
 databases are separate files; both runtimes apply the shared SQL migrations at
 startup. Set `FEED_POLLING=true` to enable polling and daily maintenance.
-Self-hosted SQLite supports one running Sift server process per data directory;
+Self-hosted SQLite supports one running Lidora server process per data directory;
 it is not a shared database for horizontal scaling.
 
 ## Deploy
@@ -71,7 +71,7 @@ queries and 555 subrequests, within Workers Paid limits but above the Free
 plan's 50 subrequests per invocation. Remove `FEED_POLLING` to disable polling;
 browsers continue fetching feeds either way.
 
-The upstream User-Agent identifies the current Sift package version and links
+The upstream User-Agent identifies the current Lidora package version and links
 to the public About page.
 
 Two Workers rate limiting bindings, `PROXY_FETCH_LIMITER` and
@@ -90,24 +90,24 @@ fetcher.
 ### Docker
 
 ```sh
-docker build -t sift .
-docker run -p 8787:8787 sift
+docker build -t lidora .
+docker run -p 8787:8787 lidora
 ```
 
 For a persistent instance, mount `/data`. The GHCR image uses Bun and enables
 sync by default; polling remains opt-in:
 
 ```sh
-docker run -d --name sift -p 8787:8787 -v sift-data:/data \
-  -e FEED_POLLING=true ghcr.io/davegarvey/sift:latest
+docker run -d --name lidora -p 8787:8787 -v sift-data:/data \
+  -e FEED_POLLING=true ghcr.io/davegarvey/lidora:latest
 ```
 
 Compose:
 
 ```yaml
 services:
-  sift:
-    image: ghcr.io/davegarvey/sift:latest
+  lidora:
+    image: ghcr.io/davegarvey/lidora:latest
     ports:
       - "8787:8787"
     volumes:
@@ -117,6 +117,45 @@ services:
 volumes:
   sift-data:
 ```
+
+## Moving from the previous hosted origin
+
+The Lidora hosted origin has separate browser storage. On the previous hosted
+site, open Settings → Storage and choose **Move to Lidora**. The transfer opens
+Lidora in another tab and copies subscriptions, articles, saved article text,
+reading and star state, preferences, statistics, sync credentials and pending
+sync changes. Allow the new tab to open and keep both pages open until Lidora
+confirms the library is saved. The old copy stays intact; if the transfer is
+interrupted, return to the old page and retry. After verification, the old app
+becomes read-only on that device. The old site must remain available for devices
+that return later, including installed PWAs that were offline during cutover.
+If the destination was paired to a different sync account, the source account
+stays active; the destination account's credential and cursors are kept in local
+recovery metadata and included in a full-library backup.
+
+The transfer uses a browser-to-browser channel and does not send library data
+through a server. A full-library JSON backup in Settings → Storage is a recovery
+option; it can contain private feed URLs and sync keys. Restore it at
+`https://lidora.app/migrate.html` and keep the file private. Because browser
+storage and PWA installation are origin-specific, install Lidora again from
+`lidora.app` after moving if you used the old site as an installed app.
+
+## Rebrand upgrade notes
+
+The application, package, MCP server and custom response headers now use the
+Lidora identity. Custom headers use `X-Lidora-*`; integrations that inspect
+`X-Sift-*` must update with the application. Self-hosted deployments must rename
+`SIFT_DATA_DIR` to `LIDORA_DATA_DIR` and point it at the same existing directory.
+Do not move or rename its files. Existing server data remains in `sift-sync.sqlite`
+and `sift-poll.sqlite`; the Docker `/data` mount and the example `sift-data`
+volume retain their names. The Vite development data directory also remains
+`node_modules/.cache/sift`.
+
+Cloudflare retains Worker `sift` and D1 databases `sift-sync` and `sift-poll`.
+Both hosted domains are intended to use that same backend and polling schedule;
+the domain and deployment cutover still requires an operator rollout. Existing
+browser origins keep their `sift` IndexedDB database. The new `lidora.app`
+origin uses `lidora`.
 
 ## Configuration
 
@@ -128,9 +167,9 @@ OAuth on every deployment requires a persistent `BETTER_AUTH_SECRET` of at least
 
 For Node and Bun:
 
-- `PUBLIC_URL` — public origin of the deployment (for example `https://sift.example.com`); when set, it defines the OAuth issuer and resource URLs instead of the request origin, which matters behind a reverse proxy
-- `SIFT_DATA_DIR` — enable sync and store the `sift-sync.sqlite` and `sift-poll.sqlite` files in this directory
-- `FEED_POLLING=true` — enable server-side polling when `SIFT_DATA_DIR` is set; the process checks every 10 minutes
+- `PUBLIC_URL` — public origin of the deployment (for example `https://lidora.example.com`); when set, it defines the OAuth issuer and resource URLs instead of the request origin, which matters behind a reverse proxy
+- `LIDORA_DATA_DIR` — enable sync and store the `sift-sync.sqlite` and `sift-poll.sqlite` files in this directory
+- `FEED_POLLING=true` — enable server-side polling when `LIDORA_DATA_DIR` is set; the process checks every 10 minutes
 - `FEED_POLL_BATCH` and `POLL_DB_MAX_BYTES` — polling batch size and poll-database limit, with the same defaults as Workers
 
 Cloudflare Workers variables (`wrangler.toml` `[vars]`):
@@ -146,7 +185,7 @@ from accounts active in the last 14 days and deletes items older than 7 days.
 
 ### Proxy limits
 
-`/feed`, `/article` and `/img` accept only requests from Sift's own origin:
+`/feed`, `/article` and `/img` accept only requests from Lidora's own origin:
 a request with a `Sec-Fetch-Site` header other than `same-origin` or `none`
 receives `403`, so other websites cannot embed or call the proxy. Requests
 without the header, such as `curl`, are not rejected on that basis.
@@ -201,7 +240,7 @@ longer of 15 minutes and the upstream's own hints (`Cache-Control`, `Expires`,
 RSS `<ttl>`, `sy:updatePeriod`), capped at 24 hours, and is kept for a further
 24 hours. While an upstream is rate limiting, challenging, timing out or
 returning server errors, the proxy serves that retained copy with
-`X-Sift-Cache: stale` and `X-Sift-Retry-After` instead of the failure, and the
+`X-Lidora-Cache: stale` and `X-Lidora-Retry-After` instead of the failure, and the
 browser does not flag the feed unless it has not been received for 24 hours.
 Node/Bun use process-local memory; Cloudflare Workers also use the
 Workers Cache API when available, with data-center-local, best-effort reuse.
@@ -219,7 +258,7 @@ All proxy errors are `no-store`; `/img` uses immutable caching only for
 successful images. Every proxy response, including errors, carries a
 sandboxing `Content-Security-Policy` and `X-Content-Type-Options: nosniff`, so
 proxied content opened directly runs in an opaque origin without scripts and
-cannot read Sift's storage. Error responses are plain text and never forward
+cannot read Lidora's storage. Error responses are plain text and never forward
 upstream headers, and `/img` refuses upstream responses that are not
 `image/*`. Response headers identify whether a response came from the
 upstream, a feed cache, a URL cooldown, an origin cooldown, or the local gate.
@@ -254,7 +293,7 @@ only if you are comfortable storing those URLs and feed entries on the server.
 If `FEED_POLLING` is not `true` or `POLL_DB` is not bound, the server stores
 no polled feed entries.
 
-For feed URLs, Sift adopts a 301 or 308 destination after two independent
+For feed URLs, Lidora adopts a 301 or 308 destination after two independent
 upstream fetches confirm the same validated URL. Temporary redirects do not
 change subscriptions. A feed that returns 410 is marked removed in the reader
 and is no longer refreshed automatically; server polling also stops for it.
@@ -284,18 +323,18 @@ key can write statistics snapshots or historical markers. OAuth refresh tokens a
 
 ## AI agents
 
-Sift runs a remote [MCP](https://modelcontextprotocol.io) server at `/mcp`, with
+Lidora runs a remote [MCP](https://modelcontextprotocol.io) server at `/mcp`, with
 OAuth 2.1 authorisation on the same origin, implemented with Better Auth and its MCP and CIMD plugins on Workers, Node and Bun. Any MCP client that supports remote
 servers and OAuth can connect by being given one URL. The agent's tool calls
 come from its host, not from a code sandbox, so the agent needs no network
-access to Sift of its own. Sync must be turned on first, because the connector
+access to Lidora of its own. Sync must be turned on first, because the connector
 works on the synced account.
 
-Existing installations moving from Sift’s custom OAuth implementation must configure `BETTER_AUTH_SECRET` before deployment. The migration requires agents to reconnect once; device sync and reading data are preserved. A later migration removes `siftctl` credentials when the CLI is retired.
+Existing installations moving from Lidora’s custom OAuth implementation must configure `BETTER_AUTH_SECRET` before deployment. The migration requires agents to reconnect once; device sync and reading data are preserved. Agent connections must be approved again at the new origin.
 
 ### Connecting an agent
 
-1. In Sift, open Settings → Agents and choose **Connect an agent**. Sift creates
+1. In Lidora, open Settings → Agents and choose **Connect an agent**. Lidora creates
    a single-use connection URL of the form `https://<your-origin>/mcp/c/<id>`,
    valid for ten minutes, and copies setup instructions that contain it.
 2. Either paste the instructions into the agent's chat, or paste the URL into
@@ -307,7 +346,7 @@ Existing installations moving from Sift’s custom OAuth implementation must con
    Nothing in the instructions asks the agent to fetch anything.
 3. The agent opens a consent page in its own browser. Check the agent's name
    and press **Allow**. The page works in any browser, including one that has
-   never run Sift, because the connection URL identifies your account.
+   never run Lidora, because the connection URL identifies your account.
 
 The connection URL stays valid as an address for `/mcp` after use, since clients
 store it. Once spent, it no longer approves anything.
@@ -318,7 +357,7 @@ configured with the plain `https://<your-origin>/mcp`:
 - If the consent page runs in a browser that holds your sync key, **Allow**
   works directly.
 - Otherwise the consent page shows an 8-character approval code and a QR code.
-  In Sift, open Settings → Agents, tap **Have an approval code?**, enter or scan the
+  In Lidora, open Settings → Agents, tap **Have an approval code?**, enter or scan the
   code, check the agent's name and redirect host, and approve. The consent page
   then completes by itself. Approve only codes you generated by starting a
   connection yourself.
@@ -352,7 +391,7 @@ Write tools use the same merge as a device sync, so changes reach your browsers
 on their next sync. `list_items` and `get_item` need server-side polling
 (`FEED_POLLING`); without it they are not offered.
 
-**Data exposure.** An agent can read everything Sift synchronises: subscriptions,
+**Data exposure.** An agent can read everything Lidora synchronises: subscriptions,
 tags, read and starred state and reading statistics. With polling enabled it
 can also read the text of articles from the last seven days. That text is sent
 to whichever model service the agent uses. Feed URLs in tool output have
@@ -378,7 +417,7 @@ date and last use.
 - **Identify and rename.** Agents appear under the name they registered with.
   Rename gives one a label you will recognise, such as "Work laptop".
 - **Lifetime.** Access tokens last one hour and the agent renews them silently
-  with a refresh token. Sift grants `offline_access` to every connection, so
+  with a refresh token. Lidora grants `offline_access` to every connection, so
   agents that request only `read write` stay connected too. Each renewal extends
   the connection, which ends after a year without use. An agent whose grant has
   expired or been revoked must be connected again.
@@ -395,7 +434,7 @@ and revoke agents you no longer use.
 ### HTTP API
 
 Tools that do not speak MCP can call the sync API directly. It is described at
-`https://sift.davegarvey.workers.dev/openapi.json`, which documents the HTTP
+`https://lidora.app/openapi.json`, which documents the HTTP
 bearer scheme for agents, the `X-Sync-Key` header for devices, and the scope
 each operation needs. Obtain an OAuth access token through the metadata at
 `/.well-known/oauth-authorization-server/oauth` and send it as
@@ -405,12 +444,9 @@ each operation needs. Obtain an OAuth access token through the metadata at
 management remain master-key-only. Writes carry no timestamps; the server stamps
 everything. `/llms.txt` gives agents a short description of the connector.
 
-The `siftctl` command-line tool has been retired and is deprecated on npm.
-Connect agents through the MCP connector instead.
-
 ## Known v0 limitations
 
-- **Self-hosted sync is single-process.** Node, Bun and Docker can use local SQLite, but multiple Sift processes cannot share the same data directory.
+- **Self-hosted sync is single-process.** Node, Bun and Docker can use local SQLite, but multiple Lidora processes cannot share the same data directory.
 - **No push notifications.** Browser refresh runs only while the app is open; on Workers with polling enabled, synced devices receive items polled in the meantime on their next sync.
 - **No bulk "mark all read" or multi-select.** Reading is the marking mechanism.
 - **No per-feed customization** (colors, sort overrides, custom refresh intervals).

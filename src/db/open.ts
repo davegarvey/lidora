@@ -2,7 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction, type St
 import { DB_NAME, DB_VERSION, type Feed, type FeedStats, type Item, type ItemBody, type Meta, type ReadMarker } from './types';
 import type { ItemFlag } from './flags';
 
-interface RssReaderDB extends DBSchema {
+export interface RssReaderDB extends DBSchema {
   feeds: {
     key: string;
     value: Feed;

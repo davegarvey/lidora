@@ -11,7 +11,7 @@ let server: ChildProcess | undefined;
 test.beforeAll(async () => {
   execFileSync('npm', ['run', 'build'], { stdio: 'ignore' });
   server = spawn('npx', ['tsx', 'server/node.ts'], {
-    env: { ...process.env, PORT: String(PORT), BETTER_AUTH_SECRET: 'oauth-smoke-test-secret-01234567890123456789', SIFT_DATA_DIR: mkdtempSync(join(tmpdir(), 'sift-sw-')) },
+    env: { ...process.env, PORT: String(PORT), BETTER_AUTH_SECRET: 'oauth-smoke-test-secret-01234567890123456789', LIDORA_DATA_DIR: mkdtempSync(join(tmpdir(), 'sift-sw-')) },
     stdio: 'ignore',
   });
   for (let i = 0; i < 60; i++) {

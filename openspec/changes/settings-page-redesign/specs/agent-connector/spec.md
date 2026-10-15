@@ -15,14 +15,14 @@ When the consent request has no usable connection ID, the consent screen SHALL s
 
 #### Scenario: Sync not enabled
 - **WHEN** the consent page has no connection ID and no sync key
-- **THEN** the screen SHALL tell the user to open Settings → Agents in Sift and enter the code, and SHALL show the approval code
+- **THEN** the screen SHALL tell the user to open Settings → Agents in Lidora and enter the code, and SHALL show the approval code
 
 ### Requirement: Connect an agent screen
 
 Settings SHALL have an Agents section, separate from the Devices section, that shows only what connecting and managing agents needs:
 
 - one sentence of explanation and a Connect an agent button (see Single-use connection URLs)
-- when this device has no sync key, a note that agents use the copy of the subscriptions and reading progress stored on the Sift server and that connecting one turns this on
+- when this device has no sync key, a note that agents use the copy of the subscriptions and reading progress stored on the Lidora server and that connecting one turns this on
 - a "Connected agents" heading followed by the connected agents (see Connected agent identity), each with inline rename and a Revoke that expands an inline confirmation within the agent's row
 - a "Have an approval code?" link that reveals code entry with a QR scan option
 

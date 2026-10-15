@@ -1,4 +1,4 @@
-import { createEffect, onMount, onCleanup, Show, type JSX } from 'solid-js';
+import { createEffect, createSignal, onMount, onCleanup, Show, type JSX } from 'solid-js';
 import { AppProvider, useApp } from './state';
 import { hashId, isStatsPath, itemIdFromHistoryState, parseItemIdFromUrl, parseSettingsPath } from './routing';
 import { navigateReaderByOffset } from './readerNavigation';
@@ -15,17 +15,19 @@ import { FeedEditorModal } from './components/FeedEditorModal';
 import { Stats } from './components/Stats';
 import { SIDEBAR_WIDTH_DEFAULT } from './db/types';
 import { getItem } from './db/items';
+import { readMigrationState, subscribeMigrationState } from './migration/source-lock';
 import './styles.css';
 
 function Shell() {
   const ctx = useApp();
+  const [migrationState, setMigrationState] = createSignal(readMigrationState());
 
   createEffect(() => {
     const item = ctx.state.currentItem;
     if (ctx.state.view === 'reading' && item) {
-      document.title = `${item.title} — Sift`;
+      document.title = `${item.title} — Lidora`;
     } else {
-      document.title = window.location.pathname === '/' ? 'Sift RSS Reader' : 'Sift';
+      document.title = window.location.pathname === '/' ? 'Lidora RSS Reader' : 'Lidora';
     }
   });
 
@@ -117,7 +119,10 @@ function Shell() {
     }
   };
 
-  const onKey = (e: KeyboardEvent) => nav(e);
+  const onKey = (e: KeyboardEvent) => {
+    if (migrationState() !== 'idle') return;
+    nav(e);
+  };
   const onPop = (event: PopStateEvent) => {
     const path = window.location.pathname;
     const settingsRoute = parseSettingsPath(path, { sync: true, syncKey: true });
@@ -153,6 +158,8 @@ function Shell() {
     }
   };
   onMount(() => {
+    const unsubscribeMigration = subscribeMigrationState(setMigrationState);
+    onCleanup(unsubscribeMigration);
     window.addEventListener('keydown', onKey);
     window.addEventListener('popstate', onPop);
 
@@ -201,6 +208,19 @@ function Shell() {
       data-sidebar-hidden={String(ctx.state.sidebarHiddenDesktop)}
       data-sidebar-open={sidebarOpenAttr()}
     >
+      <Show when={migrationState() !== 'idle'}>
+        <section class="migration-gate" role="status" aria-live="polite">
+          <div>
+            <h1>{migrationState() === 'complete' ? 'Your library is on Lidora' : 'Moving your library'}</h1>
+            <p>{migrationState() === 'complete'
+              ? 'This browser now uses Lidora. Your previous library remains saved here as a recovery copy.'
+              : 'Keep this tab open while the transfer finishes. Other Lidora tabs are paused so your library stays consistent.'}</p>
+            <Show when={migrationState() === 'complete'}>
+              <a class="btn primary" href="https://lidora.app/">Open Lidora</a>
+            </Show>
+          </div>
+        </section>
+      </Show>
       <TopBar />
       <Sidebar onNavigate={() => ctx.setState({ sidebarOpen: false })} />
       <div

@@ -153,7 +153,7 @@ a:hover { text-decoration: underline; }
     cursor: pointer;
   }
 
-  .collapsed-brand .sift-mark {
+  .collapsed-brand .lidora-mark {
     position: absolute;
     inset: 0;
     display: flex;
@@ -182,7 +182,7 @@ a:hover { text-decoration: underline; }
     color: var(--subtext);
   }
 
-  .collapsed-rail:hover .collapsed-brand .sift-mark {
+  .collapsed-rail:hover .collapsed-brand .lidora-mark {
     display: none;
   }
 
@@ -3649,4 +3649,30 @@ a:hover { text-decoration: underline; }
   .confirm-dialog .btn {
     min-height: 44px;
   }
+}
+
+.migration-gate {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--base);
+}
+
+.migration-gate > div {
+  width: min(100%, 520px);
+}
+
+.migration-gate h1 {
+  margin: 0 0 12px;
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 500;
+}
+
+.migration-gate p {
+  margin: 0 0 20px;
+  color: var(--subtext0);
 }

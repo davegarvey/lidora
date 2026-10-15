@@ -12,10 +12,10 @@ export function AboutSection() {
         <SettingRow label="Version">
           <span class="setting-value">v{version}</span>
         </SettingRow>
-        <SettingRow label="Source code" description="Sift is open source.">
+        <SettingRow label="Source code" description="Lidora is open source.">
           <a
             class="setting-link"
-            href="https://github.com/davegarvey/sift"
+            href="https://github.com/davegarvey/lidora"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -28,7 +28,7 @@ export function AboutSection() {
           </button>
         </SettingRow>
       </SettingGroup>
-      <nav class="settings-links" aria-label="About Sift">
+      <nav class="settings-links" aria-label="About Lidora">
         <a href="/about">About <ChevronRight size={14} /></a>
         <a href="/privacy">Privacy <ChevronRight size={14} /></a>
         <a href="/terms">Terms <ChevronRight size={14} /></a>

@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Persistent storage and status
-After a user's first feed subscription, the client SHALL request persistent browser storage once and SHALL record that it attempted the request. The Storage section of Settings SHALL show a one-line summary of the browser's storage usage and the number of article records, with sizes in KB, MB or GB as appropriate. Beneath the summary, without a disclosure, the section SHALL list the quota, persistence state, number of article records and number of body records. When persistence is not granted, the section SHALL explain that the browser may clear Sift's data when space runs low and SHALL offer an action to request persistence again. Missing or denied browser APIs SHALL not prevent reading or retention.
+After a user's first feed subscription, the client SHALL request persistent browser storage once and SHALL record that it attempted the request. The Storage section of Settings SHALL show a one-line summary of the browser's storage usage and the number of article records, with sizes in KB, MB or GB as appropriate. Beneath the summary, without a disclosure, the section SHALL list the quota, persistence state, number of article records and number of body records. When persistence is not granted, the section SHALL explain that the browser may clear Lidora's data when space runs low and SHALL offer an action to request persistence again. Missing or denied browser APIs SHALL not prevent reading or retention.
 
 #### Scenario: Persistence is requested after first feed
 - **WHEN** the first feed is added

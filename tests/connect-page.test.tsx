@@ -84,7 +84,7 @@ describe('consent page', () => {
     await setStoredSyncKey(KEY);
     const calls = mockFetch([makeView({ connection: { usable: true, createdAt: Date.now() } })]);
     const navigate = mount();
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Connect Test Agent to your Sift?'));
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Connect Test Agent to your Lidora?'));
     const text = document.body.textContent ?? '';
     expect(text).toContain('unverified');
     expect(text).toContain('client.example');
@@ -108,7 +108,7 @@ describe('consent page', () => {
     await setStoredSyncKey(KEY);
     const calls = mockFetch([makeView()]);
     const navigate = mount();
-    await vi.waitFor(() => expect(document.body.textContent).toContain('You are approving as the Sift account'));
+    await vi.waitFor(() => expect(document.body.textContent).toContain('You are approving as the Lidora account'));
     expect(document.body.textContent).not.toContain('abcd-2345');
     button('Allow').click();
     await vi.waitFor(() => expect(navigate).toHaveBeenCalled());

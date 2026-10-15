@@ -44,7 +44,7 @@ const CORS_HEADERS = {
 
 function instructions(hasContent: boolean): string {
   const lines = [
-    'Sift is a personal RSS reader. These tools read and manage the user\'s subscriptions, reading statistics and (where available) recent articles.',
+    'Lidora is a personal RSS reader. These tools read and manage the user\'s subscriptions, reading statistics and (where available) recent articles.',
     '',
     'Identifiers:',
     '- A feed is identified by feedId, an opaque string from list_subscriptions. Never use a feed URL as an identifier.',
@@ -123,7 +123,7 @@ function createServer(extra: McpExtra): Server {
   const { auth, deps } = extra;
   const ctx: ToolContext = { db: deps.db, pollDb: deps.pollDb, syncKey: auth.syncKey, tokenId: auth.tokenId, scopes: auth.scopes };
   const server = new Server(
-    { name: 'sift', title: 'Sift', version: pkg.version },
+    { name: 'lidora', title: 'Lidora', version: pkg.version },
     { capabilities: { tools: { listChanged: false } }, instructions: instructions(deps.pollDb !== undefined) },
   );
   server.setRequestHandler('tools/list', () => ({

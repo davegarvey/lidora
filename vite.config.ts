@@ -20,7 +20,7 @@ function honoDevMiddleware() {
   return {
     name: 'hono-proxy-dev',
     async configureServer(server: ViteDevServer) {
-      const databases = await createSelfHostedDatabases(process.env.SIFT_DATA_DIR || 'node_modules/.cache/sift', openNodeSqlite);
+      const databases = await createSelfHostedDatabases(process.env.LIDORA_DATA_DIR || 'node_modules/.cache/sift', openNodeSqlite);
       const stopJobs = startSelfHostedJobs(databases, {
         feedPolling: process.env.FEED_POLLING === 'true',
         feedPollBatch: process.env.FEED_POLL_BATCH,
@@ -105,8 +105,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: false,
       manifest: {
-        name: 'Sift',
-        short_name: 'Sift',
+        name: 'Lidora',
+        short_name: 'Lidora',
         display: 'standalone',
         background_color: '#ffffff',
         theme_color: '#1e1e2e',
@@ -153,7 +153,7 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
-      input: { index: 'index.html', connect: 'connect.html' },
+      input: { index: 'index.html', connect: 'connect.html', migrate: 'migrate.html' },
     },
     target: 'esnext',
     outDir: 'dist',
@@ -161,6 +161,9 @@ export default defineConfig({
     sourcemap: 'hidden',
   },
   server: {
-    port: 8787,
+    port: Number(process.env.PORT) || 8787,
+    strictPort: true,
+    host: '0.0.0.0',
+    allowedHosts: ['lidora.app', 'lidora.localhost'],
   },
 });

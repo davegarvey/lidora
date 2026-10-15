@@ -167,7 +167,7 @@ export function Stats() {
                     <dl>
                       <div>
                         <dt>Articles</dt>
-                        <dd>Distinct articles Sift encountered while refreshing this feed. You may not have opened all of them.</dd>
+                        <dd>Distinct articles Lidora encountered while refreshing this feed. You may not have opened all of them.</dd>
                       </div>
                       <div>
                         <dt>Read</dt>

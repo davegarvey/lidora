@@ -12,7 +12,7 @@ import { mountAppShellPages } from './app-shell';
 
 loadEnv();
 
-const dataDirectory = process.env.SIFT_DATA_DIR?.trim();
+const dataDirectory = process.env.LIDORA_DATA_DIR?.trim();
 const databases = dataDirectory ? await createSelfHostedDatabases(dataDirectory, openNodeSqlite) : undefined;
 if (databases) {
   startSelfHostedJobs(databases, {
@@ -40,5 +40,5 @@ app.use('*', serveStatic({ root: './dist' }));
 
 const port = Number(process.env.PORT) || 8787;
 serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`sift server listening on http://localhost:${info.port}`);
+  console.log(`Lidora server listening on http://localhost:${info.port}`);
 });

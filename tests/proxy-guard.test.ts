@@ -94,7 +94,7 @@ describe('same-site check', () => {
       expect(response.status, site).toBe(403);
       expect(response.headers.get('Cache-Control')).toBe('no-store');
       expect(response.headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
-      expect(response.headers.get('X-Sift-Request-Source')).toBe('same-site-check');
+      expect(response.headers.get('X-Lidora-Request-Source')).toBe('same-site-check');
       expect(response.headers.get('Retry-After')).toBeNull();
       expectIsolated(response, csp);
     }
@@ -153,7 +153,7 @@ describe('per-client limit', () => {
     expect(retryAfter).toBeGreaterThanOrEqual(1);
     expect(retryAfter).toBeLessThanOrEqual(60);
     expect(limited.headers.get('Cache-Control')).toBe('no-store');
-    expect(limited.headers.get('X-Sift-Request-Source')).toBe('client-limit');
+    expect(limited.headers.get('X-Lidora-Request-Source')).toBe('client-limit');
     expectIsolated(limited, csp);
     expect(upstream.mock.calls.length).toBe(calls);
   });
@@ -243,7 +243,7 @@ describe('per-client limit', () => {
     const third = await app.request(target('/feed'));
 
     expect([first.status, second.status, third.status]).toEqual([200, 200, 429]);
-    expect(second.headers.get('X-Sift-Cache')).toBe('hit');
+    expect(second.headers.get('X-Lidora-Cache')).toBe('hit');
     expect(upstream).toHaveBeenCalledTimes(1);
   });
 
@@ -326,7 +326,7 @@ describe('Workers rate limiting binding', () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get('Retry-After')).toBe('60');
-    expect(response.headers.get('X-Sift-Request-Source')).toBe('client-limit');
+    expect(response.headers.get('X-Lidora-Request-Source')).toBe('client-limit');
     expectIsolated(response, PAGE_CSP);
     expect(upstream).not.toHaveBeenCalled();
     expect(governor.fetchOriginRequest).not.toHaveBeenCalled();
@@ -462,7 +462,7 @@ describe('response body caps', () => {
 
     expect(response.status).toBe(502);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
-    expect(response.headers.get('X-Sift-Request-Source')).toBe('local-gate');
+    expect(response.headers.get('X-Lidora-Request-Source')).toBe('local-gate');
     if (path === '/feed') expect(await response.text()).toBe('');
     else expect(await response.text()).toBe('Upstream response is too large');
     expectIsolated(response, csp);

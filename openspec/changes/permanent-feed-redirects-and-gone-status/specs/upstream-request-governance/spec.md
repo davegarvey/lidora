@@ -2,14 +2,14 @@
 
 ### Requirement: Identify feed requests without disclosing audience size
 
-Sift upstream requests SHALL use one descriptive User-Agent whose version matches the application package version and whose information URL points to the public About page. The User-Agent SHALL NOT include subscriber counts or other audience-size estimates, and the application SHALL NOT offer a setting to enable them, because those counts disclose reader activity to feed publishers.
+Lidora upstream requests SHALL use one descriptive User-Agent whose version matches the application package version and whose information URL points to the public About page. The User-Agent SHALL NOT include subscriber counts or other audience-size estimates, and the application SHALL NOT offer a setting to enable them, because those counts disclose reader activity to feed publishers.
 
-#### Scenario: Feed request identifies Sift
-- **WHEN** Sift makes an upstream request
-- **THEN** its User-Agent SHALL identify Sift with the current package version and About URL
+#### Scenario: Feed request identifies Lidora
+- **WHEN** Lidora makes an upstream request
+- **THEN** its User-Agent SHALL identify Lidora with the current package version and About URL
 
 #### Scenario: Subscriber count is not exposed
-- **WHEN** Sift fetches a feed followed by synced accounts
+- **WHEN** Lidora fetches a feed followed by synced accounts
 - **THEN** the User-Agent SHALL NOT include the number of accounts following that URL
 
 ### Requirement: Expose permanent feed redirect destinations
@@ -18,7 +18,7 @@ When a feed request follows a 301 or 308 redirect, the proxy SHALL expose the va
 
 #### Scenario: Unsafe permanent redirect
 - **WHEN** a permanent redirect points to a URL that fails upstream target validation
-- **THEN** Sift SHALL reject the redirect and SHALL NOT expose or store that destination
+- **THEN** Lidora SHALL reject the redirect and SHALL NOT expose or store that destination
 
 ### Requirement: Confirm permanent redirects before changing subscriptions
 

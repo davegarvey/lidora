@@ -74,12 +74,12 @@ describe('shared upstream origin policy', () => {
     const first = await fetchOriginRequest(firstUrl, {}, { db, route: 'feed' });
     expect(first.status).toBe(419);
     expect(first.headers.get('Retry-After')).toBe(String(6 * 60 * 60));
-    expect(first.headers.get('X-Sift-Request-Source')).toBe('upstream');
+    expect(first.headers.get('X-Lidora-Request-Source')).toBe('upstream');
 
     clearOriginGovernorForTests();
     const second = await fetchOriginRequest(`${ORIGIN}/article`, {}, { db, route: 'article' });
     expect(second.status).toBe(419);
-    expect(second.headers.get('X-Sift-Request-Source')).toBe('origin-cooldown');
+    expect(second.headers.get('X-Lidora-Request-Source')).toBe('origin-cooldown');
     expect(second.headers.get('Cache-Control')).toBe('no-store');
     expect(second.headers.get('Retry-After')).toBe(String(6 * 60 * 60));
     expect(calls).toBe(1);
@@ -119,7 +119,7 @@ describe('shared upstream origin policy', () => {
     const rejected = await requests[20];
 
     expect(rejected.status).toBe(429);
-    expect(rejected.headers.get('X-Sift-Request-Source')).toBe('local-gate');
+    expect(rejected.headers.get('X-Lidora-Request-Source')).toBe('local-gate');
     expect(rejected.headers.get('Retry-After')).toBe('5');
     expect(pending).toHaveLength(1);
 

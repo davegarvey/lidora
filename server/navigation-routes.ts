@@ -5,6 +5,7 @@ export const SERVER_NAVIGATION_DENYLIST: RegExp[] = [
   /^\/mcp(?:\/|$)/,
   /^\/sync\//,
   /^\/llms\.txt$/,
+  /^\/migrate\.html$/,
   /^\/openapi\.json$/,
 ];
 

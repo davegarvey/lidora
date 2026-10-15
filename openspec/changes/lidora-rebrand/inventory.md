@@ -1,0 +1,129 @@
+# Rebrand inventory
+
+Source: tracked application, maintained documentation and current OpenSpec at main `4f7575b` (v1.1.0, including PR #682), inspected 15 October 2026. This inventory replaces the pre-Settings snapshot. It lists maintained files with the current brand, hosted origin or custom headers; package-lock and storage identifiers are explicit even where their contents are generated or do not contain the brand. The active Settings proposal remains unarchived; this change adds a current routed-Settings preservation requirement and updates the agent connector delta to use Settings → Agents.
+
+Retain Worker `sift`, D1 databases `sift-sync` and `sift-poll` (including IDs/bindings), SQLite filenames `sift-sync.sqlite` and `sift-poll.sqlite`, volume mounts, Vite's persistent data directory, and the `sift` database on established origins. The new hosted origin uses IndexedDB `lidora`. Applied SQL migrations, archived proposals, release history and Git history remain immutable. The old hosted origin keeps its migration access for returning/offline users.
+
+Tracked maintained matches at the refreshed baseline:
+- `.env.example`
+- `AGENTS.md`
+- `Dockerfile`
+- `README.md`
+- `connect.html`
+- `docs/evaluations/oauth-libraries.md`
+- `index.html`
+- `openspec/changes/permanent-feed-redirects-and-gone-status/proposal.md`
+- `openspec/changes/permanent-feed-redirects-and-gone-status/specs/upstream-request-governance/spec.md`
+- `openspec/changes/settings-page-redesign/** (active proposal to reconcile before archive)`
+- `openspec/changes/settings-page-redesign/design.md`
+- `openspec/changes/settings-page-redesign/proposal.md`
+- `openspec/changes/settings-page-redesign/specs/agent-connector/spec.md`
+- `openspec/changes/settings-page-redesign/specs/device-sync/spec.md`
+- `openspec/changes/settings-page-redesign/specs/settings-page/spec.md`
+- `openspec/changes/settings-page-redesign/specs/storage-retention/spec.md`
+- `openspec/changes/settings-page-redesign/tasks.md`
+- `openspec/specs/agent-connector/spec.md`
+- `openspec/specs/agent-tokens/spec.md`
+- `openspec/specs/cloudflare-feed-cache/spec.md`
+- `openspec/specs/desktop-reading-layout/spec.md`
+- `openspec/specs/device-sync/spec.md`
+- `openspec/specs/feed-refresh-status/spec.md`
+- `openspec/specs/ghcr-publish/spec.md`
+- `openspec/specs/item-body-storage/spec.md`
+- `openspec/specs/public-site-pages/spec.md`
+- `openspec/specs/reader-ui/spec.md`
+- `openspec/specs/reading-chrome-title/spec.md`
+- `openspec/specs/reading-font-preference/spec.md`
+- `openspec/specs/secure-upstream-fetch/spec.md`
+- `openspec/specs/self-hosted-storage/spec.md`
+- `openspec/specs/server-feed-polling/spec.md`
+- `openspec/specs/shared-feed-cache/spec.md`
+- `openspec/specs/shared-feed-failure-cooldown/spec.md`
+- `openspec/specs/storage-retention/spec.md`
+- `openspec/specs/upstream-request-governance/spec.md`
+- `package-lock.json (package identity and lockfile root)`
+- `package.json`
+- `public/about.html`
+- `public/icon.svg and public/icon-*.png (reviewed app assets)`
+- `public/llms.txt`
+- `public/openapi.json`
+- `public/privacy.html`
+- `public/robots.txt`
+- `public/sitemap.xml`
+- `public/terms.html`
+- `server/agent/mcp/index.ts`
+- `server/agent/oauth/index.ts`
+- `server/agent/oauth/util.ts`
+- `server/bun.ts`
+- `server/feed-poller.ts`
+- `server/fetch.ts`
+- `server/handle.ts`
+- `server/migrations/README.md`
+- `server/node.ts`
+- `server/origin-governor.ts`
+- `server/proxy-guard.ts`
+- `server/sqlite-d1.ts`
+- `src/App.tsx`
+- `src/agents/setupPrompt.ts`
+- `src/articles/service.ts`
+- `src/components/River.tsx`
+- `src/components/Sidebar.tsx`
+- `src/components/Stats.tsx`
+- `src/components/TopBar.tsx`
+- `src/connect/ConnectPage.tsx`
+- `src/db/types.ts (including origin-scoped IndexedDB names)`
+- `src/feeds/fetch.ts`
+- `src/settings/AboutSection.tsx`
+- `src/settings/AddDeviceCard.tsx`
+- `src/settings/AgentsSection.tsx`
+- `src/settings/DevicesSection.tsx`
+- `src/settings/ServerDataSection.tsx`
+- `src/settings/StorageSection.tsx`
+- `src/settings/SubscriptionsSection.tsx`
+- `src/styles.css`
+- `tests/add-feed.smoke.ts`
+- `tests/agent-approval.test.ts`
+- `tests/agent-connect-flow.test.ts`
+- `tests/agent-mcp.test.ts`
+- `tests/agent-setup-prompt.test.ts`
+- `tests/boot-empty-flash.smoke.ts`
+- `tests/conformance/expected-failures.yml`
+- `tests/conformance/run.ts`
+- `tests/connect-no-state.test.tsx`
+- `tests/connect-page.test.tsx`
+- `tests/feed-cache.test.ts`
+- `tests/feed-fetch.test.ts`
+- `tests/feeds-scheduler.test.ts`
+- `tests/navigation-routes.test.ts`
+- `tests/oauth-bun-server.ts`
+- `tests/oauth-real-clients.test.ts`
+- `tests/oauth-server.test.ts`
+- `tests/oauth-service-worker.smoke.ts`
+- `tests/proxy-guard.test.ts`
+- `tests/qr-pairing.smoke.ts`
+- `tests/river-loading.test.tsx`
+- `tests/self-hosted-sqlite.test.ts`
+- `tests/settings-agents.test.tsx`
+- `tests/settings-devices.test.tsx`
+- `tests/settings-view.test.tsx`
+- `tests/stats-view.test.tsx`
+- `tests/sync-pairing-e2e.test.ts`
+- `tests/sync-shim.test.ts`
+- `tests/unread-filter.smoke.ts`
+- `tests/upstream-fetch.test.ts`
+- `tests/upstream-governor.test.ts`
+- `tests/upstream-proxy.test.ts`
+- `vite.config.ts`
+- `wrangler.toml`
+
+Implementation additions after the refreshed baseline:
+- `migrate.html`
+- `src/db/library-transfer.ts`
+- `src/migration/handoff.ts`
+- `src/migration/receive.ts`
+- `src/migration/source-lock.ts`
+- `tests/library-transfer.test.ts`
+- `tests/lidora-migration.smoke.ts`
+- `openspec/changes/lidora-rebrand/specs/settings-page/spec.md`
+
+Validation has confirmed that old header prefixes and the old environment variable are not implemented as aliases. Remaining old names are listed in the design's retained-storage and migration exceptions; baseline specifications will receive their final names when this change is archived after merge.

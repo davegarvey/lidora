@@ -130,7 +130,7 @@ describe('sync pairing first-time setup', () => {
   it('pushes pre-existing feeds when enabling sync', async () => {
     const key = makeSyncKey('test-1---');
 
-    // Simulate user who has been using Sift: 2 feeds + 1 flag already in IndexedDB
+    // Simulate user who has been using Lidora: 2 feeds + 1 flag already in IndexedDB
     await upsertFeed({
       id: crypto.randomUUID(),
       url: 'https://ex.com/a',

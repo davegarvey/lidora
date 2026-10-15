@@ -11,7 +11,7 @@ The sync key is the account for both devices and agents. Agent connections are m
 Goals:
 
 - One way of navigating Settings, with working back, Escape and deep links.
-- Each section answers one question a user has: how Sift looks, what I subscribe to, how my devices stay in step, which assistants can use Sift, how much this browser stores, what the server holds, and what this app is.
+- Each section answers one question a user has: how Lidora looks, what I subscribe to, how my devices stay in step, which assistants can use Lidora, how much this browser stores, what the server holds, and what this app is.
 - No sync switch: sync turns on as a consequence of an action whose purpose the user understands.
 - Accessible controls and consistent feedback for every action.
 - No stacked modals. The page has room to show most flows in place, so pairing, the OPML preview and recoverable confirmations expand within their section. A dialog is used only where interruption is the point: confirming irreversible or account-wide actions.
@@ -95,7 +95,7 @@ The existing `PairDeviceModal`, `PairResultModal`, `AgentsModal` and `SettingsDr
 ### Subscriptions
 
 - A summary line: "42 feeds".
-- **Export subscriptions**: downloads `sift-subscriptions.opml`. Disabled when there are no feeds.
+- **Export subscriptions**: downloads `lidora-subscriptions.opml`. Disabled when there are no feeds.
 - **Import from OPML**: opens the file picker. After a file is read, an expanding panel in place of the confirmation modal shows the number of new feeds and the number already subscribed, with Import and Cancel. A file that cannot be parsed, or one that contains no feeds, shows an inline error.
 
 ### Devices
@@ -105,7 +105,7 @@ Sync off: one sentence ("Keep your subscriptions and reading progress in step ac
 - **Add a device.** The card has one button. Activating it turns sync on (`enableSync`), issues a pairing code and expands the card to show it. If turning sync on fails, the card shows "Couldn't turn on sync" with Retry, and sync stays off.
 - **Join from another device.** The card shows the "Pairing code" field, **Pair** and a **Scan** icon button immediately, with no extra step. The field is wide enough for a 22-character key, and a "Use a sync key instead" disclosure explains the key format. When no camera is detected, Scan is disabled and a line of text says why.
 
-When `/sync/capabilities` reports `items: true`, a secondary action below the cards, **Collect new posts while Sift is closed**, turns sync on for this device alone. Its description says that this stores the subscriptions on this Sift server.
+When `/sync/capabilities` reports `items: true`, a secondary action below the cards, **Collect new posts while Lidora is closed**, turns sync on for this device alone. Its description says that this stores the subscriptions on this Lidora server.
 
 Sync on:
 
@@ -122,7 +122,7 @@ The `?pair=` boot flow redeems the code as now. On success it opens `/settings/d
 ### Agents
 
 - One sentence: "Let an AI assistant read and manage your feeds through MCP."
-- When sync is off, a note under the button says: "Agents use the copy of your subscriptions and reading progress stored on this Sift server. Connecting one turns this on." **Connect an agent** then calls `enableSync` before minting the link. A failure is shown inline and leaves sync off.
+- When sync is off, a note under the button says: "Agents use the copy of your subscriptions and reading progress stored on this Lidora server. Connecting one turns this on." **Connect an agent** then calls `enableSync` before minting the link. A failure is shown inline and leaves sync off.
 - The connection link panel is unchanged in function. The "setup instructions copied" confirmation becomes a separate status line with a check icon, and an expired link says "This link has expired" above **Create a new link**.
 - A **Connected agents** heading, then one of: a loading line, "No agents connected", a load error with Retry, or the agent list (unchanged identity and inline rename). Revoke expands an inline confirmation within the agent's row ("Revoke access for Claude? It loses access immediately and can be connected again later."). The list reloads after a revoke, and a failed revoke keeps the confirmation open with the error.
 - The "Have an approval code?" disclosure stays collapsed by default, because it is a rarely used fallback. It follows the same sync-off rule as Connect an agent, and its Scan button opens the same full-screen scanner. Looking up a code needs the sync key, so with no key sync is turned on at lookup, before the user approves or denies. A failure is shown in the disclosure and leaves sync off.
@@ -130,7 +130,7 @@ The `?pair=` boot flow redeems the code as now. On success it opens `/settings/d
 ### Storage
 
 - A summary line: "72 KB used · 1,204 articles". Sizes use KB, MB or GB.
-- When storage is not persistent: "Your browser may clear Sift's data when space runs low", with **Keep data on this device** (the persistence request).
+- When storage is not persistent: "Your browser may clear Lidora's data when space runs low", with **Keep data on this device** (the persistence request).
 - Beneath the summary, a short list shows quota, persistence state, article records and saved article bodies, using "Unavailable" when the browser reports nothing. There is room to show this without a disclosure.
 
 ### Server data
@@ -141,7 +141,7 @@ Shown only when this device has a sync key.
 - **Key ID**: the four-character fingerprint, in small text, with the note "Matches on every device in the same sync".
 - **Sign out other devices and agents** (key rotation). Description: "Use this if a device is lost or an agent should no longer have access. Your other devices will need to be added again and agents reconnected."
 - **Stop syncing on this device**. Description: "This device keeps its data but stops syncing. Your other devices and agents are unaffected."
-- **Delete data from the server**, in danger styling. Description: "Removes everything Sift stores on the server for your devices and agents. Data on this device is kept."
+- **Delete data from the server**, in danger styling. Description: "Removes everything Lidora stores on the server for your devices and agents. Data on this device is kept."
 
 Stop syncing expands an inline confirmation under its row. Sign out other devices and agents, and Delete data from the server, open the confirmation dialog. Each confirmation states the consequences in full. "Stop syncing" adds, when agents are connected, that agents will now only see changes made on other devices. After "Stop syncing" or "Delete", the app navigates to Devices, because Server data no longer applies.
 

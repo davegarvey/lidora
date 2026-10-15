@@ -80,8 +80,8 @@ describe('fetchFeed Retry-After parsing', () => {
     globalThis.fetch = (async () => new Response('<rss/>', {
       status: 200,
       headers: {
-        'X-Sift-Cache': 'revalidated',
-        'X-Sift-Permanent-Redirect': 'https://x.example/new.xml',
+        'X-Lidora-Cache': 'revalidated',
+        'X-Lidora-Permanent-Redirect': 'https://x.example/new.xml',
       },
     })) as unknown as typeof globalThis.fetch;
     const independent = await fetchFeed('https://x.example/old.xml');
@@ -91,8 +91,8 @@ describe('fetchFeed Retry-After parsing', () => {
     globalThis.fetch = (async () => new Response('<rss/>', {
       status: 200,
       headers: {
-        'X-Sift-Cache': 'hit',
-        'X-Sift-Permanent-Redirect': 'https://x.example/new.xml',
+        'X-Lidora-Cache': 'hit',
+        'X-Lidora-Permanent-Redirect': 'https://x.example/new.xml',
       },
     })) as unknown as typeof globalThis.fetch;
     const cached = await fetchFeed('https://x.example/old.xml');

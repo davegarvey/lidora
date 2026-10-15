@@ -87,9 +87,9 @@ export function errorPage(c: Context, message: string, status: 400 | 429 = 400):
   noStore(c);
   c.header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
   return c.html(
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sift</title>` +
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lidora</title>` +
       `<style>body{font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;color:#4c4f69}h1{font-size:1.25rem}@media(prefers-color-scheme:dark){body{background:#1e1e2e;color:#cdd6f4}}</style>` +
-      `</head><body><h1>Sift cannot continue</h1><p>${escapeHtml(message)}</p></body></html>`,
+      `</head><body><h1>Lidora cannot continue</h1><p>${escapeHtml(message)}</p></body></html>`,
     status,
   );
 }

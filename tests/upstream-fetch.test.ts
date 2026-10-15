@@ -12,7 +12,7 @@ afterEach(() => {
 
 describe('fetchUpstream redirects', () => {
   it('uses the package version and public About URL in its User-Agent', () => {
-    expect(READER_USER_AGENT).toBe(`Sift/${packageMetadata.version} (+https://sift.davegarvey.workers.dev/about)`);
+    expect(READER_USER_AGENT).toBe(`Lidora/${packageMetadata.version} (+https://lidora.app/about)`);
   });
 
   it('follows public HTTP-to-HTTPS redirects and forces manual mode', async () => {
@@ -33,7 +33,7 @@ describe('fetchUpstream redirects', () => {
     const response = await fetchUpstream(`${PUBLIC_ORIGIN}/start`);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('X-Sift-Permanent-Redirect')).toBe('https://93.184.216.34/feed.xml');
+    expect(response.headers.get('X-Lidora-Permanent-Redirect')).toBe('https://93.184.216.34/feed.xml');
     expect(await response.text()).toBe('final feed');
     expect(requests).toEqual([`${PUBLIC_ORIGIN}/start`, 'https://93.184.216.34/feed.xml']);
     expect(redirectModes).toEqual(['manual', 'manual']);
@@ -62,7 +62,7 @@ describe('fetchUpstream redirects', () => {
     }) as typeof globalThis.fetch);
 
     const response = await fetchUpstream(`${PUBLIC_ORIGIN}/start`);
-    expect(response.headers.get('X-Sift-Permanent-Redirect')).toBeNull();
+    expect(response.headers.get('X-Lidora-Permanent-Redirect')).toBeNull();
   });
 
   it('keeps permanent redirect metadata limited to feed requests', async () => {
@@ -75,7 +75,7 @@ describe('fetchUpstream redirects', () => {
     }) as typeof globalThis.fetch);
 
     const response = await fetchUpstreamWithPolicy(`${PUBLIC_ORIGIN}/start`, {}, { route: 'article' });
-    expect(response.headers.get('X-Sift-Permanent-Redirect')).toBeNull();
+    expect(response.headers.get('X-Lidora-Permanent-Redirect')).toBeNull();
   });
 
   it('blocks a private redirect before requesting its destination', async () => {

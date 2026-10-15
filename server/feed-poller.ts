@@ -238,10 +238,10 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
 
   let feedUrl = feed.feed_url;
   const independentObservation = fetchState === 'miss' || fetchState === 'revalidated'
-    || response.headers.get('X-Sift-Request-Source') === 'upstream';
+    || response.headers.get('X-Lidora-Request-Source') === 'upstream';
   if (independentObservation) {
     const redirectUrl = response.status === 200 || response.status === 304
-      ? response.headers.get('X-Sift-Permanent-Redirect')
+      ? response.headers.get('X-Lidora-Permanent-Redirect')
       : null;
     if (redirectUrl) {
       const observations = feed.redirect_url === redirectUrl ? feed.redirect_observations + 1 : 1;
@@ -261,7 +261,7 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
   }
 
   if (response.status === 304) {
-    const wait = retryAfterMs(response.headers, 'X-Sift-Retry-After') ?? 0;
+    const wait = retryAfterMs(response.headers, 'X-Lidora-Retry-After') ?? 0;
     await scheduleStatement(pollDb, feedUrl, {
       etag: feed.etag,
       lastModified: feed.last_modified,
@@ -275,7 +275,7 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
   if (response.status !== 200) {
     await response.body?.cancel();
     const retryMs = retryAfterMs(response.headers, 'Retry-After');
-    const requestSource = response.headers.get('X-Sift-Request-Source') ?? '';
+    const requestSource = response.headers.get('X-Lidora-Request-Source') ?? '';
     if (requestSource === 'upstream' && feed.redirect_url) {
       await updateRedirectEvidence(pollDb, feed, null, 0, now);
     }
@@ -303,14 +303,14 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
     return { outcome: 'failed', inserted: 0 };
   }
 
-  const parsed = parseFeed(await response.text(), response.headers.get('X-Sift-Permanent-Redirect') ?? feedUrl);
+  const parsed = parseFeed(await response.text(), response.headers.get('X-Lidora-Permanent-Redirect') ?? feedUrl);
   if (!parsed) {
     await recordFailure(pollDb, feed, 200, undefined, now);
     return { outcome: 'failed', inserted: 0 };
   }
 
   const chunks = chunkItemRows(parsed.items.slice(0, MAX_ITEMS_PER_POLL));
-  const wait = retryAfterMs(response.headers, 'X-Sift-Retry-After') ?? 0;
+  const wait = retryAfterMs(response.headers, 'X-Lidora-Retry-After') ?? 0;
   const results = await pollDb.batch([
     ...chunks.map((rows) => insertItemsStatement(pollDb, feedUrl, rows, now)),
     scheduleStatement(pollDb, feedUrl, {

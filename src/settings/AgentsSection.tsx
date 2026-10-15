@@ -27,9 +27,9 @@ import { ActionButton, ExpandingPanel, InlineConfirm, InlineMessage, PanelButton
 
 const LABEL_MAX = 64;
 const SYNC_OFF_NOTE =
-  'Agents use the copy of your subscriptions and reading progress stored on this Sift server. Connecting one turns this on.';
+  'Agents use the copy of your subscriptions and reading progress stored on this Lidora server. Connecting one turns this on.';
 
-const AGENTS_CHANGED_EVENT = 'sift:agents-changed';
+const AGENTS_CHANGED_EVENT = 'lidora:agents-changed';
 
 function approvalErrorMessage(e: unknown): string {
   if (e instanceof AgentApiError) {
@@ -37,9 +37,9 @@ function approvalErrorMessage(e: unknown): string {
     if (e.status === 410) return 'That request has expired. Restart the connection from your agent.';
     if (e.status === 409) return 'That request has already been decided.';
     if (e.status === 429) return 'Too many attempts. Wait a minute and try again.';
-    if (e.status === 401) return 'Sift could not confirm your account. Check that sync is on.';
+    if (e.status === 401) return 'Lidora could not confirm your account. Check that sync is on.';
   }
-  return 'Could not reach Sift. Try again.';
+  return 'Could not reach Lidora. Try again.';
 }
 
 function titleOf(token: AgentTokenInfo): string {

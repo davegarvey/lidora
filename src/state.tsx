@@ -72,6 +72,9 @@ import { subscribeFeed as subscribeFeedSvc, unsubscribeFeed as unsubscribeFeedSv
 import { refreshTargetForSelection } from './feeds/scope';
 import { isIdle, onCatchup, clearActivityOnHide } from './util/idle';
 import { getFeedStats, getReadMarker } from './db/stats';
+import { readMigrationState, setMigrationState, subscribeMigrationState } from './migration/source-lock';
+import { stopScheduler } from './feeds/scheduler';
+import { stopScheduledFlush } from './sync/push';
 
 type ViewKind = 'river' | 'reading' | 'stats' | 'settings';
 
@@ -187,6 +190,17 @@ export const useApp = (): AppContext => {
 };
 
 export const AppProvider: ParentComponent = (props) => {
+  let migrationPaused = readMigrationState() !== 'idle';
+  const stopMigrationSubscription = subscribeMigrationState((state) => {
+    if (state !== 'idle') {
+      migrationPaused = true;
+      stopScheduler();
+      stopScheduledFlush();
+    } else if (migrationPaused && (window.location.hostname === 'lidora.app' || (import.meta.env.DEV && window.location.port === '8788'))) {
+      window.location.reload();
+    }
+  });
+  onCleanup(stopMigrationSubscription);
   const [state, setStateInternal] = createStore<AppState>({
     view: typeof window !== 'undefined' && isStatsPath(window.location.pathname) ? 'stats' : isSettingsLocation() ? 'settings' : 'river',
     pairResult: null,
@@ -247,7 +261,7 @@ export const AppProvider: ParentComponent = (props) => {
       hiddenAt = Date.now();
       idleAtHide = isIdle();
       clearActivityOnHide();
-    } else if (document.visibilityState === 'visible') {
+    } else if (document.visibilityState === 'visible' && readMigrationState() === 'idle') {
       const away = Date.now() - hiddenAt;
       if (away > 5 * 60_000) {
         await reloadFeeds();
@@ -261,7 +275,7 @@ export const AppProvider: ParentComponent = (props) => {
     }
   };
   const onOnline = () => {
-    if (!disposed) void pullIfStale(120_000);
+    if (!disposed && readMigrationState() === 'idle') void pullIfStale(120_000);
   };
   onCleanup(() => {
     disposed = true;
@@ -779,6 +793,11 @@ export const AppProvider: ParentComponent = (props) => {
   // The `finally` guarantees the loading state is released even if any
   // boot step rejects (e.g. a blocked IndexedDB open).
   void (async () => {
+    if (readMigrationState() !== 'idle') return;
+    if (await getMeta<boolean>('lidora-migration-complete', false)) {
+      setMigrationState('complete');
+      return;
+    }
     const s = await getSettings();
     if (disposed) return;
     setSettings(s);
@@ -816,15 +835,15 @@ export const AppProvider: ParentComponent = (props) => {
         if (disposed) return;
       }
     }
-    startScheduler();
-    setOnRefresh(() => { if (manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
-    setOnSync(() => { if (manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
-    onCatchup(() => { void pullIfStale(30_000); void reloadItems(); });
+    if (readMigrationState() === 'idle') startScheduler();
+    setOnRefresh(() => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
+    setOnSync(() => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
+    onCatchup(() => { if (readMigrationState() === 'idle') { void pullIfStale(30_000); void reloadItems(); } });
 
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('online', onOnline);
 
-    await bootSync();
+    if (readMigrationState() === 'idle') await bootSync();
     if (disposed) return;
     const params = new URLSearchParams(window.location.search);
     const pairCode = params.get('pair');

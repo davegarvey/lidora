@@ -3,39 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="What Sift stores in your browser and what optional sync and feed polling store on the hosted service.">
+  <meta name="description" content="What Lidora stores in your browser and what optional sync and feed polling store on the hosted service.">
   <meta name="theme-color" content="#eff1f5" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1e1e2e" media="(prefers-color-scheme: dark)">
-  <link rel="canonical" href="https://sift.davegarvey.workers.dev/privacy">
+  <link rel="canonical" href="https://lidora.app/privacy">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <title>Privacy — Sift</title>
+  <title>Privacy — Lidora</title>
   <link rel="stylesheet" href="/pages.css">
 </head>
 <body>
   <header class="page-header">
-    <div class="page-header-inner"><a class="wordmark" href="/" aria-label="Sift reader">sift</a><a class="open-reader" href="/">Open reader</a></div>
+    <div class="page-header-inner"><a class="wordmark" href="/" aria-label="Lidora reader">lidora</a><a class="open-reader" href="/">Open reader</a></div>
   </header>
   <main>
     <article>
       <h1>Privacy</h1>
       <p class="muted">Last updated: 7 October 2026</p>
-      <p class="lede">Sift is designed to keep your reading library in your browser. The hosted service processes feed requests and stores data only when you enable sync or server-side feed polling.</p>
+      <p class="lede">Lidora is designed to keep your reading library in your browser. The hosted service processes feed requests and stores data only when you enable sync or server-side feed polling.</p>
       <h2>In your browser</h2>
-      <p>Your subscriptions, read and starred state, reading totals, and saved article content are stored in IndexedDB on this device. Browser storage may be cleared by the browser or by you. Sift can ask the browser to make this storage persistent; the browser decides whether to grant it. The saved body of an unstarred article is removed after 90 days unseen. Unstarred unread article records are removed after 365 days unseen. Read and starred article records are not removed by that cleanup, though a read article's saved body may still expire.</p>
+      <p>Your subscriptions, read and starred state, reading totals, and saved article content are stored in IndexedDB on this device. Browser storage may be cleared by the browser or by you. Lidora can ask the browser to make this storage persistent; the browser decides whether to grant it. The saved body of an unstarred article is removed after 90 days unseen. Unstarred unread article records are removed after 365 days unseen. Read and starred article records are not removed by that cleanup, though a read article's saved body may still expire.</p>
       <h2>When you fetch a feed or article</h2>
-      <p>The service fetches the URL you request so your browser can read the result. Sift's application does not log upstream URLs. Cloudflare processes connection metadata and requests to operate and protect the hosted service. The hosted proxy may keep feed responses in Cloudflare's cache for up to 48 hours, keyed by the requested URL; this cache is separate from sync accounts. Article responses are not stored by the application, while browsers may cache proxied images for up to 30 days.</p>
+      <p>The service fetches the URL you request so your browser can read the result. Lidora's application does not log upstream URLs. Cloudflare processes connection metadata and requests to operate and protect the hosted service. The hosted proxy may keep feed responses in Cloudflare's cache for up to 48 hours, keyed by the requested URL; this cache is separate from sync accounts. Article responses are not stored by the application, while browsers may cache proxied images for up to 30 days.</p>
       <h2>Optional sync</h2>
-      <p>If you enable sync, Sift stores your subscriptions, read and starred flags, and aggregate reading statistics in Cloudflare D1. You can delete your synced account and its data from Settings. Unused accounts are removed after 365 days; rotated accounts are removed after 30 days. Deleted subscription markers are kept for 30 days to sync removals to your other devices.</p>
+      <p>If you enable sync, Lidora stores your subscriptions, read and starred flags, and aggregate reading statistics in Cloudflare D1. You can delete your synced account and its data from Settings. Unused accounts are removed after 365 days; rotated accounts are removed after 30 days. Deleted subscription markers are kept for 30 days to sync removals to your other devices.</p>
       <h2>Optional server-side feed polling</h2>
       <p>For accounts that use polling, the service stores complete feed URLs in a separate database so it can fetch those feeds, including credentials embedded in private-feed URLs. Polled article items are retained for 7 days. Polling is enabled only on instances configured for it.</p>
       <h2>Service providers, cookies and analytics</h2>
-      <p>The hosted service runs on Cloudflare Workers and D1. Cloudflare acts as the infrastructure provider and processes requests and optional sync and polling data on behalf of Sift. Sift does not use analytics or advertising trackers and does not set tracking cookies.</p>
+      <p>The hosted service runs on Cloudflare Workers and D1. Cloudflare acts as the infrastructure provider and processes requests and optional sync and polling data on behalf of Lidora. Lidora does not use analytics or advertising trackers and does not set tracking cookies.</p>
       <h2>Contact</h2>
       <p>Privacy questions: <a href="mailto:hzi89efwq@mozmail.com">hzi89efwq@mozmail.com</a>.</p>
     </article>
   </main>
   <footer class="page-footer">
-    <nav class="page-footer-inner" aria-label="Site"><a href="/about">About</a><a href="/privacy" aria-current="page">Privacy</a><a href="/terms">Terms</a><a href="https://github.com/davegarvey/sift">GitHub</a></nav>
+    <nav class="page-footer-inner" aria-label="Site"><a href="/about">About</a><a href="/privacy" aria-current="page">Privacy</a><a href="/terms">Terms</a><a href="https://github.com/davegarvey/lidora">GitHub</a></nav>
   </footer>
 </body>
 </html>

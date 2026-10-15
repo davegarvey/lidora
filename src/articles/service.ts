@@ -17,9 +17,9 @@ function processLinks(html: string, baseUrl?: string): string {
           // Relative URL resolved correctly against the article's URL.
           link.setAttribute('href', resolvedStr);
         } else if (resolved.origin === window.location.origin && resolved.origin !== new URL(baseUrl).origin) {
-          // Absolute URL pointing to Sift's origin but should point to the
+          // Absolute URL pointing to Lidora's origin but should point to the
           // article's origin — Readability resolved a relative link against
-          // the document's baseURI (which was Sift's page) instead of the
+          // the document's baseURI (which was Lidora's page) instead of the
           // article's URL. Re-resolve using just the path/query/hash.
           link.setAttribute('href', new URL(resolved.pathname + resolved.search + resolved.hash, baseUrl).toString());
         }

@@ -11,6 +11,11 @@ const DEBOUNCE_MS = 1000;
 let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 let inFlight: Promise<void> | null = null;
 
+export function stopScheduledFlush(): void {
+  if (pendingTimer) clearTimeout(pendingTimer);
+  pendingTimer = null;
+}
+
 function splitChunk<T>(items: T[], size: number): T[][] {
   if (items.length <= size) return [items];
   const mid = Math.floor(items.length / 2);

@@ -102,8 +102,8 @@ function DevicesBody(props: { items: boolean }) {
       <Show when={!enabled() && props.items}>
         <SettingGroup>
           <SettingRow
-            label="Collect new posts while Sift is closed"
-            description="Turns on sync for this device alone. This stores your subscriptions on this Sift server so it can fetch new posts in the background."
+            label="Collect new posts while Lidora is closed"
+            description="Turns on sync for this device alone. This stores your subscriptions on this Lidora server so it can fetch new posts in the background."
           >
             <ActionButton
               label={collectError() ? 'Retry' : 'Turn on'}

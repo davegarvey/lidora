@@ -1,8 +1,8 @@
 # Preserve permanent feed URL changes and stop polling removed feeds
 
-Feed publishers can move a feed permanently or retire it. Sift currently follows redirects without updating subscriptions and retries HTTP 410 responses indefinitely. The fetcher also identifies itself with an outdated version and repository link. This change makes the fetcher identity accurate, adopts repeatedly observed permanent feed destinations across local and synced subscriptions, and treats 410 as a permanent removal that users can act on.
+Feed publishers can move a feed permanently or retire it. Lidora currently follows redirects without updating subscriptions and retries HTTP 410 responses indefinitely. The fetcher also identifies itself with an outdated version and repository link. This change makes the fetcher identity accurate, adopts repeatedly observed permanent feed destinations across local and synced subscriptions, and treats 410 as a permanent removal that users can act on.
 
-The fetcher User-Agent will not disclose subscriber counts. Sift deliberately omits audience counts to protect reader privacy, and will not offer a setting to enable them.
+The fetcher User-Agent will not disclose subscriber counts. Lidora deliberately omits audience counts to protect reader privacy, and will not offer a setting to enable them.
 
 ## Scope
 
@@ -20,7 +20,7 @@ The fetcher User-Agent will not disclose subscriber counts. Sift deliberately om
 
 ## Impact
 
-- `upstream-request-governance`: describe the Sift fetcher identity, redirect confirmation, and subscriber-count privacy rule.
+- `upstream-request-governance`: describe the Lidora fetcher identity, redirect confirmation, and subscriber-count privacy rule.
 - `server-feed-polling`: describe permanent redirect migration and permanent 410 suppression.
 - `reader-ui`: describe removed-feed state and the unsubscribe path.
 - README: describe polling behavior for permanent redirects and 410 responses.

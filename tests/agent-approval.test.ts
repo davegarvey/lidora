@@ -8,8 +8,8 @@ describe('normaliseApprovalCode', () => {
   });
 
   it('extracts the code from a scanned URL', () => {
-    expect(normaliseApprovalCode('https://sift.example/connect?code=ABCD-2345')).toBe('abcd2345');
-    expect(normaliseApprovalCode('https://sift.example/connect')).toBeNull();
+    expect(normaliseApprovalCode('https://lidora.example/connect?code=ABCD-2345')).toBe('abcd2345');
+    expect(normaliseApprovalCode('https://lidora.example/connect')).toBeNull();
   });
 
   it('rejects malformed input', () => {

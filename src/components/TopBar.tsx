@@ -16,7 +16,7 @@ export function TopBar() {
       >
         {open() ? <ChevronLeft size={18} /> : <PanelLeft size={18} />}
       </button>
-      <a class="wordmark" href="/" title="Sift">sift</a>
+      <a class="wordmark" href="/" title="Lidora">lidora</a>
     </div>
   );
 }
