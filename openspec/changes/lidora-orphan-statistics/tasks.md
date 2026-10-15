@@ -1,0 +1,1 @@
+- [x] 1.1 Permit feed statistics to exist without a current subscription during library transfer validation.

@@ -63,11 +63,6 @@ function validateRelations(snapshot: LibrarySnapshot): void {
       }
     }
   }
-  for (const row of snapshot.feedStats) {
-    if (typeof row.feedId !== 'string' || !feeds.has(row.feedId)) {
-      throw new Error('The library contains statistics without their subscription. The destination was not changed.');
-    }
-  }
 }
 
 export async function readLibrarySnapshot(): Promise<LibrarySnapshot> {
