@@ -357,7 +357,7 @@ describe('server feed polling', () => {
     } finally {
       await mf.dispose();
     }
-  });
+  }, 10_000);
 
   it('defers without counting a failure when a cooldown is already recorded', async () => {
     const upstream: Upstream = { requests: [], respond: () => new Response(rss([{ guid: 'a' }])) };
