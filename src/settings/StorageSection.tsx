@@ -83,7 +83,7 @@ export function StorageSection() {
         <InlineMessage kind="error">{error()}</InlineMessage>
       </Show>
       <SettingGroup>
-        <SettingRow label="Full library backup" description="Save subscriptions, articles, saved article text, reading state, preferences, sync credentials and pending sync changes to a file.">
+        <SettingRow label="Full library backup" description="Download your subscriptions, articles, reading state, preferences and sync settings as one file. It includes private feed addresses and your sync key, so store it securely.">
           <ActionButton
             label="Download backup"
             busyLabel="Preparing…"
@@ -91,7 +91,6 @@ export function StorageSection() {
             onError={(cause) => setBackupError(errorMessage(cause, 'Could not create the backup. Try again.'))}
           />
         </SettingRow>
-        <p class="settings-summary">A backup can contain private feed addresses and sync keys. Keep it somewhere private.</p>
         <Show when={backupError()}><InlineMessage kind="error">{backupError()}</InlineMessage></Show>
         <Show when={window.location.origin === LEGACY_HOSTED_ORIGIN || (import.meta.env.DEV && window.location.port === '8787')}>
           <SettingRow label="Move to Lidora" description="Copy your complete library to Lidora in another browser tab. Your original stays here until the new library is verified.">
