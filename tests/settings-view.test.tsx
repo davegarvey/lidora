@@ -26,7 +26,7 @@ vi.mock('../src/sync/capabilities', () => ({
 
 let dispose: (() => void) | undefined;
 
-function makeContext(section: SettingsSection | null, options: { feeds?: Feed[]; narrow?: boolean } = {}) {
+function makeContext(section: SettingsSection | null, options: { feeds?: Feed[]; narrow?: boolean; syncKey?: string | null } = {}) {
   window.innerWidth = options.narrow ? 400 : 1200;
   const [state, setState] = createStore<AppState>({
     view: 'settings',
@@ -61,7 +61,7 @@ function makeContext(section: SettingsSection | null, options: { feeds?: Feed[];
     settings,
     feeds,
     hydrated: () => true,
-    syncKey: () => null,
+    syncKey: () => options.syncKey ?? null,
     selectSettingsSection,
     closeSettings,
     openModal,
@@ -285,24 +285,74 @@ describe('Storage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows a one-line summary, details and the persistence action', async () => {
-    const db = await getDb();
-    await db.put('items', { id: 'a', feedId: 'f', guid: 'a', title: 'A', publishedAt: 1, read: false, starred: false } as never);
+  const stubStorage = (persisted: boolean, persist: () => Promise<boolean> = async () => true) => {
     vi.stubGlobal('navigator', {
       storage: {
         estimate: async () => ({ usage: 73_728, quota: 5 * 1024 * 1024 * 1024 }),
-        persisted: async () => false,
-        persist: async () => true,
+        persisted: async () => persisted,
+        persist,
       },
     });
+  };
+  const askButton = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Ask browser to keep data');
+  const warningRow = () => document.querySelector('.setting-row--warning');
+
+  it('shows a one-line summary, details and the persistence warning', async () => {
+    const db = await getDb();
+    await db.put('items', { id: 'a', feedId: 'f', guid: 'a', title: 'A', publishedAt: 1, read: false, starred: false } as never);
+    stubStorage(false);
     makeContext('storage');
     mount();
     await vi.waitFor(() => expect(document.querySelector('.settings-summary')?.textContent).toBe('72 KB used · 1 article'));
     const details = [...document.querySelectorAll('.settings-details > div')].map((d) => d.textContent);
-    expect(details).toEqual(['Quota5.0 GB', 'Persistent storageOff', 'Article records1', 'Saved article bodies0']);
-    const keep = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Keep data on this device');
-    expect(keep).toBeDefined();
-    expect(document.body.textContent).toContain("Your browser may clear Lidora's data when space runs low");
+    expect(details).toEqual(['Quota5.0 GB', 'Article records1', 'Saved article bodies0']);
+    expect(warningRow()?.textContent).toContain('Persistent storage is off');
+    expect(askButton()).toBeDefined();
+  });
+
+  it('points to backup and sync when sync is off', async () => {
+    stubStorage(false);
+    makeContext('storage');
+    mount();
+    await vi.waitFor(() => expect(warningRow()?.textContent).toContain('add a device to sync your subscriptions and reading state'));
+    expect(warningRow()?.textContent).toContain('Download a backup');
+  });
+
+  it('only points to backup when the server has no sync', async () => {
+    syncRef.available = false;
+    stubStorage(false);
+    makeContext('storage');
+    mount();
+    await vi.waitFor(() => expect(warningRow()?.textContent).toContain('Download a backup to protect it.'));
+    expect(warningRow()?.textContent).not.toContain('add a device');
+  });
+
+  it('says articles are only on this device when sync is on', async () => {
+    stubStorage(false);
+    makeContext('storage', { syncKey: 'k'.repeat(22) });
+    mount();
+    await vi.waitFor(() => expect(warningRow()?.textContent).toContain('reading state are synced, but articles are kept only on this device'));
+  });
+
+  it('explains when the browser declines the request', async () => {
+    stubStorage(false, async () => false);
+    makeContext('storage');
+    mount();
+    await vi.waitFor(() => expect(askButton()).toBeDefined());
+    askButton()!.click();
+    await vi.waitFor(() => expect(document.querySelector('.inline-message')?.textContent).toContain('Your browser declined'));
+    expect(document.querySelector('.inline-message')?.getAttribute('role')).toBe('status');
+  });
+
+  it('shows the plain status once persistence is on', async () => {
+    stubStorage(true);
+    makeContext('storage');
+    mount();
+    await vi.waitFor(() => expect(document.querySelector('.settings-details')).not.toBeNull());
+    const details = [...document.querySelectorAll('.settings-details > div')].map((d) => d.textContent);
+    expect(details[1]).toBe('Persistent storageOn');
+    expect(warningRow()).toBeNull();
+    expect(askButton()).toBeUndefined();
   });
 
   it('says Unavailable where the browser reports nothing', async () => {

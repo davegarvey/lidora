@@ -1,4 +1,7 @@
 import { Show, createSignal, onMount } from 'solid-js';
+import { TriangleAlert } from 'lucide-solid';
+import { useApp } from '../state';
+import { isSyncAvailable } from '../sync/capabilities';
 import { getStorageStatus, requestPersistentStorage, type StorageStatus } from '../db/storage-retention';
 import { createLibraryBackup, readLibrarySnapshot } from '../db/library-transfer';
 import { moveLibraryToLidora, migrationProgressLabel, type HandoffProgress } from '../migration/handoff';
@@ -9,25 +12,39 @@ import { formatBytes, formatCount, storageSummary } from './format';
 const LEGACY_HOSTED_ORIGIN = 'https://sift.davegarvey.workers.dev';
 
 function persistenceLabel(persistent: boolean | null): string {
-  if (persistent === null) return 'Unavailable';
-  return persistent ? 'On' : 'Off';
+  return persistent ? 'On' : 'Unavailable';
+}
+
+const DECLINED_MESSAGE = 'Your browser declined. Browsers usually keep data for installed apps and sites used often, so installing Lidora may help.';
+
+function persistenceRisk(syncOn: boolean, syncAvailable: boolean): string {
+  const risk = 'Your browser may clear this library when space runs low.';
+  if (syncOn) return `${risk} Your subscriptions and reading state are synced, but articles are kept only on this device, so download a backup to keep them.`;
+  if (syncAvailable) return `${risk} Download a backup, or add a device to sync your subscriptions and reading state.`;
+  return `${risk} Download a backup to protect it.`;
 }
 
 export function StorageSection() {
+  const ctx = useApp();
   const [status, setStatus] = createSignal<StorageStatus | null>(null);
+  const [syncAvailable, setSyncAvailable] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [declined, setDeclined] = createSignal(false);
   const [backupError, setBackupError] = createSignal<string | null>(null);
   const [transferError, setTransferError] = createSignal<string | null>(null);
   const [progress, setProgress] = createSignal<HandoffProgress | null>(null);
   const refresh = async () => setStatus(await getStorageStatus());
   onMount(() => {
+    void isSyncAvailable().then(setSyncAvailable);
     void refresh().catch(() => setError('Could not read storage information. Reload the page and try again.'));
   });
 
   const keep = async () => {
     setError(null);
-    await requestPersistentStorage(true);
+    setDeclined(false);
+    const granted = await requestPersistentStorage(true);
     await refresh();
+    if (granted === false && status()?.persistent === false) setDeclined(true);
   };
 
   const exportLibrary = async () => {
@@ -55,24 +72,30 @@ export function StorageSection() {
             <Show when={s().persistent === false}>
               <SettingGroup>
                 <SettingRow
-                  label="Your browser may clear Lidora's data when space runs low"
-                  description="Ask the browser to keep Lidora's data until you clear it yourself."
+                  warning
+                  label={<><TriangleAlert size={16} class="setting-row__icon" aria-hidden="true" />Persistent storage is off</>}
+                  description={persistenceRisk(Boolean(ctx.syncKey()), syncAvailable())}
                 >
                   <ActionButton
-                    label="Keep data on this device"
-                    busyLabel="Requesting…"
+                    label="Ask browser to keep data"
+                    busyLabel="Asking…"
                     onAction={keep}
                     onError={(e) => setError(errorMessage(e, 'The browser did not respond. Try again.'))}
                   />
                 </SettingRow>
               </SettingGroup>
             </Show>
+            <Show when={declined()}>
+              <InlineMessage kind="info">{DECLINED_MESSAGE}</InlineMessage>
+            </Show>
             <Show when={error()}>
               <InlineMessage kind="error">{error()}</InlineMessage>
             </Show>
             <dl class="settings-details">
               <div><dt>Quota</dt><dd>{formatBytes(s().quota)}</dd></div>
-              <div><dt>Persistent storage</dt><dd>{persistenceLabel(s().persistent)}</dd></div>
+              <Show when={s().persistent !== false}>
+                <div><dt>Persistent storage</dt><dd>{persistenceLabel(s().persistent)}</dd></div>
+              </Show>
               <div><dt>Article records</dt><dd>{formatCount(s().items)}</dd></div>
               <div><dt>Saved article bodies</dt><dd>{formatCount(s().bodies)}</dd></div>
             </dl>
