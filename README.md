@@ -463,7 +463,9 @@ everything. `/llms.txt` gives agents a short description of the connector.
 - **Local article retention.** Unstarred article bodies are removed after 90 days
   without appearing in a feed refresh or sync pull. Unstarred unread records are
   removed after 365 days; read and starred records remain. Settings shows local
-  storage usage and lets you request persistent browser storage.
+  storage usage. When the browser has not granted persistent storage, it warns
+  that the library may be cleared, points to sync and backups, and lets you ask
+  the browser again.
 - **No Content-Security-Policy on the app shell.** Article HTML is sanitised, but
   the app pages do not yet send a policy that would block inline script as a
   second barrier.

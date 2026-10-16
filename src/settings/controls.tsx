@@ -22,6 +22,7 @@ export function SettingRow(props: {
   label: JSX.Element;
   description?: JSX.Element;
   danger?: boolean;
+  warning?: boolean;
   children?: JSX.Element;
 }) {
   const base = createUniqueId();
@@ -29,7 +30,7 @@ export function SettingRow(props: {
   const descriptionId = () => (props.description ? `${base}-description` : undefined);
   return (
     <RowContext.Provider value={{ labelId, get descriptionId() { return descriptionId(); } }}>
-      <div class="setting-row" classList={{ 'setting-row--danger': props.danger }}>
+      <div class="setting-row" classList={{ 'setting-row--danger': props.danger, 'setting-row--warning': props.warning }}>
         <div class="setting-row__text">
           <div class="setting-row__label" id={labelId}>{props.label}</div>
           <Show when={props.description}>
