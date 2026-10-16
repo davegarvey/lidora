@@ -211,6 +211,24 @@ describe('Devices: sync on', () => {
     expect(button('Copy pairing code')).toBeDefined();
   });
 
+  it('announces the code and the copy, and reports a failed copy', async () => {
+    makeContext({ key: KEY });
+    stubFetch((url) => (url === '/sync/otp' ? otpResponse() : new Response(null, { status: 500 })));
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await mount();
+    button('Show pairing code')!.click();
+    const status = () => document.querySelector('.pair-code [role="status"]')?.textContent;
+    await vi.waitFor(() => expect(status()).toBe('Pairing code abcd-efgh'));
+    button('Copy pairing code')!.click();
+    await vi.waitFor(() => expect(status()).toBe('Pairing code copied'));
+    expect(writeText).toHaveBeenCalledWith('abcdefgh');
+
+    writeText.mockRejectedValue(new Error('denied'));
+    button('Copy pairing code')!.click();
+    await vi.waitFor(() => expect(document.querySelector('.pair-code [role="alert"]')?.textContent).toBe("Couldn't copy the code. Select it and copy it yourself."));
+  });
+
   it('refreshes the code while open and stops when collapsed', async () => {
     makeContext({ key: KEY });
     let issued = 0;

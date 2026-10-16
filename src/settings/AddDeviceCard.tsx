@@ -46,6 +46,7 @@ function PairingCode() {
   const [issueError, setIssueError] = createSignal<string | null>(null);
   const [now, setNow] = createSignal(Date.now());
   const [copied, setCopied] = createSignal(false);
+  const [copyFailed, setCopyFailed] = createSignal(false);
   let alive = true;
   let issuing = false;
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -112,15 +113,27 @@ function PairingCode() {
     try {
       await navigator.clipboard.writeText(current.code);
     } catch {
+      setCopyFailed(true);
       return;
     }
+    setCopyFailed(false);
     setCopied(true);
     clearTimeout(copiedTimer);
     copiedTimer = setTimeout(() => setCopied(false), 2000);
   };
 
+  const announcement = () => {
+    if (copied()) return 'Pairing code copied';
+    if (enabling()) return 'Turning on sync';
+    const current = code();
+    if (current) return `Pairing code ${display(current.code)}`;
+    if (!enableError() && !issueError()) return 'Getting a code';
+    return '';
+  };
+
   return (
     <div class="pair-code">
+      <p class="visually-hidden" role="status">{announcement()}</p>
       <Show when={enabling()}>
         <p class="panel__text">Turning on sync…</p>
       </Show>
@@ -162,6 +175,9 @@ function PairingCode() {
               aria-label="QR code that pairs another device"
               innerHTML={renderSyncKeyQr(`${window.location.origin}/?pair=${current().code}`)}
             />
+            <Show when={copyFailed()}>
+              <InlineMessage kind="error">Couldn't copy the code. Select it and copy it yourself.</InlineMessage>
+            </Show>
             <p class="pair-code__waiting">Waiting for another device to pair…</p>
           </>
         )}

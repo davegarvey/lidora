@@ -149,14 +149,16 @@ export function QrScannerOverlay(props: { onClose: (paired?: boolean) => void; o
           </svg>
         </div>
       </div>
-      <Show when={state() === 'scanning'}>
-        <div class="scanner-status">Scanning…</div>
-      </Show>
-      <Show when={state() === 'pairing'}>
-        <div class="scanner-status">Pairing…</div>
-      </Show>
+      <div role="status">
+        <Show when={state() === 'scanning'}>
+          <div class="scanner-status">Scanning…</div>
+        </Show>
+        <Show when={state() === 'pairing'}>
+          <div class="scanner-status">Pairing…</div>
+        </Show>
+      </div>
       <Show when={state() === 'error'}>
-        <div class="scanner-error">{errorMsg()}</div>
+        <div class="scanner-error" role="alert">{errorMsg()}</div>
         <div class="scanner-actions">
           <button class="btn" onClick={handleRetry}>Try again</button>
           <button class="btn subtle" onClick={() => props.onClose(false)}>Enter code manually</button>
