@@ -87,7 +87,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
     <nav class="sidebar" aria-label="Feeds" data-collapsed={String(collapsed())}>
       <Show when={!collapsed()}>
         <div class="sidebar-header">
-          <a class="sidebar-wordmark" href="/" title="Lidora">lidora</a>
+          <a class="sidebar-wordmark" href="/" title="Lidora"><LidoraMark size={20} />lidora</a>
           <button
             class="sidebar-collapse desktop-only"
             title="Close sidebar"

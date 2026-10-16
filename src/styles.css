@@ -600,6 +600,9 @@ a:hover { text-decoration: underline; }
 }
 
 .sidebar-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
   font-family: var(--serif-stack);
   font-style: italic;
   font-weight: 600;
