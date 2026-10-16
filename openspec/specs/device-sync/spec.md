@@ -7,14 +7,14 @@ Defines browser device sync behavior, including key management, pairing, data re
 
 ### Requirement: Sync key generation and storage
 
-When the user enables device sync, the system SHALL generate a 128-bit cryptographically random sync key, encode it as URL-safe base64 (22 characters), and persist it in the browser's IndexedDB. The sync key SHALL be the user's identity for sync purposes; no account, email, or password is required.
+When the user takes an action that turns device sync on, the system SHALL generate a 128-bit cryptographically random sync key, encode it as URL-safe base64 (22 characters), and persist it in the browser's IndexedDB. The actions that turn sync on are Add a device, Collect new posts while Lidora is closed, Connect an agent and approving an agent with an approval code. The sync key SHALL be the user's identity for sync purposes; no account, email, or password is required.
 
 #### Scenario: User enables sync for the first time
-- **WHEN** the user toggles "Sync" on in Settings and no sync key is currently stored
+- **WHEN** the user takes an action that turns sync on and no sync key is currently stored
 - **THEN** the system SHALL generate 16 random bytes via `crypto.getRandomValues`
 - **AND** SHALL encode the result as base64url
 - **AND** SHALL store the encoded string in the IndexedDB meta store under the sync settings key
-- **AND** SHALL expand the Sync section to the sync-on state (no pairing modal is opened; pairing is available from the "Pair another device" row)
+- **AND** SHALL continue the action that turned sync on
 
 #### Scenario: Sync key persists across app restarts
 - **WHEN** the user closes and reopens the app
@@ -22,7 +22,7 @@ When the user enables device sync, the system SHALL generate a 128-bit cryptogra
 - **AND** no new key SHALL be generated
 
 #### Scenario: User regenerates the sync key
-- **WHEN** the user clicks "Regenerate" and confirms the dialog
+- **WHEN** the user activates "Sign out other devices and agents" and confirms it
 - **THEN** a new 128-bit sync key SHALL be generated
 - **AND** the previous key SHALL be replaced in IndexedDB
 - **AND** the previous key's data on the server SHALL be orphaned (no migration is performed)
@@ -40,47 +40,6 @@ The sync key SHALL be exactly 22 base64url characters (A–Z, a–z, 0–9, `-`,
 - **THEN** the server SHALL respond with HTTP 401 without consulting the database
 - **AND** the server SHALL NOT log the malformed value
 
-### Requirement: Unified pairing modal
-
-The system SHALL provide a single pairing modal that serves both pairing directions, driven by this device's state: a device with a stored sync key opens it in source mode (showing an 8-character server-generated OTP code and a QR code), and a device without a stored key opens it in receiving mode (accepting an 8-character code or a 22-character sync key, plus camera scanning). The two directions SHALL NOT be presented as parallel options; the receiving direction SHALL remain reachable from source mode via a secondary link. The system SHALL NOT detect the device type.
-
-#### Scenario: Source device shows all three flows
-- **WHEN** a user with sync enabled opens the pairing modal
-- **THEN** the modal SHALL present the source direction as the primary content: an 8-character OTP code with a copy button, a QR code, a 5-minute countdown, and the instruction to enter the code or scan the QR on the other device
-- **AND** the code SHALL refresh automatically when it expires, resetting the countdown
-- **AND** when a code refresh fails, the modal SHALL display an error with a retry affordance and SHALL NOT silently clear the code
-
-#### Scenario: Target device (no existing key) opens the modal
-- **WHEN** a user without a stored sync key opens the pairing modal
-- **THEN** the modal SHALL present the receiving direction as the primary content: an input that accepts an 8-character code or a 22-character sync key, a "Pair" action, and a "Scan QR" action
-- **AND** SHALL NOT display the code or QR half (there is no group to share yet)
-- **AND** submitting an 8-character code SHALL redeem it via the server, store the returned key, trigger a first-time sync, and confirm success
-- **AND** submitting a 22-character base64url key SHALL validate it locally without a server call, store it, trigger a first-time sync, and confirm success
-- **AND** submitting a value that is neither SHALL show an inline validation error without calling the server
-- **AND** submitting the key already in use SHALL show a notice ("Already paired with this key") without re-triggering a sync
-
-#### Scenario: Modal layout on wide and narrow screens
-- **WHEN** the modal is rendered on a wide or narrow screen
-- **THEN** the active direction SHALL be a single primary section with consistent layout across both widths
-- **AND** the alternative direction SHALL be reachable only via a secondary link
-
-#### Scenario: Target scans a QR code
-- **WHEN** the user activates "Scan QR" with a camera available
-- **THEN** the system SHALL open the camera scanner overlay
-- **AND** on a successful scan of a pairing QR for this origin, SHALL redeem the embedded code and pair
-- **AND** when no camera is available, the "Scan QR" action SHALL be disabled with an explanatory tooltip
-
-#### Scenario: Source mode offers the receiving direction
-- **WHEN** a user with sync enabled opens the pairing modal
-- **THEN** the modal SHALL include a secondary link ("Enter a code from another device instead") that switches it to the receiving direction
-- **AND** the receiving direction SHALL include a link back to the source direction
-
-#### Scenario: Codes are grouped for readability
-- **WHEN** the pairing modal displays an 8-character code
-- **THEN** the code SHALL be displayed grouped as four characters, a dash, and four characters (e.g., "abcd-efgh")
-- **AND** the receiving input SHALL accept the code with or without the grouping dash, in any letter case
-- **AND** sync keys SHALL remain case-sensitive and SHALL NOT be case-folded
-
 ### Requirement: Pairing code entropy is sufficient
 
 The pairing code SHALL provide sufficient entropy that brute-forcing it within the 5-minute TTL is computationally infeasible given the per-IP rate limit.
@@ -96,25 +55,14 @@ The pairing code SHALL provide sufficient entropy that brute-forcing it within t
 - **THEN** the per-IP rate limit (10 per minute) bounds the attacker to at most 50 attempts per code lifetime
 - **AND** the 8.5 × 10¹¹ / 50 ≈ 1.7 × 10¹⁰ distinct IPs required is computationally infeasible for a personal RSS reader
 
-### Requirement: Pairing via QR code (deferred scanning in v1)
-
-The system SHALL render a QR code for the sync key in the pairing modal, using a vetted library with error correction level M. In v1, no camera-based scanning is implemented; the QR is rendered for visual reference and forward compatibility with v2 scanning.
-
-#### Scenario: QR code renders for current sync key
-- **WHEN** sync is enabled and the pairing modal is open on a source device
-- **THEN** the modal SHALL display a QR code that encodes the current sync key
-- **AND** the QR code SHALL use error correction level M
-- **AND** the modal SHALL display a note that camera scanning is not yet implemented and the user should use the pairing code or sync-key paste flow
-- **AND** a test SHALL decode the QR with a known-good library (`jsQR`) and assert the decoded string equals the sync key
-
 ### Requirement: Pairing via server-generated OTP code
 
 When a source device issues a pairing code, the server SHALL generate a unique 8-character code (lowercase alphanumeric, no ambiguous characters), store it with a 5-minute TTL, return it to the source, and allow a target device to redeem the code to receive the sync key.
 
 #### Scenario: Source issues a code
-- **WHEN** the user clicks "Issue pairing code" on a source device
+- **WHEN** the user activates the Add a device card on a source device
 - **THEN** the client SHALL call `POST /sync/otp` (no body)
-- **AND** SHALL display the returned code in the modal with a 5-minute countdown
+- **AND** SHALL display the returned code in the card with a 5-minute countdown
 - **AND** the server SHALL generate the code from the alphabet `[a-hj-km-np-z2-9]` (31 unambiguous characters; excludes `0`, `1`, `i`, `l`, `o`)
 - **AND** SHALL store `(code, sync_key, expires_at)` in the `pairing_codes` table
 
@@ -126,23 +74,23 @@ When a source device issues a pairing code, the server SHALL generate a unique 8
 
 #### Scenario: Source shows "waiting for pair" state
 - **WHEN** a code has been issued and the target has not yet redeemed
-- **THEN** the source modal SHALL display a "Waiting for another device to pair…" state with the countdown
+- **THEN** the Add a device card SHALL display a "Waiting for another device to pair…" state with the countdown
 - **AND** the source SHALL detect successful pairing when its next pull returns data from the new device (e.g., the target's existing flags)
 
 #### Scenario: Target redeems a valid code
-- **WHEN** the user pastes an 8-character code on a target device and clicks "Pair"
+- **WHEN** the user enters an 8-character code on a target device and activates "Pair"
 - **THEN** the client SHALL call `POST /sync/redeem { code }`
 - **AND** on a 200 response, SHALL store the returned sync key in IndexedDB
 - **AND** SHALL trigger a full pull
 - **AND** the server SHALL delete the code (one-time use)
 
 #### Scenario: Target redeems an unknown or expired code
-- **WHEN** the user pastes a code that the server does not recognize
+- **WHEN** the user enters a code that the server does not recognize
 - **THEN** the server SHALL respond with HTTP 404
 - **AND** the client SHALL display an inline error ("Code not found or expired")
 
 #### Scenario: Target redeems a malformed code
-- **WHEN** the user pastes a string that is not 8 characters from the allowed alphabet
+- **WHEN** the user enters a string that is not 8 characters from the allowed alphabet
 - **THEN** the client SHALL display a validation error and SHALL NOT call the server
 
 #### Scenario: Brute-force protection
@@ -860,79 +808,37 @@ The system SHALL handle item IDs whose feed URL contains the `::` character sequ
 - **AND** on parse, SHALL split at the *last* `::` occurrence to recover the feed URL
 - **AND** a test SHALL cover this case
 
-### Requirement: Sync status UI in Settings
-
-The Settings panel SHALL include a Sync section, conditionally rendered when the server reports that sync is available via `GET /sync/capabilities`.
-
-#### Scenario: Sync section is hidden when server has no D1 binding
-- **WHEN** `GET /sync/capabilities` returns 404 or a body lacking `sync: true`
-- **THEN** the Sync section SHALL NOT be rendered in Settings
-- **AND** the capability check SHALL be performed on each page load (not cached across reloads)
-
-#### Scenario: Sync-on state displays key and status
-- **WHEN** sync is enabled
-- **THEN** the Settings panel SHALL display, in order: a status line (last sync activity plus the display-only 4-character group fingerprint, with no copy affordance), a "Sync now" action, a "Pair another device" row that opens the unified pairing modal in source mode, an "Agent access" row that opens the agents modal, a separated "Regenerate" row, and a "Delete sync data" row
-- **AND** the group fingerprint SHALL be derived one-way from the sync key and SHALL NOT be used by any pairing flow
-- **AND** the status line SHALL show the last error with its relative time when the last sync failed, the pending change count when changes are waiting, "Never synced" when no sync has ever succeeded, and otherwise the relative time of the last successful sync
-
-#### Scenario: Last synced updates while drawer is open
-- **WHEN** the Settings drawer is open
-- **THEN** the status line's relative time SHALL be recomputed every 30 seconds
-
-#### Scenario: Sync-off state displays the enable flow
-- **WHEN** sync is disabled
-- **THEN** the Settings panel SHALL display an "Enable sync" toggle that generates a key and expands the Sync section to the sync-on state
-- **AND** SHALL display a "Join an existing sync" row that opens the unified pairing modal in receiving mode
-
-#### Scenario: Disabling sync requires confirmation
-- **WHEN** the user toggles sync off while it is currently enabled
-- **THEN** the system SHALL display a confirm dialog stating that this device will stop syncing, that the synced data stays on the server and that devices paired with the same key keep syncing
-- **AND** the dialog SHALL tell the user to cancel and use "Delete sync data" first if they want the server data deleted, because this device no longer holds the key afterwards
-- **AND** the dialog SHALL NOT say that generating a new key keeps or removes the server data
-- **AND** SHALL only clear the local sync key and the dirty set on explicit confirmation
-
 ### Requirement: Enable sync clears state on failure
-If `triggerFirstTime()` (and thus the initial push + pull) fails for any reason during `enableSync()`, the system SHALL call `disableSync()` to clear the local sync key, `lastSyncAt`, and dirty set. This ensures the toggle shows as OFF on failure and a retry generates a fresh key rather than retrying a stale one.
+
+If `triggerFirstTime()` (and thus the initial push + pull) fails for any reason during `enableSync()`, the system SHALL call `disableSync()` to clear the local sync key, `lastSyncAt`, and dirty set. This ensures Settings shows the sync-off state on failure and a retry generates a fresh key rather than retrying a stale one.
 
 #### Scenario: Enable sync fails and clears key
-- **WHEN** the user enables sync
+- **WHEN** an action turns sync on
 - **AND** `triggerFirstTime()` throws (registration rate-limited, network failure, server error)
 - **THEN** the system SHALL call `disableSync()` to clear local sync state
-- **AND** the Settings panel SHALL show the sync toggle in the OFF state
+- **AND** the Devices section SHALL show the sync-off state
 - **AND** the error SHALL propagate to the caller for UI surfacing
 
 #### Scenario: Enable sync succeeds normally
-- **WHEN** the user enables sync
+- **WHEN** an action turns sync on
 - **AND** `triggerFirstTime()` completes without error
 - **THEN** the sync key SHALL remain stored
-- **AND** the Settings panel SHALL show the sync toggle in the ON state
+- **AND** the Devices section SHALL show the sync-on state
 
 ### Requirement: Sync enable errors surfaced in UI
-The Settings drawer SHALL display an inline error message when enabling sync fails. The error SHALL be rendered below the sync toggle with the text "Failed to enable sync" and the error details logged to the browser console.
+
+When turning sync on fails, the card or section whose action turned it on SHALL display an inline error next to that action, with a Retry action, and SHALL log the error details to the browser console.
 
 #### Scenario: Error shown on sync failure
-- **WHEN** the user enables sync
-- **AND** the enable operation fails
-- **THEN** an inline error message SHALL appear below the sync toggle in the Settings drawer
+- **WHEN** the user activates Add a device, Collect new posts while Lidora is closed, or Connect an agent
+- **AND** turning sync on fails
+- **THEN** an inline error message SHALL appear next to that action
 - **AND** the error details SHALL be logged to the browser console via `console.error`
 
 #### Scenario: Error cleared on next attempt
 - **WHEN** a sync error message is displayed
-- **AND** the user attempts to enable sync again
+- **AND** the user attempts the action again
 - **THEN** the previous error message SHALL be cleared before the new attempt
-
-### Requirement: Agent access management
-
-The Settings Sync section SHALL provide an "Agent access" row that opens the agent-connector "Connect an agent" screen. The screen SHALL list connected agents and allow revocation. Revocation SHALL require confirmation.
-
-#### Scenario: Connected agents are listed
-- **WHEN** the user opens Agent access
-- **THEN** the screen SHALL list each connected agent by its label or client name, with its last use
-
-#### Scenario: Revoking an agent requires confirmation
-- **WHEN** the user activates revoke for an agent
-- **THEN** the system SHALL display a confirmation dialog naming the agent
-- **AND** SHALL revoke the agent only on explicit confirmation
 
 ### Requirement: Dirty set cleared on toggle off
 
@@ -967,7 +873,7 @@ When a client with an empty IndexedDB but a stored sync key is paired (e.g., bro
 
 ### Requirement: Sync is opt-in
 
-The system SHALL NOT enable, configure, or perform sync until the user explicitly toggles sync on in Settings. Existing users SHALL see no change in behavior until they opt in.
+The system SHALL NOT enable, configure, or perform sync until the user takes an action that turns sync on: Add a device, Join from another device, Collect new posts while Lidora is closed, Connect an agent, approving an agent with an approval code, or opening a pairing link. Existing users SHALL see no change in behavior until they take one of these actions.
 
 #### Scenario: User with sync disabled sees no sync activity
 - **WHEN** sync is not enabled in the user's settings
@@ -976,16 +882,16 @@ The system SHALL NOT enable, configure, or perform sync until the user explicitl
 - **AND** no `enqueueFeed`, `enqueueFeedDelete`, `enqueueFlag`, `enqueueOtp`, or `redeemCode` function SHALL be called from any non-sync path
 
 #### Scenario: User enables sync for the first time
-- **WHEN** the user toggles sync on with no prior key
+- **WHEN** the user takes an action that turns sync on with no prior key
 - **THEN** a sync key SHALL be generated
 - **AND** the first-time setup merge SHALL be triggered
-- **AND** the Settings panel SHALL switch to the sync-on state
+- **AND** the Devices section SHALL show the sync-on state
 
 #### Scenario: User enables sync mid-session
 - **WHEN** the app has already booted
-- **AND** the user toggles sync on from the Settings drawer
+- **AND** the user takes an action that turns sync on
 - **THEN** the first-time setup merge SHALL be triggered inline (not deferred to the next boot)
-- **AND** the Settings panel SHALL show a "Syncing…" indicator while the merge is in progress
+- **AND** the action that turned sync on SHALL show a busy state while the merge is in progress
 
 ### Requirement: Cross-version protocol compatibility
 
@@ -1216,12 +1122,12 @@ Rotation never moves data and rejects the old key at once, so a device adopts th
 
 ### Requirement: A rejected sync key is not retried
 
-When a sync request receives `401`, the client SHALL fail that request once, without retrying it, with the message "The server no longer recognises this sync key. Pair this device again, or turn sync off." It SHALL record the message as the last sync error and show it in the Sync section of Settings. Until a sync request succeeds or sync is disabled, the client SHALL NOT start focus, online or visibility pulls or debounced pushes; an explicit action (Sync now, a manual refresh) SHALL still try once. Changes made meanwhile SHALL stay queued. Disabling sync SHALL clear the recorded error.
+When a sync request receives `401`, the client SHALL fail that request once, without retrying it, with the message "The server no longer recognises this sync key. Join from another device again, or stop syncing on this device." It SHALL record the message as the last sync error and show it in the Devices section of Settings. Until a sync request succeeds or sync is disabled, the client SHALL NOT start focus, online or visibility pulls or debounced pushes; an explicit action (Sync now, a manual refresh) SHALL still try once. Changes made meanwhile SHALL stay queued. Disabling sync SHALL clear the recorded error.
 
 #### Scenario: Account deleted on another device
 - **WHEN** a paired device syncs after another device deleted the account
 - **THEN** the pull SHALL fail once with the message above
-- **AND** the Sync section SHALL show the message
+- **AND** the Devices section SHALL show the message
 - **AND** no further automatic request SHALL be sent
 
 #### Scenario: Explicit retry
@@ -1360,3 +1266,149 @@ On Cloudflare Workers, sync routes that apply an IP-based rate limit SHALL key t
 
 - **WHEN** a sync request includes both `CF-Connecting-IP` and `X-Forwarded-For`
 - **THEN** the rate limiter SHALL use `CF-Connecting-IP`
+
+### Requirement: Add a device card
+
+The Devices section SHALL offer an Add a device card that is collapsed until the user activates it. Activating it SHALL turn sync on first if it is off, then issue a pairing code and expand the card to show the code grouped as `abcd-efgh` with a copy button, a QR code of the pair URL (`<origin>/?pair=<code>`), the instruction to enter the code or scan it on the other device, and an expiry countdown beside the code.
+
+#### Scenario: Add a device with sync off
+- **WHEN** a user without a sync key activates Add a device
+- **THEN** the system SHALL turn sync on
+- **AND** SHALL then expand the card with a pairing code, its QR code and its expiry countdown
+
+#### Scenario: Add a device with sync on
+- **WHEN** a user with a sync key activates Add a device
+- **THEN** the card SHALL expand with a newly issued pairing code without changing the sync key
+
+#### Scenario: No code without the card
+- **WHEN** the user opens the Devices section without activating Add a device
+- **THEN** no pairing code SHALL be issued
+
+#### Scenario: Code refreshes while open
+- **WHEN** the code expires while the card is expanded
+- **THEN** a new code SHALL be issued and shown automatically
+
+#### Scenario: Card collapsed
+- **WHEN** the user collapses the card or leaves the section
+- **THEN** the code's refresh and countdown timers SHALL be cleared
+
+#### Scenario: Turning sync on fails
+- **WHEN** turning sync on fails
+- **THEN** the card SHALL show the failure with a Retry action
+- **AND** sync SHALL remain off
+
+#### Scenario: Code refresh fails
+- **WHEN** a code refresh fails
+- **THEN** the card SHALL show an error and a Retry action
+- **AND** SHALL keep showing the previous code until it is replaced
+
+### Requirement: Join from another device card
+
+The Devices section SHALL offer a Join from another device card with a "Pairing code" input that accepts an 8-character code, with or without the dash and in any letter case, or a case-sensitive 22-character sync key, explained by a "Use a sync key instead" disclosure. Pair and a Scan icon button SHALL sit beside the input.
+
+#### Scenario: Join while already syncing
+- **WHEN** sync is on and the user activates "Join a different sync instead"
+- **THEN** the join card SHALL expand with a warning that joining leaves the current sync
+
+#### Scenario: Join with a code
+- **WHEN** the user submits an 8-character code in the join card
+- **THEN** the system SHALL redeem it via the server, store the returned key and trigger a first-time sync
+- **AND** on success the section SHALL change to its sync-on state with the status "This device is now syncing"
+
+#### Scenario: Join with a sync key
+- **WHEN** the user submits a 22-character base64url key
+- **THEN** the system SHALL validate it locally without a server call, store it and trigger a first-time sync
+- **AND** on success the section SHALL change to its sync-on state with the status "This device is now syncing"
+
+#### Scenario: Invalid value
+- **WHEN** the user submits a value that is neither a code nor a key
+- **THEN** the card SHALL show an inline error without calling the server
+- **AND** SHALL keep the entered value
+
+#### Scenario: Key already in use
+- **WHEN** the user submits the key already stored on this device
+- **THEN** the card SHALL show "Already paired with this key" without triggering a sync
+
+#### Scenario: Join fails
+- **WHEN** redeeming a code or the first-time sync fails
+- **THEN** the card SHALL show the error under the input
+- **AND** SHALL keep the entered value so the user can correct it and retry
+- **AND** the device's sync state SHALL be restored to what it was before the attempt: the previous key when it had one, otherwise sync off
+
+### Requirement: Pair link results
+
+When the app starts with a `?pair=<code>` query, the system SHALL redeem the code, pair, and remove the query from the URL. The result SHALL be shown in the Devices section, not in a dialog.
+
+#### Scenario: Pair link succeeds
+- **WHEN** the code in a pair link is redeemed successfully
+- **THEN** Settings SHALL show the Devices section with the status "This device is now syncing"
+
+#### Scenario: Pair link fails
+- **WHEN** the code in a pair link cannot be redeemed
+- **THEN** Settings SHALL show the Devices section with the join card expanded, the code filled in and the error shown
+
+### Requirement: Devices section
+
+Settings SHALL include a Devices section, rendered only when the server reports sync via `GET /sync/capabilities`. It SHALL cover the user's own devices only: it SHALL NOT include agent access, key rotation, disabling sync or deleting server data, and SHALL NOT present sync as a switch.
+
+#### Scenario: Devices section is hidden when the server has no sync storage
+- **WHEN** `GET /sync/capabilities` returns 404 or a body lacking `sync: true`
+- **THEN** the Devices section SHALL NOT be rendered in Settings
+- **AND** the capability check SHALL be performed on each page load (not cached across reloads)
+
+#### Scenario: Sync-off state
+- **WHEN** sync is disabled
+- **THEN** the section SHALL display one sentence explaining that sync keeps subscriptions and reading progress in step across devices without an account
+- **AND** SHALL display the Add a device card and the expanded Join from another device card side by side on wide screens and stacked on narrow screens
+
+#### Scenario: Collecting posts without another device
+- **WHEN** sync is disabled and `/sync/capabilities` reports `items: true`
+- **THEN** the section SHALL display a secondary "Collect new posts while Lidora is closed" action that turns sync on for this device
+- **AND** SHALL state that this stores the subscriptions on the server
+
+#### Scenario: Sync-on state
+- **WHEN** sync is enabled
+- **THEN** the section SHALL display a status card with the sync status and a "Sync now" action, the collapsed Add a device card, and a secondary "Join a different sync instead" link that expands the join card
+
+#### Scenario: Status text
+- **WHEN** the status card is shown
+- **THEN** it SHALL show "Sync failed" with its relative time and the full error text when the last sync failed, the pending change count when changes are waiting, "Never synced" when no sync has ever succeeded, and otherwise the relative time of the last successful sync
+- **AND** the error text SHALL be visible on the page, not only in a tooltip
+
+#### Scenario: Rejected key
+- **WHEN** the server has rejected the sync key
+- **THEN** the status card SHALL show the rejection message and a link to the Server data section
+
+#### Scenario: Status updates while Settings is open
+- **WHEN** the Devices section is shown
+- **THEN** the status's relative time SHALL be recomputed every 30 seconds
+
+### Requirement: Server data section
+
+When this device has a sync key, Settings SHALL show a Server data section stating that the server holds the subscriptions, read and starred state, statistics and agent access. It SHALL show the key ID: a display-only, 4-character fingerprint derived one-way from the sync key and never used by any pairing flow, noting that it matches on every device in the same sync.
+
+#### Scenario: Section without a key
+- **WHEN** this device has no sync key
+- **THEN** the Server data section SHALL NOT be shown
+
+#### Scenario: Key ID
+- **WHEN** the Server data section is shown
+- **THEN** it SHALL show the 4-character key ID without a copy action
+
+### Requirement: Account-wide sync actions
+
+The Server data section SHALL offer three actions, each with a one-sentence description: "Stop syncing on this device" (disables sync here, confirmed inline), "Sign out other devices and agents" (regenerates the key) and "Delete data from the server" (deletes the account, in danger styling), the last two confirmed in a dialog. After stopping or deleting succeeds, Settings SHALL show the Devices section.
+
+#### Scenario: Stop syncing
+- **WHEN** the user activates Stop syncing on this device
+- **THEN** an inline confirmation SHALL expand under the action and SHALL state that this device keeps its data and stops syncing, that the data stays on the server, and that other devices and agents are unaffected
+- **AND** SHALL point to Delete data from the server for removing the server copy
+- **AND** only on explicit confirmation SHALL the system clear the local sync key and the dirty set
+
+#### Scenario: Stop syncing with agents connected
+- **WHEN** agents are connected and the user activates Stop syncing on this device
+- **THEN** the confirmation SHALL add that agents will only see changes made on other devices
+
+#### Scenario: After stopping
+- **WHEN** Stop syncing on this device succeeds
+- **THEN** Settings SHALL show the Devices section in its sync-off state

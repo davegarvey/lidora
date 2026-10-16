@@ -32,7 +32,7 @@ Each stored article SHALL record when it was most recently included in a success
 - **AND** feeds, items, flags, markers, statistics, settings and body records SHALL remain present
 
 ### Requirement: Persistent storage and status
-After a user's first feed subscription, the client SHALL request persistent browser storage once and SHALL record that it attempted the request. Settings SHALL show the browser's storage usage, quota, persistence state, number of article records and number of body records. Settings SHALL allow the user to explicitly request persistence again when it is not granted. Missing or denied browser APIs SHALL not prevent reading or retention.
+After a user's first feed subscription, the client SHALL request persistent browser storage once and SHALL record that it attempted the request. The Storage section of Settings SHALL show a one-line summary of the browser's storage usage and the number of article records, with sizes in KB, MB or GB as appropriate. Beneath the summary, without a disclosure, the section SHALL list the quota, persistence state, number of article records and number of body records. When persistence is not granted, the section SHALL explain that the browser may clear Lidora's data when space runs low and SHALL offer an action to request persistence again. Missing or denied browser APIs SHALL not prevent reading or retention.
 
 #### Scenario: Persistence is requested after first feed
 - **WHEN** the first feed is added
@@ -47,3 +47,7 @@ After a user's first feed subscription, the client SHALL request persistent brow
 - **WHEN** the browser does not support an estimate or persistence API
 - **THEN** Settings SHALL show that value as unavailable
 - **AND** feed reading and retention SHALL continue
+
+#### Scenario: Large quota
+- **WHEN** the browser reports a quota of 13,218,000,000 bytes
+- **THEN** the quota SHALL be shown in GB, not MB
