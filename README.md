@@ -469,3 +469,6 @@ everything. `/llms.txt` gives agents a short description of the connector.
 
 MIT. The MCP endpoint depends on the Apache-2.0 licensed
 `@modelcontextprotocol/server`, which is compatible with the MIT licence.
+The bundled serif font is XCharter, an extension of Bitstream Charter, which
+is distributed under the Bitstream licence reproduced in
+`public/fonts/LICENSE-XCharter.txt`.
