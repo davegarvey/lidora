@@ -118,13 +118,13 @@ function rateLimitResponse(scope: string, limitKey: string, retryAfter: number, 
   });
 }
 
-function jsonError(message: string, fieldName?: string, fieldValue?: unknown): Response {
+function jsonError(message: string, fieldName?: string, fieldValue?: unknown, status = 400): Response {
   const body: Record<string, unknown> = { error: message };
   if (fieldName) body.field = fieldName;
   // fieldValue is intentionally NOT included — do not echo user input in errors.
   assertNoUserDataLog('error_body', body);
   return new Response(JSON.stringify(body), {
-    status: 400,
+    status,
     headers: { 'Content-Type': 'application/json' },
   });
 }
@@ -276,9 +276,16 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
     if (newKey === oldKey) {
       return jsonError('sync_key must differ from the current key', 'sync_key');
     }
+    const taken = await db
+      .prepare('SELECT 1 AS taken FROM users WHERE sync_key = ?')
+      .bind(newKey)
+      .first<{ taken: number }>();
+    if (taken) {
+      return jsonError('sync_key is already in use', 'sync_key', undefined, 409);
+    }
 
     await db.batch([
-      db.prepare('INSERT OR IGNORE INTO users (sync_key, created_at) VALUES (?, ?)').bind(newKey, now()),
+      db.prepare('INSERT INTO users (sync_key, created_at) VALUES (?, ?)').bind(newKey, now()),
       db.prepare('UPDATE users SET rotated_at = ? WHERE sync_key = ?').bind(now(), oldKey),
       ...agentDeletionStatements(db, oldKey),
     ]);
