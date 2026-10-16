@@ -1,0 +1,5 @@
+- [x] 1.1 Remove automatic clipboard copying when a connection link is created.
+- [x] 1.2 Make Copy setup instructions the primary action and show the URL beneath it as a secondary option.
+- [x] 1.3 Limit the panel note to where to paste the instructions and the link's expiry.
+- [x] 1.4 Update the setup instructions to describe sign-in neutrally and ask agents that cannot configure themselves to repeat the URL.
+- [x] 1.5 Update tests and the README.

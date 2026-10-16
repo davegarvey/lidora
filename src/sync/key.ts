@@ -112,3 +112,24 @@ export async function setStoredServerOffset(value: number | null): Promise<void>
   const stored = await getMeta<Partial<AppSettings>>(SETTINGS_KEY, {});
   await setMeta(SETTINGS_KEY, { ...stored, serverOffset: value });
 }
+
+const PENDING_ROTATION_KEY = 'pendingSyncRotation';
+
+export interface PendingRotation {
+  oldKey: string;
+  newKey: string;
+}
+
+export async function getPendingRotation(): Promise<PendingRotation | null> {
+  const stored = await getMeta<Partial<PendingRotation> | null>(PENDING_ROTATION_KEY, null);
+  if (!stored || !isValidSyncKey(stored.oldKey) || !isValidSyncKey(stored.newKey)) return null;
+  return { oldKey: stored.oldKey, newKey: stored.newKey };
+}
+
+export async function setPendingRotation(rotation: PendingRotation): Promise<void> {
+  await setMeta(PENDING_ROTATION_KEY, rotation);
+}
+
+export async function clearPendingRotation(): Promise<void> {
+  await setMeta(PENDING_ROTATION_KEY, null);
+}

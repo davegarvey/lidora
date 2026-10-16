@@ -264,11 +264,12 @@ async function mergePayload(
   await setStoredLastSyncAt(newTime);
 }
 
-export async function runFirstTimeSetup(): Promise<number> {
+export async function runFirstTimeSetup(options: { register?: boolean } = {}): Promise<number> {
   // Registration is explicit: ensure the server knows this key before the
   // first pull. Idempotent (INSERT OR IGNORE); a rotated key is refused
-  // with 403 and the setup fails, which is the intended outcome.
-  await register();
+  // with 403 and the setup fails, which is the intended outcome. A setup
+  // resumed by a later pull skips it, so a rejected key stays rejected.
+  if (options.register !== false) await register();
 
   // Start clean: any dirty entries from a previous partial setup, or from
   // changes made while sync was disabled, are superseded by the diff below

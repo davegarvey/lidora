@@ -19,6 +19,11 @@ Migration SHALL preserve every browser store, unsynced state, server accounts an
 - **WHEN** validation or import fails
 - **THEN** the source SHALL remain available and the destination SHALL NOT contain a partially committed library
 
+#### Scenario: Source contains state for a deleted article
+- **WHEN** the source has a body, flag or read marker whose article no longer exists
+- **THEN** the transfer SHALL omit that unreferenced state and continue validating the remaining library
+- **AND** the source library SHALL remain unchanged unless the verified transfer completes
+
 ### Requirement: Finite coordinated migration
 Migration tooling SHALL have explicit removal criteria. The old origin SHALL remain migration-capable for returning and offline users until transfer is complete or a durable recovery route exists. Cutover SHALL coordinate automatic builds, server writes, scheduled jobs and recovery so that both domains use the same authoritative server data and one polling scheduler. MCP connections SHALL be reauthorized for the new origin without accepting old audiences as aliases.
 

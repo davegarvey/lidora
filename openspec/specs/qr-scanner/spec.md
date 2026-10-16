@@ -5,120 +5,9 @@ Let readers pair a new device for sync by scanning a QR code or entering a code 
 
 ## Requirements
 
-### Requirement: Sync section shows two action buttons
-
-When sync is enabled, the settings Sync section SHALL display two buttons: "Join existing sync" and "Add another device". Each opens its respective modal.
-
-#### Scenario: Join existing sync button
-
-- **WHEN** sync is enabled
-- **THEN** a "Join existing sync" button SHALL be visible
-- **WHEN** the user taps it
-- **THEN** the `SyncJoinModal` SHALL open
-
-#### Scenario: Add another device button
-
-- **WHEN** sync is enabled
-- **THEN** an "Add another device" button SHALL be visible
-- **WHEN** the user taps it
-- **THEN** the `SyncShareModal` SHALL open
-
-### Requirement: SyncJoinModal provides manual pairing
-
-The `SyncJoinModal` SHALL provide a text input for an 8-character pairing code and a "Pair" button.
-
-#### Scenario: Enter code and pair
-
-- **WHEN** the user enters an 8-character code and taps "Pair"
-- **THEN** `redeemCode()` SHALL be called with the code
-- **THEN** on success, the modal SHALL close and the `PairResultModal` SHALL appear
-
-#### Scenario: Empty code rejected
-
-- **WHEN** the user taps "Pair" with an empty input
-- **THEN** no action SHALL be taken
-
-#### Scenario: Wrong length code rejected
-
-- **WHEN** the user enters a code that is not 8 characters and taps "Pair"
-- **THEN** an error SHALL be shown: "Enter an 8-character pairing code"
-
-#### Scenario: Pairing error shown
-
-- **WHEN** `redeemCode()` fails
-- **THEN** an error message SHALL be displayed with the failure reason
-
-### Requirement: SyncJoinModal provides QR scanning
-
-The `SyncJoinModal` SHALL include a "Scan QR" button that opens the camera-based QR scanner overlay (QrScannerOverlay) within the modal.
-
-#### Scenario: Scan QR button available
-
-- **WHEN** the `SyncJoinModal` is open
-- **THEN** a "Scan QR" button SHALL be visible
-
-#### Scenario: Scan QR button disabled when no camera
-
-- **WHEN** the device has no camera
-- **THEN** the "Scan QR" button SHALL be disabled with a faded appearance
-
-#### Scenario: Scanner opens on tap
-
-- **WHEN** the user taps "Scan QR"
-- **THEN** a full-viewport scanner overlay SHALL appear on top of the modal
-
-#### Scenario: Scanner Escape closes scanner only
-
-- **WHEN** the scanner overlay is open and the user presses Escape
-- **THEN** the scanner SHALL close
-- **THEN** the `SyncJoinModal` SHALL remain open
-
-#### Scenario: Scanner success closes both
-
-- **WHEN** the scanner successfully decodes a QR and pairing completes
-- **THEN** the scanner SHALL close
-- **THEN** the `SyncJoinModal` SHALL close
-- **THEN** the `PairResultModal` SHALL appear
-
-### Requirement: SyncShareModal displays pairing info
-
-The `SyncShareModal` SHALL display the pairing code and QR code, and auto-generate them when opened.
-
-#### Scenario: Intro text shown
-
-- **WHEN** the `SyncShareModal` opens
-- **THEN** the modal SHALL display a one-line intro stating that the user can type the code or scan the QR code on the other device
-
-#### Scenario: Code auto-generated on open
-
-- **WHEN** the `SyncShareModal` opens
-- **THEN** a new pairing code SHALL be generated automatically
-- **THEN** the code SHALL be displayed in the modal
-- **THEN** a QR code encoding the pair URL SHALL be displayed
-
-#### Scenario: Copy button
-
-- **WHEN** the pairing code is displayed
-- **THEN** a "Copy" button SHALL be available
-- **WHEN** the user taps Copy
-- **THEN** the code SHALL be copied to the clipboard
-
-#### Scenario: Code auto-refreshes on expiry
-
-- **WHEN** the pairing code reaches its expiry time
-- **THEN** a new code SHALL be generated automatically
-- **THEN** the QR code SHALL update to encode the new code
-- **THEN** no notification SHALL be shown to the user
-
-#### Scenario: Timers cleanup on close
-
-- **WHEN** the `SyncShareModal` closes
-- **THEN** the expiry timer SHALL be cancelled
-- **THEN** the countdown ring interval SHALL be cleared
-
 ### Requirement: Countdown ring shows code freshness
 
-The `SyncShareModal` SHALL include a visual countdown ring positioned at the bottom-right of the modal body, indicating remaining code validity.
+The expanded Add a device card SHALL show a countdown ring and the remaining time ("Expires in 4:12") next to the pairing code, indicating remaining code validity. The countdown SHALL NOT appear in the join card.
 
 #### Scenario: Ring full on generation
 
@@ -135,6 +24,11 @@ The `SyncShareModal` SHALL include a visual countdown ring positioned at the bot
 
 - **WHEN** the code auto-refreshes
 - **THEN** the ring SHALL snap back to full
+
+#### Scenario: No countdown when joining
+
+- **WHEN** the join card is shown
+- **THEN** no countdown ring or expiry text SHALL be shown
 
 ### Requirement: Scanner displays camera feed
 
@@ -168,7 +62,7 @@ The scanner SHALL capture camera frames at regular intervals and attempt to deco
 - **THEN** the scanner SHALL validate that the decoded URL's origin matches `window.location.origin`
 - **THEN** the scanner SHALL extract the `pair` query parameter from the validated URL
 - **THEN** the scanner SHALL call `redeemCode()` with the extracted code
-- **THEN** on success, the scanner SHALL close and display "Paired successfully"
+- **THEN** on success, the scanner SHALL close and the Devices section SHALL report that pairing succeeded
 
 #### Scenario: QR from different origin
 
@@ -195,13 +89,14 @@ The scanner overlay SHALL provide a way to close it without scanning.
 
 - **WHEN** user taps the "Cancel" button
 - **THEN** the scanner overlay SHALL close
-- **THEN** the parent modal SHALL remain open
+- **THEN** the card that opened it SHALL remain as it was
 
 #### Scenario: Escape key
 
 - **WHEN** user presses the Escape key
 - **THEN** the scanner overlay SHALL close
-- **THEN** the parent modal SHALL remain open
+- **THEN** the card that opened it SHALL remain as it was
+- **THEN** Settings SHALL remain open
 
 ### Requirement: Scanner cleans up resources
 
@@ -227,3 +122,29 @@ The pairing code generation and code redemption operations SHALL use independent
 
 - **WHEN** the user clicks "Pair"
 - **THEN** the "Generate code" button SHALL remain enabled
+
+### Requirement: Join card provides QR scanning
+
+The Join from another device card SHALL include a Scan icon button next to Pair. Activating it SHALL open the full-viewport camera scanner overlay above the page. The approval-code entry in the Agents section SHALL use the same overlay.
+
+#### Scenario: Scan button available
+
+- **WHEN** the join card is shown
+- **THEN** a Scan button labelled "Scan a QR code" SHALL be visible next to Pair
+
+#### Scenario: Scan button disabled when no camera
+
+- **WHEN** the device has no camera
+- **THEN** the Scan button SHALL be disabled
+- **THEN** text in the card SHALL state that no camera was found
+
+#### Scenario: Scanner opens on tap
+
+- **WHEN** the user activates Scan
+- **THEN** a full-viewport scanner overlay SHALL appear above the page
+
+#### Scenario: Scanner success
+
+- **WHEN** the scanner successfully decodes a QR code and pairing completes
+- **THEN** the scanner SHALL close
+- **THEN** the Devices section SHALL change to its sync-on state with the status "This device is now syncing"

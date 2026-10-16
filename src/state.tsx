@@ -64,10 +64,11 @@ import { refreshStaleFeeds, fetchingState, startScheduler, setOnRefresh } from '
 import { enqueueFlag, clearAllDirty, enqueueStatsIfSync, enqueueReadMarkerIfSync } from './sync/queue';
 import { resetSyncStatus } from './sync/status';
 import { scheduleFlush, flushNow } from './sync/push';
-import { bootSync, pullIfStale, pullNow, triggerFirstTime } from './sync/init';
+import { bootSync, pullIfStale, pullNow, settlePulls, triggerFirstTime } from './sync/init';
 import { setOnSync } from './sync/merge';
-import { getStoredSyncKey, isValidSyncKey, generateSyncKey, setStoredSyncKey } from './sync/key';
-import { redeemCode, register, rotateSyncKey } from './sync/client';
+import { getStoredSyncKey, isValidSyncKey, generateSyncKey, setStoredSyncKey, clearPendingRotation } from './sync/key';
+import { redeemCode, register } from './sync/client';
+import { rotateStoredSyncKey } from './sync/rotate';
 import { subscribeFeed as subscribeFeedSvc, unsubscribeFeed as unsubscribeFeedSvc, updateFeedMeta, changeFeedUrl, type SubscribeInput } from './feeds/service';
 import { refreshTargetForSelection } from './feeds/scope';
 import { isIdle, onCatchup, clearActivityOnHide } from './util/idle';
@@ -101,7 +102,10 @@ type ModalKind =
   | { kind: 'feed-editor'; feedId: string }
   | { kind: 'confirm'; title: string; message: string; hint?: string; confirmLabel: string; busyLabel?: string; danger?: boolean; onConfirm: () => void | Promise<void> };
 
-export type PairResult = { kind: 'success' } | { kind: 'failure'; code: string; message: string };
+export type PairResult =
+  | { kind: 'success' }
+  | { kind: 'failure'; code: string; message: string }
+  | { kind: 'confirm'; code: string };
 
 export interface AppState {
   view: ViewKind;
@@ -662,6 +666,7 @@ export const AppProvider: ParentComponent = (props) => {
 
   const disableSync = async () => {
     await updateSettingsWith({ syncKey: null, lastSyncAt: null, lastStatsSyncAt: null, lastItemsCursor: null, serverOffset: null });
+    await clearPendingRotation();
     clearAllDirty();
     resetSyncStatus();
   };
@@ -697,19 +702,24 @@ export const AppProvider: ParentComponent = (props) => {
   };
 
   const regenerateSyncKey = async () => {
-    const oldKey = await getStoredSyncKey();
-    const newKey = generateSyncKey();
-    await setStoredSyncKey(newKey);
-    await updateSettingsWith({ syncKey: newKey });
-    if (!oldKey) return;
+    let newKey: string;
     try {
-      // Server-side rotation: registers the new key and permanently deads
-      // the old one (all agent tokens orphaned, register refuses to
-      // resurrect it). Local rotation still succeeds if this fails.
-      await rotateSyncKey(oldKey, newKey);
+      newKey = await rotateStoredSyncKey();
     } catch (e) {
       console.error('Failed to rotate sync key on server:', e);
       throw e;
+    }
+    await settlePulls();
+    await updateSettingsWith({ syncKey: newKey, lastSyncAt: null, lastStatsSyncAt: null, lastItemsCursor: null, serverOffset: null });
+    await clearPendingRotation();
+    clearAllDirty();
+    resetSyncStatus();
+    try {
+      // The server registered the new, empty account; first-time setup
+      // uploads this device's library. If it fails, the next pull runs it.
+      await triggerFirstTime({ register: false });
+    } catch (e) {
+      console.error('Failed to upload to the new sync account:', e);
     }
   };
 
@@ -843,18 +853,28 @@ export const AppProvider: ParentComponent = (props) => {
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('online', onOnline);
 
-    if (readMigrationState() === 'idle') await bootSync();
+    if (readMigrationState() === 'idle') {
+      try {
+        await bootSync();
+      } catch (e) {
+        console.error('Sync failed on startup:', e);
+      }
+    }
     if (disposed) return;
     const params = new URLSearchParams(window.location.search);
     const pairCode = params.get('pair');
     if (pairCode) {
       let result: PairResult;
-      try {
-        const key = await redeemCode(pairCode);
-        await pairSyncWithKey(key);
-        result = { kind: 'success' };
-      } catch (e) {
-        result = { kind: 'failure', code: pairCode, message: pairingErrorMessage(e) };
+      if (syncKey()) {
+        result = { kind: 'confirm', code: pairCode };
+      } else {
+        try {
+          const key = await redeemCode(pairCode);
+          await pairSyncWithKey(key);
+          result = { kind: 'success' };
+        } catch (e) {
+          result = { kind: 'failure', code: pairCode, message: pairingErrorMessage(e) };
+        }
       }
       history.replaceState(null, '', window.location.pathname);
       setState({ pairResult: result });

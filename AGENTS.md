@@ -12,7 +12,7 @@ Lidora — a simple, slick, browser-first RSS reader.
 - `npm test` — `vitest run`
 - `npm run test:conformance` — official MCP conformance suite against a local Node server (runs in CI)
 - `npm run spec:validate` — strict validation of the main specs in `openspec/specs/` (runs in CI)
-- `npm run deploy` — `git pull --ff-only && vite build && wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && wrangler deploy` (always deploy via this script — it pulls the latest before building and applies both D1 databases' migrations before the deploy). `npm run deploy:ci` is the same sequence without `git pull`, used as the Workers Builds deploy command.
+- `npm run deploy` — `git pull --ff-only && vite build && wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && wrangler deploy` (always deploy via this script — it pulls the latest before building and applies both D1 databases' migrations before the deploy). `npm run deploy:ci` applies the migrations and deploys without `git pull` or a build, retrying `wrangler deploy` once; it is the Workers Builds deploy command, which runs after the `npm run build` build command.
 
 ## Architecture
 
@@ -32,7 +32,7 @@ Lidora — a simple, slick, browser-first RSS reader.
 - Code style: no comments unless asked. Match existing patterns in the file you're editing.
 - Test files live alongside source where appropriate (`*.test.ts`) or under `tests/` for integration tests.
 - The `LICENSE` is MIT. Do not introduce third-party code that is incompatible.
-- **Use Lucide icons.** Every icon should come from `lucide-solid`. No raw SVG, no Unicode/emoji glyphs, no plain-text `+` or similar — always use the corresponding Lucide component with the `size` prop for consistent visual weight.
+- **Use Lucide icons.** Every icon should come from `lucide-solid`. No raw SVG, no Unicode/emoji glyphs, no plain-text `+` or similar — always use the corresponding Lucide component with the `size` prop for consistent visual weight. The one exception is the Lidora brand mark, `LidoraMark` in `src/components/Icons.tsx`, which reproduces the glyph from `public/icon.svg`.
 - **README freshness.** If your change adds, removes, or modifies a feature the README describes (deploy targets, architecture, scripts, known limitations, configuration, etc.), update the README in the same PR. Search README for keywords related to your change to find stale text.
 - **Version bumps are automated.** The release workflow handles version bumps, release branch creation, and tag pushes. Never run `grubble` locally or ask an AI agent to bump the version. Doing so will collide with the automated pipeline and create duplicate commits/PRs.
 - **Release refs are protected.** GitHub rulesets protect `release/v*` branches and `v*.*.*` tags; only the release workflow's `RELEASE_PAT` identity may create or update them.
