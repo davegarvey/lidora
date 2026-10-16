@@ -3,9 +3,6 @@ main = "server/worker.ts"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
-[build]
-command = "npm run build"
-
 [assets]
 binding = "ASSETS"
 directory = "./dist"

@@ -2,6 +2,42 @@
    single accent color, reserved for the unread indicator and active
    selection only — see design D11. */
 
+@font-face {
+  font-family: "XCharter";
+  src: url("/fonts/xcharter-roman.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-218F, U+2190-21FF, U+2200-22FF, U+2400-24FF, U+2500-257F, U+2700-27BF, U+A700-A7FF, U+FB00-FB06;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/fonts/xcharter-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-218F, U+2190-21FF, U+2200-22FF, U+2400-24FF, U+2500-257F, U+2700-27BF, U+A700-A7FF, U+FB00-FB06;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/fonts/xcharter-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0000-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-218F, U+2190-21FF, U+2200-22FF, U+2400-24FF, U+2500-257F, U+2700-27BF, U+A700-A7FF, U+FB00-FB06;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/fonts/xcharter-bolditalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0000-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-218F, U+2190-21FF, U+2200-22FF, U+2400-24FF, U+2500-257F, U+2700-27BF, U+A700-A7FF, U+FB00-FB06;
+}
+
 :root {
   /* Latte (light) — default */
   --base: #eff1f5;
@@ -18,7 +54,7 @@
   --accent-text: #6400c8;
   --hairline: rgba(76, 79, 105, 0.10);
   --shadow: 0 6px 24px rgba(76, 79, 105, 0.10);
-  --serif-stack: Charter, "Iowan Old Style", Georgia, serif;
+  --serif-stack: "XCharter", Charter, "Iowan Old Style", Georgia, serif;
   --sans-stack: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --measure: 65ch;
   color-scheme: light;
@@ -154,18 +190,8 @@ a:hover { text-decoration: underline; }
   }
 
   .collapsed-brand .lidora-mark {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--serif-stack);
-    font-style: italic;
-    font-weight: 600;
-    font-size: 22px;
-    line-height: 1;
+    flex-shrink: 0;
     color: var(--accent);
-    user-select: none;
   }
 
   .collapsed-brand .expand-icon {
@@ -2845,6 +2871,11 @@ a:hover { text-decoration: underline; }
   font-size: 14px;
   font-weight: 600;
 }
+.agent-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .agent-link {
   position: relative;
   align-self: stretch;
@@ -2879,12 +2910,6 @@ a:hover { text-decoration: underline; }
 .agent-link__copy:hover {
   color: var(--text);
   background: var(--surface);
-}
-.agent-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
 }
 .agent-error {
   display: flex;
