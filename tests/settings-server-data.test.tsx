@@ -173,7 +173,7 @@ describe('Server data', () => {
     button('Sign out')!.click();
     await flush();
     button('Sign out', document.querySelector('dialog')!)!.click();
-    await vi.waitFor(() => expect(document.querySelector('dialog [role="alert"]')?.textContent).toContain("Couldn't sign out other devices and agents"));
+    await vi.waitFor(() => expect(document.querySelector('dialog [role="alert"]')?.textContent).toBe("Couldn't sign out other devices and agents. Nothing has changed and this device still syncs. Try again."));
     expect(document.querySelector('dialog')).not.toBeNull();
   });
 
@@ -228,5 +228,20 @@ describe('Server data', () => {
     expect(selectSettingsSection).not.toHaveBeenCalled();
     expect(document.querySelector('dialog')).toBe(dialog);
     expect(button('Delete', dialog)!.disabled).toBe(false);
+  });
+
+  it('says the server data is gone when turning sync off fails after deletion', async () => {
+    const { disableSync, selectSettingsSection } = makeContext();
+    disableSync.mockRejectedValue(new Error('IDB write failed'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    stubFetch((url) => (url === '/sync/account' ? new Response(null, { status: 204 }) : agentsResponse(0)));
+    await mount();
+    button('Delete')!.click();
+    await flush();
+    const dialog = document.querySelector('dialog')!;
+    button('Delete', dialog)!.click();
+    await vi.waitFor(() => expect(dialog.querySelector('[role="alert"]')?.textContent).toBe('The data was deleted from the server, but this device could not stop syncing. Close this dialog and use Stop syncing.'));
+    expect(selectSettingsSection).not.toHaveBeenCalled();
+    expect(document.querySelector('dialog')).toBe(dialog);
   });
 });

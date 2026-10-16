@@ -36,11 +36,15 @@ function DevicesBody(props: { items: boolean }) {
   if (pairResult) ctx.setState({ pairResult: null });
   const [notice, setNotice] = createSignal<string | null>(pairResult?.kind === 'success' ? JOINED_MESSAGE : null);
   const [frozen, setFrozen] = createSignal<boolean | null>(null);
-  const [joinSeed, setJoinSeed] = createSignal<{ code: string; error: string } | null>(
-    pairResult?.kind === 'failure' ? { code: pairResult.code, error: pairResult.message } : null,
+  const [joinSeed, setJoinSeed] = createSignal<{ code: string; error: string | null } | null>(
+    pairResult?.kind === 'failure'
+      ? { code: pairResult.code, error: pairResult.message }
+      : pairResult?.kind === 'confirm'
+        ? { code: pairResult.code, error: null }
+        : null,
   );
   const [collectError, setCollectError] = createSignal<string | null>(null);
-  if (pairResult?.kind === 'failure') joinPanel.open();
+  if (pairResult?.kind === 'failure' || pairResult?.kind === 'confirm') joinPanel.open();
 
   const enabled = () => frozen() ?? Boolean(ctx.syncKey());
 

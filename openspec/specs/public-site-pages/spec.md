@@ -42,12 +42,12 @@ The About, Privacy and Terms pages SHALL use the reader's Catppuccin Latte palet
 
 ### Requirement: Settings links to public pages
 
-The Settings footer SHALL link to `/about`, `/privacy` and `/terms`.
+The About section of Settings SHALL link to `/about`, `/privacy` and `/terms`.
 
 #### Scenario: Reader opens About from Settings
 
-- **WHEN** a reader opens Settings
-- **THEN** the footer SHALL include About, Privacy and Terms links
+- **WHEN** a reader opens the About section of Settings
+- **THEN** it SHALL include About, Privacy and Terms links
 
 ### Requirement: Reader shell is crawlable
 

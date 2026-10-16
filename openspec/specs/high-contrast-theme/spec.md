@@ -2,7 +2,9 @@
 
 ## Purpose
 Offer a high-contrast mode, independent of the light or dark theme choice, that meets contrast requirements with a strengthened Catppuccin palette.
+
 ## Requirements
+
 ### Requirement: High contrast is an orthogonal toggle
 
 The system SHALL provide a high contrast mode as a boolean toggle independent of the theme (light/dark/system) selection.
@@ -69,13 +71,12 @@ The high-contrast color values SHALL be derived by pushing Catppuccin hues towar
 
 ### Requirement: Settings UI reflects orthogonal model
 
-The settings drawer SHALL present theme selection (system/light/dark) and high contrast toggle as separate controls.
+The Appearance section of Settings SHALL present theme selection (system/light/dark) and the high contrast toggle as separate controls. Theme selection SHALL be a segmented control and high contrast SHALL be a switch.
 
 #### Scenario: Theme selector excludes accessible
-- **WHEN** user opens settings
-- **THEN** the theme selector SHALL show three options: "Follow system", "Light", "Dark"
+- **WHEN** user opens the Appearance section
+- **THEN** the theme control SHALL show three options: "System", "Light", "Dark"
 
 #### Scenario: High contrast toggle present
-- **WHEN** user opens settings
-- **THEN** the high contrast toggle SHALL be visible and independent of the theme selector
-
+- **WHEN** user opens the Appearance section
+- **THEN** the high contrast switch SHALL be visible and independent of the theme control

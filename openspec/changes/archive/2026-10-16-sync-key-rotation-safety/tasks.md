@@ -1,0 +1,7 @@
+- [x] 1.1 Store a pending rotation and save the new key only after `POST /sync/rotate` succeeds; reuse the pending pair on retry.
+- [x] 1.2 Recover a rotation the server committed but whose response was lost, by checking the pending new key with `GET /sync/tokens`.
+- [x] 1.3 After rotation, clear the sync cursors and dirty set and run first-time setup; run first-time setup from a pull when `lastSyncAt` is unset.
+- [x] 1.4 Clear the pending rotation when sync is turned off.
+- [x] 2.1 Report a local failure after a successful server deletion separately from a failed deletion.
+- [x] 3.1 Reject an existing key as the rotation target with `409`.
+- [x] 4.1 Cover rotation order, retry, recovery, re-seeding, deletion messages and the `409` with tests.
