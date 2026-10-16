@@ -1,0 +1,4 @@
+- [x] 1.1 Skip redeeming a pair link when this device has a sync key, and record a confirmation result with the code.
+- [x] 1.2 Open the Join a different sync panel with the code filled in for that result.
+- [x] 1.3 Handle the pair link even when the startup sync fails.
+- [x] 1.4 Test both states with the app provider and the Devices section, and check the flow in the dev server.

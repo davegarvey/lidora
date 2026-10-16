@@ -312,7 +312,9 @@ Data on your devices is not touched, other paired devices stop syncing, and
 when polling is enabled any polled feed URLs and entries that no other group
 subscribes to are deleted immediately (otherwise by the next daily pass).
 Disabling sync does not delete anything: the key leaves the device but the
-data stays on the server, so delete it first. The daily cron also deletes, with
+data stays on the server, so delete it first. Server data → Sign out other
+devices and agents moves this device to a new key and a new, empty account, then
+uploads this device's library to it; the old key stops working at once. The daily cron also deletes, with
 all their rows, accounts with no sync pull for 365 days (or, if they never
 pulled, created more than 365 days ago) and accounts whose key was regenerated
 more than 30 days ago. At most 50 accounts are deleted per run. Deleted sync

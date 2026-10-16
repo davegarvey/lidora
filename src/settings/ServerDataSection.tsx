@@ -49,7 +49,7 @@ export function ServerDataSection() {
         try {
           await ctx.regenerateSyncKey();
         } catch {
-          throw new Error("Couldn't sign out other devices and agents. The server did not accept the new key, so this device cannot sync until you join again from another device.");
+          throw new Error("Couldn't sign out other devices and agents. Nothing has changed and this device still syncs. Try again.");
         }
         setNotice('Other devices and agents have been signed out.');
       },
@@ -73,8 +73,13 @@ export function ServerDataSection() {
           console.error('Failed to delete sync data:', e);
           throw new Error("Couldn't delete the data from the server. Try again.");
         }
+        try {
+          await ctx.disableSync();
+        } catch (e) {
+          console.error('Failed to stop syncing after deleting sync data:', e);
+          throw new Error('The data was deleted from the server, but this device could not stop syncing. Close this dialog and use Stop syncing.');
+        }
         ctx.selectSettingsSection('devices');
-        await ctx.disableSync();
       },
     });
   };

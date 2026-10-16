@@ -3,7 +3,8 @@
  *
  * - `bootSync()` is called once on app boot. If `syncKey` is unset, no-op.
  *   If `lastSyncAt` is unset (fresh device), runs the first-time setup.
- *   Otherwise, runs a normal pull.
+ *   Otherwise, runs a normal pull. Later pulls do the same, so a key whose
+ *   first-time setup failed (e.g. after rotation) finishes it on the next pull.
  * - `pullIfStale(thresholdMs)` runs a pull if the last successful pull
  *   was more than `thresholdMs` ago, unless the server has rejected the key
  *   (401); only an explicit sync retries then.
@@ -24,7 +25,11 @@ async function pullShared(): Promise<void> {
   const operation = (async () => {
     const key = await getStoredSyncKey();
     if (!key) return;
-    await runPull();
+    if ((await getStoredLastSyncAt()) == null) {
+      await runFirstTimeSetup({ register: false });
+    } else {
+      await runPull();
+    }
     lastPullAt = Date.now();
   })();
   pullInFlight = operation;
@@ -73,16 +78,30 @@ export async function pullNow(): Promise<void> {
   await pullShared();
 }
 
+/** Resolves once no pull or first-time setup is running. */
+export async function settlePulls(): Promise<void> {
+  while (pullInFlight) await pullInFlight.catch(() => {});
+}
+
 /**
  * Triggers a fresh first-time setup (used when the user enables sync
  * mid-session with a key).
  */
-export async function triggerFirstTime(): Promise<void> {
+export async function triggerFirstTime(options: { register?: boolean } = {}): Promise<void> {
   const key = await getStoredSyncKey();
   if (!key) return;
-  await loadDirty();
-  refreshPending();
-  setOnOverflow(() => scheduleFlush());
-  await runFirstTimeSetup();
-  lastPullAt = Date.now();
+  await settlePulls();
+  const operation = (async () => {
+    await loadDirty();
+    refreshPending();
+    setOnOverflow(() => scheduleFlush());
+    await runFirstTimeSetup(options);
+    lastPullAt = Date.now();
+  })();
+  pullInFlight = operation;
+  try {
+    await operation;
+  } finally {
+    if (pullInFlight === operation) pullInFlight = null;
+  }
 }

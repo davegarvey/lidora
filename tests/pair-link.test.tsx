@@ -4,6 +4,7 @@ import { render } from 'solid-js/web';
 import { AppProvider, useApp, type AppContext } from '../src/state';
 import { getDb } from '../src/db/open';
 import { resetSyncCapabilityCache } from '../src/sync/capabilities';
+import { setMeta } from '../src/db/meta';
 
 const KEY = 'AbCdEfGhIjKlMnOpQrStUv';
 
@@ -66,6 +67,34 @@ describe('?pair= link', () => {
     expect(window.location.search).toBe('');
     expect(ctx.state.pairResult).toEqual({ kind: 'failure', code: 'abcdefgh', message: 'Code not found or expired' });
     expect(ctx.syncKey()).toBeNull();
+  });
+
+  it('does not redeem the code when this device already syncs, and asks in Devices instead', async () => {
+    const OWN_KEY = 'OwnOwnOwnOwnOwnOwnOwn0';
+    await setMeta('settings', { syncKey: OWN_KEY, lastSyncAt: 1 });
+    const redeem = vi.fn(() => new Response(JSON.stringify({ syncKey: KEY }), { status: 200 }));
+    stubFetch(redeem);
+    await mount('/?pair=abcdefgh');
+    expect(redeem).not.toHaveBeenCalled();
+    expect(ctx.syncKey()).toBe(OWN_KEY);
+    expect(ctx.state.view).toBe('settings');
+    expect(ctx.state.settingsPath).toBe('devices');
+    expect(window.location.search).toBe('');
+    expect(ctx.state.pairResult).toEqual({ kind: 'confirm', code: 'abcdefgh' });
+  });
+
+  it('still handles the pair link when the startup sync fails', async () => {
+    const OWN_KEY = 'OwnOwnOwnOwnOwnOwnOwn0';
+    await setMeta('settings', { syncKey: OWN_KEY, lastSyncAt: 1 });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url === '/sync/capabilities') return new Response(JSON.stringify({ sync: true, stats: false, items: false }), { status: 200 });
+      return new Response(null, { status: 401 });
+    }));
+    await mount('/?pair=abcdefgh');
+    expect(ctx.state.settingsPath).toBe('devices');
+    expect(window.location.search).toBe('');
+    expect(ctx.state.pairResult).toEqual({ kind: 'confirm', code: 'abcdefgh' });
   });
 
   it('rolls back to sync off when the first sync after pairing fails', async () => {

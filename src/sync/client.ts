@@ -124,6 +124,10 @@ export async function register(): Promise<void> {
  * (it may already be replaced in storage when this is called); `newKey` in
  * the body. The server registers the new key and permanently deads the old
  * one — its agent tokens stop working and register refuses to resurrect it.
+ *
+ * A 401 means the old key is no longer live. When an earlier attempt with the
+ * same pair committed but its response was lost, the new key is live: a
+ * read-only master request with it succeeds, and the rotation counts as done.
  */
 export async function rotateSyncKey(oldKey: string, newKey: string): Promise<void> {
   const res = await fetchWithTimeout(
@@ -135,7 +139,16 @@ export async function rotateSyncKey(oldKey: string, newKey: string): Promise<voi
     },
     PUSH_TIMEOUT_MS,
   );
-  if (!res.ok) throw new SyncClientError(`Rotate failed: ${res.status}`, res.status);
+  if (res.ok) return;
+  if (res.status === 401) {
+    const probe = await fetchWithTimeout(
+      '/sync/tokens',
+      { method: 'GET', headers: { 'X-Sync-Key': newKey } },
+      PUSH_TIMEOUT_MS,
+    );
+    if (probe.ok) return;
+  }
+  throw new SyncClientError(`Rotate failed: ${res.status}`, res.status);
 }
 
 /**

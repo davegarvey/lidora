@@ -121,4 +121,35 @@ describe('sync-key rotation orphans everything under the old key', () => {
       await mf.dispose();
     }
   });
+
+  it('rotate rejects a new key that already has an account and changes neither', async () => {
+    const mf = await createMf();
+    try {
+      const key = makeSyncKey('rot-taken-');
+      const other = makeSyncKey('rot-other-');
+      const retired = makeSyncKey('rot-retire');
+      const successor = makeSyncKey('rot-succes');
+      await register(mf, key);
+      await register(mf, other);
+      await register(mf, retired);
+      const rotate = (from: string, to: string) =>
+        mf.dispatchFetch('http://localhost/sync/rotate', {
+          method: 'POST',
+          headers: { 'X-Sync-Key': from, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sync_key: to }),
+        });
+      expect((await rotate(retired, successor)).status).toBe(204);
+
+      const live = await rotate(key, other);
+      expect(live.status).toBe(409);
+      expect(await live.json()).toEqual({ error: 'sync_key is already in use', field: 'sync_key' });
+      expect((await rotate(key, retired)).status).toBe(409);
+
+      expect((await pull(mf, 'since=0', { key })).status).toBe(200);
+      expect((await pull(mf, 'since=0', { key: other })).status).toBe(200);
+      expect((await pull(mf, 'since=0', { key: retired })).status).toBe(401);
+    } finally {
+      await mf.dispose();
+    }
+  });
 });
