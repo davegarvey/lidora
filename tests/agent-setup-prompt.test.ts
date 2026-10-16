@@ -15,6 +15,11 @@ describe('agentSetupPrompt', () => {
     expect(prompt).not.toMatch(/codex|claude|opencode|cursor|copilot|gemini/i);
   });
 
+  it('leaves sign-in steps to the agent and asks chat-only agents to repeat the URL', () => {
+    expect(prompt).not.toMatch(/tap Allow|will open/i);
+    expect(prompt).toContain('repeat the URL');
+  });
+
   it('asks the agent to configure itself rather than fetch anything', () => {
     expect(prompt).not.toMatch(/fetch|download|curl/i);
     expect(prompt.match(/https?:\/\//g)).toHaveLength(1);
