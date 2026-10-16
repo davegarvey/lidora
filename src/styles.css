@@ -156,7 +156,6 @@ a:hover { text-decoration: underline; }
   .collapsed-brand .lidora-mark {
     flex-shrink: 0;
     color: var(--accent);
-    transform: scaleX(-1);
   }
 
   .collapsed-brand .expand-icon {
