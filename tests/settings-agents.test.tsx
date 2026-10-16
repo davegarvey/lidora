@@ -197,20 +197,25 @@ describe('Agents section', () => {
     expect(button('Connect an agent').disabled).toBe(false);
   });
 
-  it('mints a link, copies the instructions and announces it in its own status line', async () => {
+  it('mints a link without touching the clipboard and offers the instructions first', async () => {
     await mount();
     button('Connect an agent').click();
     await vi.waitFor(() => expect(text()).toContain('https://lidora.example/mcp/c/c1'));
-    expect(writeText).toHaveBeenCalledWith(agentSetupPrompt('https://lidora.example/mcp/c/c1'));
+    expect(writeText).not.toHaveBeenCalled();
     const mint = calls.find((c) => c.url === '/sync/connections');
     expect(mint?.method).toBe('POST');
     expect(mint?.headers['X-Sync-Key']).toBe(KEY);
-    const status = document.querySelector('[role="status"]');
-    expect(status?.textContent).toBe('Setup instructions copied');
-    expect(status?.querySelector('svg')).not.toBeNull();
-    expect(text()).toContain("Paste the setup instructions into your agent's chat, or the link into its connector settings, then tap Allow. Expires in 10 min.");
-    button('Copy setup instructions').click();
-    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    expect(text()).toContain("Paste the setup instructions into your agent's chat. The link expires in 10 min.");
+    expect(text()).toContain('Or add this link to your agent yourself as a remote MCP server.');
+    expect(text()).not.toMatch(/Allow|connector settings/);
+    const copyInstructions = button('Copy setup instructions');
+    expect(copyInstructions.classList.contains('primary')).toBe(true);
+    const url = document.querySelector('.agent-link__url')!;
+    expect(copyInstructions.compareDocumentPosition(url) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    copyInstructions.click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(agentSetupPrompt('https://lidora.example/mcp/c/c1')));
+    (document.querySelector('[aria-label="Copy connection link"]') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('https://lidora.example/mcp/c/c1'));
   });
 
   it('says the link has expired above Create a new link', async () => {

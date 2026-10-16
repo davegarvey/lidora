@@ -84,7 +84,6 @@ function ConnectCard() {
   const [now, setNow] = createSignal(Date.now());
   const [copiedUrl, setCopiedUrl] = createSignal(false);
   const [copiedPrompt, setCopiedPrompt] = createSignal(false);
-  const [autoCopied, setAutoCopied] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
   const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -95,7 +94,6 @@ function ConnectCard() {
 
   const connect = async () => {
     setError(null);
-    setAutoCopied(false);
     if (!ctx.syncKey()) {
       try {
         await ctx.enableSync();
@@ -111,12 +109,6 @@ function ConnectCard() {
       setConnectUrl(res.url);
       setExpiresAt(res.expiresAt);
       setNow(Date.now());
-      try {
-        await navigator.clipboard.writeText(agentSetupPrompt(res.url));
-        setAutoCopied(true);
-      } catch {
-        setAutoCopied(false);
-      }
     } catch (e) {
       console.error('Failed to create a connection link:', e);
       setError(
@@ -160,6 +152,16 @@ function ConnectCard() {
           </>
         }
       >
+        <div>
+          <button type="button" class="btn primary agent-copy" onClick={() => void copy(agentSetupPrompt(connectUrl()!), setCopiedPrompt)}>
+            {copiedPrompt() ? <Check size={14} /> : <Copy size={14} />}
+            {copiedPrompt() ? 'Copied' : 'Copy setup instructions'}
+          </button>
+        </div>
+        <p class="agent-note">
+          {`Paste the setup instructions into your agent's chat. The link expires in ${expiryLabel(expiresAt()!)}.`}
+        </p>
+        <p class="agent-note">Or add this link to your agent yourself as a remote MCP server.</p>
         <div class="agent-link">
           <code class="agent-link__url">{connectUrl()}</code>
           <button
@@ -169,21 +171,6 @@ function ConnectCard() {
             aria-label="Copy connection link"
           >
             {copiedUrl() ? <Check size={14} /> : <Copy size={14} />}
-          </button>
-        </div>
-        <Show when={autoCopied()}>
-          <p class="inline-message inline-message--success agent-status" role="status">
-            <Check size={14} aria-hidden="true" />
-            Setup instructions copied
-          </p>
-        </Show>
-        <p class="agent-note">
-          {`Paste the setup instructions into your agent's chat, or the link into its connector settings, then tap Allow. Expires in ${expiryLabel(expiresAt()!)}.`}
-        </p>
-        <div>
-          <button type="button" class="btn" onClick={() => void copy(agentSetupPrompt(connectUrl()!), setCopiedPrompt)}>
-            {copiedPrompt() ? <Check size={14} /> : <Copy size={14} />}
-            {copiedPrompt() ? 'Copied' : 'Copy setup instructions'}
           </button>
         </div>
       </Show>

@@ -336,14 +336,16 @@ Existing installations moving from Lidora’s custom OAuth implementation must c
 
 1. In Lidora, open Settings → Agents and choose **Connect an agent**. Lidora creates
    a single-use connection URL of the form `https://<your-origin>/mcp/c/<id>`,
-   valid for ten minutes, and copies setup instructions that contain it.
-2. Either paste the instructions into the agent's chat, or paste the URL into
-   the agent's settings as a custom connector or remote MCP server. The
-   instructions name no particular client: they describe the server (remote MCP,
-   Streamable HTTP, OAuth) and ask the agent to add it user-wide and start the
-   sign-in. Agents that can change their own configuration, such as coding
-   agents with a shell, do this themselves; others say where to paste the URL.
-   Nothing in the instructions asks the agent to fetch anything.
+   valid for ten minutes, and offers setup instructions that contain it.
+2. Copy the setup instructions and paste them into the agent's chat, or copy
+   the URL and add it to the agent yourself as a custom connector or remote MCP
+   server. The instructions name no particular client: they describe the server
+   (remote MCP, Streamable HTTP, OAuth) and ask the agent to add it user-wide
+   and start the sign-in. Agents that can change their own configuration, such
+   as coding agents with a shell, do this themselves; others say where to add
+   the URL and repeat it in their reply. Lidora does not describe each client's
+   steps, because they differ and change. Nothing in the instructions asks the
+   agent to fetch anything.
 3. The agent opens a consent page in its own browser. Check the agent's name
    and press **Allow**. The page works in any browser, including one that has
    never run Lidora, because the connection URL identifies your account.

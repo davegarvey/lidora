@@ -2835,6 +2835,11 @@ a:hover { text-decoration: underline; }
   font-size: 14px;
   font-weight: 600;
 }
+.agent-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .agent-link {
   position: relative;
   align-self: stretch;
@@ -2869,12 +2874,6 @@ a:hover { text-decoration: underline; }
 .agent-link__copy:hover {
   color: var(--text);
   background: var(--surface);
-}
-.agent-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
 }
 .agent-error {
   display: flex;
