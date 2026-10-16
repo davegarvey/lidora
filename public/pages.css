@@ -1,3 +1,39 @@
+@font-face {
+  font-family: "XCharter";
+  src: url("/fonts/xcharter-roman.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-218F, U+2190-21FF, U+2200-22FF, U+2400-24FF, U+2500-257F, U+2700-27BF, U+A700-A7FF, U+FB00-FB06;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/fonts/xcharter-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-218F, U+2190-21FF, U+2200-22FF, U+2400-24FF, U+2500-257F, U+2700-27BF, U+A700-A7FF, U+FB00-FB06;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/fonts/xcharter-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0000-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-218F, U+2190-21FF, U+2200-22FF, U+2400-24FF, U+2500-257F, U+2700-27BF, U+A700-A7FF, U+FB00-FB06;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/fonts/xcharter-bolditalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0000-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-218F, U+2190-21FF, U+2200-22FF, U+2400-24FF, U+2500-257F, U+2700-27BF, U+A700-A7FF, U+FB00-FB06;
+}
+
 :root {
   color-scheme: light;
   --base: #eff1f5;
@@ -10,7 +46,7 @@
   --accent-dim: rgba(136, 57, 239, 0.18);
   --accent-text: #6400c8;
   --hairline: rgba(76, 79, 105, 0.10);
-  --serif-stack: Charter, "Iowan Old Style", Georgia, serif;
+  --serif-stack: "XCharter", Charter, "Iowan Old Style", Georgia, serif;
   --sans-stack: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
