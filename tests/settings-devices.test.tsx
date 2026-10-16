@@ -407,4 +407,23 @@ describe('Devices: pair link results', () => {
     expect(document.querySelector<HTMLInputElement>('.join-form input')!.value).toBe('abcdefgh');
     expect(text()).toContain('Code not found or expired');
   });
+
+  it('asks before a pair link switches an active sync, and pairs only on Pair', async () => {
+    await setStoredSyncKey(KEY);
+    const { pairSyncWithKey, state } = makeContext({ key: KEY, pairResult: { kind: 'confirm', code: 'abcdefgh' } });
+    const fetchMock = stubFetch((url) => (url === '/sync/redeem' ? new Response(JSON.stringify({ syncKey: OTHER_KEY }), { status: 200 }) : new Response(null, { status: 500 })));
+    await mount();
+    await flush();
+    expect(state.pairResult).toBeNull();
+    expect(button('Join a different sync instead')!.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector<HTMLInputElement>('.join-form input')!.value).toBe('abcdefgh');
+    expect(text()).toContain('Joining another sync means this device leaves its current one.');
+    expect(document.querySelector('.join-form [role="alert"]')).toBeNull();
+    expect(callsTo(fetchMock, '/sync/redeem')).toBe(0);
+    expect(pairSyncWithKey).not.toHaveBeenCalled();
+
+    button('Pair')!.click();
+    await vi.waitFor(() => expect(pairSyncWithKey).toHaveBeenCalledWith(OTHER_KEY));
+    expect(callsTo(fetchMock, '/sync/redeem')).toBe(1);
+  });
 });

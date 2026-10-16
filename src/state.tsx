@@ -102,7 +102,10 @@ type ModalKind =
   | { kind: 'feed-editor'; feedId: string }
   | { kind: 'confirm'; title: string; message: string; hint?: string; confirmLabel: string; busyLabel?: string; danger?: boolean; onConfirm: () => void | Promise<void> };
 
-export type PairResult = { kind: 'success' } | { kind: 'failure'; code: string; message: string };
+export type PairResult =
+  | { kind: 'success' }
+  | { kind: 'failure'; code: string; message: string }
+  | { kind: 'confirm'; code: string };
 
 export interface AppState {
   view: ViewKind;
@@ -850,18 +853,28 @@ export const AppProvider: ParentComponent = (props) => {
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('online', onOnline);
 
-    if (readMigrationState() === 'idle') await bootSync();
+    if (readMigrationState() === 'idle') {
+      try {
+        await bootSync();
+      } catch (e) {
+        console.error('Sync failed on startup:', e);
+      }
+    }
     if (disposed) return;
     const params = new URLSearchParams(window.location.search);
     const pairCode = params.get('pair');
     if (pairCode) {
       let result: PairResult;
-      try {
-        const key = await redeemCode(pairCode);
-        await pairSyncWithKey(key);
-        result = { kind: 'success' };
-      } catch (e) {
-        result = { kind: 'failure', code: pairCode, message: pairingErrorMessage(e) };
+      if (syncKey()) {
+        result = { kind: 'confirm', code: pairCode };
+      } else {
+        try {
+          const key = await redeemCode(pairCode);
+          await pairSyncWithKey(key);
+          result = { kind: 'success' };
+        } catch (e) {
+          result = { kind: 'failure', code: pairCode, message: pairingErrorMessage(e) };
+        }
       }
       history.replaceState(null, '', window.location.pathname);
       setState({ pairResult: result });
