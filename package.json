@@ -51,7 +51,7 @@
   "scripts": {
     "build": "vite build",
     "deploy": "git pull --ff-only && vite build && wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && wrangler deploy",
-    "deploy:ci": "wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && wrangler deploy",
+    "deploy:ci": "wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && (wrangler deploy || (sleep 15 && wrangler deploy))",
     "dev": "vite",
     "lint": "eslint . --max-warnings=0",
     "preview": "vite preview",
@@ -63,5 +63,10 @@
     "typecheck": "tsc --noEmit"
   },
   "type": "module",
-  "version": "2.1.1"
+  "version": "2.1.1",
+  "allowScripts": {
+    "esbuild": true,
+    "workerd": true,
+    "fsevents": true
+  }
 }
