@@ -63,7 +63,7 @@
     "typecheck": "tsc --noEmit"
   },
   "type": "module",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "allowScripts": {
     "esbuild": true,
     "workerd": true,
