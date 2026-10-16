@@ -24,4 +24,4 @@ The dialog's confirm handler separates the server request from local clean-up. A
 
 ## Relation to settings-page-redesign
 
-The unarchived `settings-page-redesign` change also modifies "Delete sync data from Settings", "Regeneration rotates the key and preserves local state" and "Rotation revokes a lost or stolen device's key". The deltas here start from that change's wording, so this change should be archived after it.
+The unarchived `settings-page-redesign` change also modifies "Delete sync data from Settings", "Regeneration rotates the key and preserves local state" and "Rotation revokes a lost or stolen device's key". Its deltas for those three requirements are updated to match this change, so the two can be archived in either order.
