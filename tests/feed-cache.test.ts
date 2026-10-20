@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearFeedCacheForTests,
   FEED_CACHE_MAX_FRESHNESS_MS,
+  FEED_CACHE_MAX_TOTAL_BYTES,
   FEED_CACHE_TTL_MS,
   FEED_STALE_RETENTION_MS,
   fetchFeedCached,
@@ -496,6 +497,41 @@ describe('shared feed cache', () => {
     expect(await hit.response.text()).toBe('<rss>fallback</rss>');
     expect(hit.response.headers.get('X-Lidora-Cache')).toBe('hit');
     expect(calls).toBe(1);
+  });
+
+  it('caches feeds larger than 2 MiB and within the feed cap', async () => {
+    const url = feedUrl();
+    const body = `<rss>${'x'.repeat(3 * 1024 * 1024)}</rss>`;
+    let calls = 0;
+    vi.stubGlobal('fetch', (async () => {
+      calls += 1;
+      return response(body);
+    }) as typeof globalThis.fetch);
+
+    const first = await fetchFeedCached(url);
+    expect(first.response.status).toBe(200);
+    expect((await first.response.text()).length).toBe(body.length);
+    const hit = await fetchFeedCached(url);
+    expect(hit.response.headers.get('X-Lidora-Cache')).toBe('hit');
+    expect(calls).toBe(1);
+  });
+
+  it('evicts the oldest memory entries once total cached bytes exceed the bound', async () => {
+    const size = 6 * 1024 * 1024;
+    const count = Math.floor(FEED_CACHE_MAX_TOTAL_BYTES / size) + 1;
+    const urls = Array.from({ length: count }, (_, index) => `http://93.184.216.${index + 1}/feed.xml`);
+    const calls = new Map<string, number>();
+    vi.stubGlobal('fetch', (async (input) => {
+      const key = String(input);
+      calls.set(key, (calls.get(key) ?? 0) + 1);
+      return response('x'.repeat(size));
+    }) as typeof globalThis.fetch);
+
+    for (const url of urls) await fetchFeedCached(url);
+    await fetchFeedCached(urls[1]);
+    await fetchFeedCached(urls[0]);
+    expect(calls.get(urls[1])).toBe(1);
+    expect(calls.get(urls[0])).toBe(2);
   });
 
   it('treats Worker cache read failures as misses', async () => {
