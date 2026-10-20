@@ -10,6 +10,7 @@ export const FEED_CACHE_TTL_MS = 15 * 60_000;
 export const FEED_CACHE_MAX_FRESHNESS_MS = 24 * 60 * 60_000;
 export const FEED_STALE_RETENTION_MS = 24 * 60 * 60_000;
 export const FEED_CACHE_MAX_ENTRIES = 256;
+export const FEED_CACHE_MAX_TOTAL_BYTES = 32 * 1024 * 1024;
 export const FEED_CACHE_MAX_BODY_BYTES = FEED_MAX_BYTES;
 export const FEED_RETRY_FALLBACK_MS = 30 * 60_000;
 export const FEED_RETRY_MAX_MS = 24 * 60 * 60_000;
@@ -75,6 +76,7 @@ const WORKER_RETRY_AT_HEADER = 'X-Lidora-Cache-Retry-At';
 const WORKER_FRESH_UNTIL_HEADER = 'X-Lidora-Cache-Fresh-Until';
 const WORKER_REDIRECT_URL_HEADER = 'X-Lidora-Permanent-Redirect';
 const feedCache = new Map<string, CachedFeed>();
+let feedCacheBytes = 0;
 const feedRevalidations = new Map<string, Promise<RevalidationResult>>();
 const upstreamRequests = new Map<string, Promise<Response>>();
 const databaseIds = new WeakMap<D1Database, number>();
@@ -529,7 +531,7 @@ const memoryFeedStore: FeedRepresentationStore = {
     const entry = feedCache.get(upstream);
     if (!entry) return undefined;
     if (!isRetained(entry, Date.now())) {
-      feedCache.delete(upstream);
+      deleteFeedCacheEntry(upstream);
       return undefined;
     }
     touchFeedCache(upstream, entry);
@@ -620,13 +622,21 @@ async function storeCachedFeed(upstream: string, entry: CachedFeed): Promise<voi
   if (cache) await workerFeedStore(cache).put(upstream, entry);
 }
 
-function touchFeedCache(upstream: string, entry: CachedFeed): void {
+function deleteFeedCacheEntry(upstream: string): void {
+  const entry = feedCache.get(upstream);
+  if (!entry) return;
   feedCache.delete(upstream);
+  feedCacheBytes -= entry.body.byteLength;
+}
+
+function touchFeedCache(upstream: string, entry: CachedFeed): void {
+  deleteFeedCacheEntry(upstream);
   feedCache.set(upstream, entry);
-  while (feedCache.size > FEED_CACHE_MAX_ENTRIES) {
+  feedCacheBytes += entry.body.byteLength;
+  while (feedCache.size > FEED_CACHE_MAX_ENTRIES || feedCacheBytes > FEED_CACHE_MAX_TOTAL_BYTES) {
     const oldest = feedCache.keys().next().value;
-    if (oldest === undefined) break;
-    feedCache.delete(oldest);
+    if (oldest === undefined || oldest === upstream) break;
+    deleteFeedCacheEntry(oldest);
   }
 }
 
@@ -892,6 +902,7 @@ export async function fetchFeedCached(
 
 export function clearFeedCacheForTests(): void {
   feedCache.clear();
+  feedCacheBytes = 0;
   feedRetries.clear();
   feedRevalidations.clear();
 }
