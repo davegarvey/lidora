@@ -2,6 +2,7 @@ import type { Item } from '../db/types';
 import { getItem, getItemBody, saveExtractedHtml, updateItem } from '../db/items';
 import { isPartialFeedContent } from '../feeds/parse';
 import { extractArticle } from './extract';
+import { prepareArticleMedia } from './media';
 
 function processLinks(html: string, baseUrl?: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -72,12 +73,20 @@ export async function openItemForReading(
   // a cached Readability extraction (which may have been extracted from the
   // linked URL when the feed didn't provide full content at parse time).
   if (body?.html && body.html.length > 0 && !isPartialFeedContent(body.html, item.link)) {
-    return { bodyHtml: processLinks(body.html, item.link), extracted: true, extractionFailed: false };
+    return {
+      bodyHtml: processLinks(prepareArticleMedia(body.html, body.htmlBaseUrl ?? item.link), item.link),
+      extracted: true,
+      extractionFailed: false,
+    };
   }
 
   // Path 2: cached Readability extract.
   if (body?.extractedHtml != null && body.extractedHtml.length > 0) {
-    return { bodyHtml: processLinks(body.extractedHtml, item.link), extracted: true, extractionFailed: false };
+    return {
+      bodyHtml: processLinks(prepareArticleMedia(body.extractedHtml, item.link), item.link),
+      extracted: true,
+      extractionFailed: false,
+    };
   }
 
   // Path 3: extract via Readability + proxy.
@@ -90,5 +99,9 @@ export async function openItemForReading(
     return { bodyHtml: item.excerpt, extracted: false, extractionFailed: true };
   }
   await saveExtractedHtml(item, result.html);
-  return { bodyHtml: processLinks(result.html, item.link), extracted: true, extractionFailed: false };
+  return {
+    bodyHtml: processLinks(prepareArticleMedia(result.html, item.link), item.link),
+    extracted: true,
+    extractionFailed: false,
+  };
 }

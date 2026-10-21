@@ -310,13 +310,23 @@ describe('refreshFeed', () => {
 
     stubFetch(200, rss('<p>First version</p>'));
     await refreshFeed((await getFeed(id))!);
-    expect(await getItemBody(`${id}::post`)).toEqual({ id: `${id}::post`, feedId: id, html: '<p>First version</p>' });
+    expect(await getItemBody(`${id}::post`)).toEqual({
+      id: `${id}::post`,
+      feedId: id,
+      html: '<p>First version</p>',
+      htmlBaseUrl: 'https://x.example/feed.xml',
+    });
     expect('html' in ((await (await getDb()).get('items', `${id}::post`)) ?? {})).toBe(false);
 
     await saveExtractedHtml({ id: `${id}::post`, feedId: id }, '<p>Extracted</p>');
     stubFetch(200, rss('<p>Second version</p>'));
     await refreshFeed((await getFeed(id))!);
-    expect(await getItemBody(`${id}::post`)).toEqual({ id: `${id}::post`, feedId: id, html: '<p>Second version</p>' });
+    expect(await getItemBody(`${id}::post`)).toEqual({
+      id: `${id}::post`,
+      feedId: id,
+      html: '<p>Second version</p>',
+      htmlBaseUrl: 'https://x.example/feed.xml',
+    });
   });
 
   it('learns cadence from new IDs and respects the minimum interval', async () => {

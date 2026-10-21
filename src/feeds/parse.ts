@@ -1,4 +1,5 @@
 import { extractFromXml, type FeedData, type FeedEntry } from '@extractus/feed-extractor';
+import { XMLParser } from 'fast-xml-parser';
 import type { ItemInput } from '../db/types';
 
 export interface ParsedFeed {
@@ -16,6 +17,7 @@ export interface ParsedItem {
   publishedAt: number | null;
   excerpt: string;
   html?: string;
+  htmlBaseUrl?: string;
   thumbnail?: string | null;
 }
 
@@ -62,6 +64,7 @@ function sameArticleUrl(href: string, articleUrl: string): boolean {
  */
 export function parseFeed(xml: string, baseUrl?: string): ParsedFeed | null {
   let data: FeedData;
+  const feedBaseUrl = effectiveFeedBase(xml, baseUrl);
   try {
     data = extractFromXml(xml, {
       descriptionMaxLen: 0,
@@ -70,9 +73,13 @@ export function parseFeed(xml: string, baseUrl?: string): ParsedFeed | null {
         // Pull `content:encoded` (RSS) or `content` (Atom) and any author info.
         const entry = raw as Record<string, unknown>;
         const contentEncoded = entry['content:encoded'];
-        const content = unwrapText(entry['content']);
-        const html = content && content.length > 0 ? content : '';
-        const finalHtml = typeof contentEncoded === 'string' ? contentEncoded : html;
+        const content = entry['content'];
+        const encodedHtml = unwrapText(contentEncoded);
+        const contentHtml = unwrapText(content);
+        const finalHtml = encodedHtml ?? contentHtml ?? '';
+        const contentElement = encodedHtml ? contentEncoded : content;
+        const entryBaseUrl = applyXmlBase(feedBaseUrl, entry);
+        const htmlBaseUrl = applyXmlBase(entryBaseUrl, contentElement);
         const link = typeof entry['link'] === 'string' ? entry['link'] : undefined;
         const fullHtml = finalHtml && !isPartialFeedContent(finalHtml, link) ? finalHtml : undefined;
         const author = pickAuthor(entry);
@@ -105,6 +112,7 @@ export function parseFeed(xml: string, baseUrl?: string): ParsedFeed | null {
         }
         const result: Record<string, unknown> = {};
         if (fullHtml) result['_html'] = fullHtml;
+        if (fullHtml && htmlBaseUrl) result['_htmlBaseUrl'] = htmlBaseUrl;
         if (author) result['_author'] = author;
         if (stableGuid) result['_guid'] = stableGuid;
         if (thumbnail) result['_thumbnail'] = thumbnail;
@@ -134,6 +142,36 @@ function unwrapText(value: unknown): string | undefined {
     return typeof text === 'string' ? text : undefined;
   }
   return undefined;
+}
+
+function objectValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : undefined;
+}
+
+function applyXmlBase(parent: string | undefined, node: unknown): string | undefined {
+  const value = objectValue(node)?.['@_xml:base'];
+  if (typeof value !== 'string') return parent;
+  try {
+    return new URL(value, parent).toString();
+  } catch {
+    return parent;
+  }
+}
+
+function effectiveFeedBase(xml: string, baseUrl?: string): string | undefined {
+  try {
+    const parsed = new XMLParser({ ignoreAttributes: false }).parse(xml) as Record<string, unknown>;
+    const rootName = Object.keys(parsed).find((name) => !name.startsWith('?'));
+    const root = rootName ? objectValue(parsed[rootName]) : undefined;
+    if (!root) return baseUrl;
+    let effective = applyXmlBase(baseUrl, root);
+    if (rootName === 'rss') {
+      effective = applyXmlBase(effective, root['channel']);
+    }
+    return effective;
+  } catch {
+    return baseUrl;
+  }
 }
 
 /**
@@ -192,6 +230,7 @@ function mapEntry(entry: FeedEntry): ParsedItem | null {
   const extra = entry as FeedEntry & {
     _guid?: string;
     _html?: string;
+    _htmlBaseUrl?: string;
     _author?: string;
     _thumbnail?: string;
   };
@@ -208,6 +247,7 @@ function mapEntry(entry: FeedEntry): ParsedItem | null {
     publishedAt,
     excerpt,
     html,
+    htmlBaseUrl: extra['_htmlBaseUrl'],
     thumbnail: extra['_thumbnail'] ?? null,
   };
 }
@@ -251,6 +291,7 @@ export function parsedItemToItem(p: ParsedItem, feedId: string, now: number): It
     updatedAt: p.publishedAt ?? now,
     excerpt: p.excerpt,
     html: p.html,
+    htmlBaseUrl: p.htmlBaseUrl,
     thumbnail: p.thumbnail ?? null,
     firstOpenedAt: null,
     read: false,

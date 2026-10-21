@@ -349,6 +349,63 @@ describe('feed image thumbnails', () => {
   });
 });
 
+describe('feed content base URLs', () => {
+  it('preserves the effective Atom XML base through feed, entry and content', () => {
+    const xml = `<?xml version="1.0"?>
+      <feed xmlns="http://www.w3.org/2005/Atom" xml:base="https://example.com/feed/">
+        <title>Example</title>
+        <entry xml:base="../posts/">
+          <title>Post</title>
+          <id>post-1</id>
+          <link href="https://example.com/posts/one/"/>
+          <updated>2026-10-19T00:00:00Z</updated>
+          <content type="html" xml:base="one/assets/"><![CDATA[<img src="chart.svg">]]></content>
+        </entry>
+      </feed>`;
+
+    const parsed = parseFeed(xml, 'https://example.com/atom.xml');
+
+    expect(parsed?.items[0].htmlBaseUrl).toBe('https://example.com/posts/one/assets/');
+  });
+
+  it('uses the feed document URL when no XML base is declared', () => {
+    const xml = `<?xml version="1.0"?>
+      <feed xmlns="http://www.w3.org/2005/Atom">
+        <title>Example</title>
+        <entry>
+          <title>Post</title>
+          <id>post-1</id>
+          <link href="https://example.com/posts/one/"/>
+          <updated>2026-10-19T00:00:00Z</updated>
+          <content type="html"><![CDATA[<img src="chart.svg">]]></content>
+        </entry>
+      </feed>`;
+
+    const parsed = parseFeed(xml, 'https://example.com/feeds/atom.xml');
+
+    expect(parsed?.items[0].htmlBaseUrl).toBe('https://example.com/feeds/atom.xml');
+  });
+
+  it('inherits RSS xml:base through the channel and item', () => {
+    const xml = `<?xml version="1.0"?>
+      <rss version="2.0" xml:base="https://example.com/root/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+        <channel xml:base="../feeds/">
+          <title>Example</title>
+          <item xml:base="posts/">
+            <title>Post</title>
+            <guid>post-1</guid>
+            <link>https://example.com/feeds/posts/one/</link>
+            <content:encoded><![CDATA[<img src="chart.svg">]]></content:encoded>
+          </item>
+        </channel>
+      </rss>`;
+
+    const parsed = parseFeed(xml, 'https://example.com/rss.xml');
+
+    expect(parsed?.items[0].htmlBaseUrl).toBe('https://example.com/feeds/posts/');
+  });
+});
+
 describe('firstImgSrc', () => {
   it('matches single-quoted src and rejects srcset-only images', () => {
     expect(firstImgSrc(`<img src='https://example.com/a.jpg'>`, 'https://example.com/feed')).toBe(

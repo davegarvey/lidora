@@ -46,6 +46,27 @@ describe('openItemForReading', () => {
     expect((await getItem('f1::g1'))?.firstOpenedAt).toEqual(expect.any(Number));
   });
 
+  it('proxies feed images against their retained XML content base', async () => {
+    await bulkUpsertItems([makeInput({
+      html: '<figure><img src="/assets/chart.svg"></figure>',
+      htmlBaseUrl: 'https://example.com/posts/one/',
+    })]);
+
+    const result = await openItemForReading('f1::g1');
+    const image = new DOMParser().parseFromString(result.bodyHtml, 'text/html').querySelector('img');
+
+    expect(image?.getAttribute('src')).toBe(`/img?url=${encodeURIComponent('https://example.com/assets/chart.svg')}`);
+  });
+
+  it('resolves older cached feed images against the article URL', async () => {
+    await bulkUpsertItems([makeInput({ html: '<img src="/assets/chart.svg">' })]);
+
+    const result = await openItemForReading('f1::g1');
+    const image = new DOMParser().parseFromString(result.bodyHtml, 'text/html').querySelector('img');
+
+    expect(image?.getAttribute('src')).toBe(`/img?url=${encodeURIComponent('https://example.com/assets/chart.svg')}`);
+  });
+
   it('prefers feed HTML over a cached extraction', async () => {
     await bulkUpsertItems([makeInput({ html: '<p>Feed wins</p>' })]);
     await (await getDb()).put('itemBodies', { id: 'f1::g1', feedId: 'f1', html: '<p>Feed wins</p>', extractedHtml: '<p>Cached</p>' });
