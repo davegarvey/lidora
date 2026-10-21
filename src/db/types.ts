@@ -92,6 +92,7 @@ export interface Item {
 export type ItemInput = Item & {
   /** Raw HTML content from the feed (may be the full body or just a summary). */
   html?: string;
+  htmlBaseUrl?: string;
 };
 
 export interface ItemBody {
@@ -100,6 +101,7 @@ export interface ItemBody {
   feedId: string;
   /** Raw HTML content from the feed (may be the full body or just a summary). */
   html?: string;
+  htmlBaseUrl?: string;
   /** Full-text HTML extracted by Readability (cached). Absent until extracted. */
   extractedHtml?: string;
 }

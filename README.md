@@ -15,7 +15,7 @@ provides multi-device sync and AI agent integration.
 - **Deploy anywhere**: local dev, Node/Bun server, Docker, or Cloudflare Workers — all from one codebase.
 - **Unread filter**: switch between Unread and All within the selected feed or tags. The choice is remembered on each device; Starred shows both read and unread saved articles.
 - **Full-text**: summary-only feeds get full-text extraction via Readability.
-- **Sanitised articles**: feed and extracted article HTML passes through an allowlist sanitiser (DOMPurify) before it is stored and again before it is displayed. Scripts, styles, forms, event handlers, `javascript:` links and same-origin frames are removed; images, figures, tables, links and media embeds are kept.
+- **Sanitised articles**: feed and extracted article HTML passes through an allowlist sanitiser (DOMPurify) before it is stored and again before it is displayed. Relative images use the feed content's XML base, and remote image sources use the image proxy. Scripts, styles, forms, event handlers, `javascript:` links and same-origin frames are removed; figures, tables, links and media embeds are kept.
 
 Learn more about [Lidora](https://lidora.app/about), including its [privacy policy](https://lidora.app/privacy) and [terms](https://lidora.app/terms).
 

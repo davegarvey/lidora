@@ -10,7 +10,7 @@ function library(feedId: string, url: string, title: string): LibrarySnapshot {
     schemaVersion: 11,
     feeds: [{ id: feedId, url, title, titleAt: 10, tags: [], lastFetched: 100, learnedIntervalMs: 3_600_000 }],
     items: [{ id: itemId, feedId, guid: 'guid-1', title: `${title} story`, publishedAt: 1, updatedAt: 1, excerpt: 'summary', read: false, starred: false, createdAt: 1, lastSeenAt: 1 }],
-    itemBodies: [{ id: itemId, feedId, html: '<p>full feed body</p>', extractedHtml: '<p>saved text</p>' }],
+    itemBodies: [{ id: itemId, feedId, html: '<p>full feed body</p>', htmlBaseUrl: new URL('posts/', url).toString(), extractedHtml: '<p>saved text</p>' }],
     meta: [{ key: 'settings', value: { theme: 'dark', syncKey: 'account-key', lastItemsCursor: 18 } }, { key: 'sync_dirty', value: [{ kind: 'feed-upsert', feedId }] }],
     itemFlags: [{ id: itemId, feedId, read: 0, starred: 1 }],
     feedStats: [{ feedId, totalSeen: 4, readOnce: 2, serverReadOnce: 1, title, url }],
@@ -51,6 +51,7 @@ describe('full library transfer', () => {
     expect(merged.items.map((item) => item.feedId)).toContain('shared');
     expect(merged.items.map((item) => item.feedId)).toContain(moved?.id);
     expect(merged.itemBodies).toHaveLength(3);
+    expect(merged.itemBodies.find((body) => body.feedId === moved?.id)?.htmlBaseUrl).toBe('https://source.example/posts/');
     expect(merged.itemFlags).toHaveLength(3);
     expect(merged.feedStats).toHaveLength(3);
     expect(merged.readMarkers).toHaveLength(3);

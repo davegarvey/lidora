@@ -72,7 +72,7 @@ export async function bulkUpsertItems(inputs: ItemInput[], options: { insertOnly
     return stats;
   };
 
-  for (const { html, ...item } of inputs) {
+  for (const { html, htmlBaseUrl, ...item } of inputs) {
     const existing = existingByKey.get(item.id);
     if (existing) {
       if (options.insertOnly) {
@@ -81,7 +81,12 @@ export async function bulkUpsertItems(inputs: ItemInput[], options: { insertOnly
       }
       const merged = { ...mergeItem(existing, item), lastSeenAt };
       await itemsStore.put(merged);
-      if (html) await bodiesStore.put({ id: item.id, feedId: item.feedId, html } satisfies ItemBody);
+      if (html) await bodiesStore.put({
+        id: item.id,
+        feedId: item.feedId,
+        html,
+        ...(htmlBaseUrl ? { htmlBaseUrl } : {}),
+      } satisfies ItemBody);
       const flag = flagByKey.get(item.id);
       await flagsStore.put({
         id: item.id,
@@ -103,7 +108,12 @@ export async function bulkUpsertItems(inputs: ItemInput[], options: { insertOnly
         read: existingFlag ? existingFlag.read : readToFlag(item.read),
         starred: existingFlag ? existingFlag.starred : starToFlag(item.starred),
       });
-      if (html) await bodiesStore.put({ id: item.id, feedId: item.feedId, html } satisfies ItemBody);
+      if (html) await bodiesStore.put({
+        id: item.id,
+        feedId: item.feedId,
+        html,
+        ...(htmlBaseUrl ? { htmlBaseUrl } : {}),
+      } satisfies ItemBody);
       existingByKey.set(item.id, stored);
       const stats = await getStats(item.feedId);
       stats.totalSeen += 1;
