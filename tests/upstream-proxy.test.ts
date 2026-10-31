@@ -109,6 +109,21 @@ describe('upstream proxy response isolation', () => {
     expectIsolated(response, 'sandbox');
   });
 
+  it('serves a WebP image when the upstream labels it as generic binary data', async () => {
+    const webp = new TextEncoder().encode('RIFF\x04\x00\x00\x00WEBPpayload');
+    vi.stubGlobal('fetch', (async () => new Response(webp, {
+      status: 200,
+      headers: { 'Content-Type': 'application/octet-stream' },
+    })) as typeof globalThis.fetch);
+
+    const response = await createApp().request(proxied('/img', '/image.webp'));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('image/webp');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(webp);
+    expectIsolated(response, 'sandbox');
+  });
+
   it.each([
     ['HTML', { 'Content-Type': 'text/html' }],
     ['binary', { 'Content-Type': 'application/octet-stream' }],

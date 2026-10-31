@@ -21,6 +21,80 @@ export type AppEnv = Env;
 const PROXY_CSP = "default-src 'none'; sandbox";
 const IMAGE_CSP = 'sandbox';
 
+function sniffImageContentType(bytes: Uint8Array): string | undefined {
+  const text = (start: number, length: number) => String.fromCharCode(...bytes.subarray(start, start + length));
+  if (text(0, 8) === '\x89PNG\r\n\x1a\n') return 'image/png';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (text(0, 6) === 'GIF87a' || text(0, 6) === 'GIF89a') return 'image/gif';
+  if (text(0, 4) === 'RIFF' && text(8, 4) === 'WEBP') return 'image/webp';
+  if (text(0, 2) === 'BM') return 'image/bmp';
+  if (text(0, 4) === 'II*\0' || text(0, 4) === 'MM\0*') return 'image/tiff';
+  if (bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 1 && bytes[3] === 0) return 'image/x-icon';
+  if (text(4, 4) === 'ftyp' && (text(8, 4) === 'avif' || text(8, 4) === 'avis')) return 'image/avif';
+  return undefined;
+}
+
+async function inspectOctetStreamImage(body: ReadableStream<Uint8Array<ArrayBufferLike>> | null): Promise<{
+  body: ReadableStream<Uint8Array<ArrayBufferLike>>;
+  contentType: string;
+} | null> {
+  if (!body) return null;
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+  try {
+    while (byteLength < 12) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      byteLength += value.byteLength;
+      if (byteLength > IMAGE_MAX_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+    }
+  } catch {
+    await reader.cancel();
+    return null;
+  }
+
+  const prefix = new Uint8Array(Math.min(byteLength, 12));
+  let offset = 0;
+  for (const chunk of chunks) {
+    const remaining = prefix.length - offset;
+    if (remaining <= 0) break;
+    const length = Math.min(chunk.length, remaining);
+    prefix.set(chunk.subarray(0, length), offset);
+    offset += length;
+  }
+  const contentType = sniffImageContentType(prefix);
+  if (!contentType) {
+    await reader.cancel();
+    return null;
+  }
+
+  const restoredBody = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const chunk = chunks.shift();
+      if (chunk) {
+        controller.enqueue(chunk);
+        return;
+      }
+      const { done, value } = await reader.read();
+      if (done) {
+        reader.releaseLock();
+        controller.close();
+      } else {
+        controller.enqueue(value);
+      }
+    },
+    async cancel(reason) {
+      await reader.cancel(reason);
+    },
+  });
+  return { body: restoredBody, contentType };
+}
+
 function isolateProxyResponse(csp: string): MiddlewareHandler {
   return async (c, next) => {
     await next();
@@ -208,7 +282,17 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
       }));
     }
 
-    const contentType = upstreamRes.headers.get('Content-Type')?.trim();
+    let contentType = upstreamRes.headers.get('Content-Type')?.trim();
+    let body: ReadableStream<Uint8Array<ArrayBufferLike>> | null = upstreamRes.body;
+    if (contentType?.toLowerCase().split(';', 1)[0] === 'application/octet-stream') {
+      const inspected = await inspectOctetStreamImage(body);
+      if (inspected) {
+        body = inspected.body;
+        contentType = inspected.contentType;
+      } else {
+        contentType = undefined;
+      }
+    }
     if (!contentType || !/^image\//i.test(contentType)) {
       void cancelResponse(upstreamRes);
       return badGateway('Upstream response is not an image');
@@ -218,7 +302,7 @@ export function createApp<E extends Env = AppEnv>(options: CreateAppOptions = {}
     headers.set('Content-Type', contentType);
     headers.set('Cache-Control', 'public, max-age=2592000, immutable');
     headers.set('X-Lidora-Request-Source', upstreamRes.headers.get('X-Lidora-Request-Source') ?? 'upstream');
-    return new Response(capBody(upstreamRes.body, IMAGE_MAX_BYTES), { status: upstreamRes.status, headers });
+    return new Response(capBody(body, IMAGE_MAX_BYTES), { status: upstreamRes.status, headers });
   });
 
   // Sync routes — only registered when a D1 binding is provided.
