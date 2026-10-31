@@ -26,7 +26,7 @@ The sidebar SHALL render the Add feed and Refresh actions as compact icon button
 
 #### Scenario: Refresh in progress
 - **WHEN** a manual refresh is in progress
-- **THEN** the refresh button is disabled and shows the spinning indicator
+- **THEN** the refresh button is disabled and its icon remains still while the shared header cue reports ongoing activity
 
 #### Scenario: Buttons are accessible
 - **WHEN** the heading action buttons are rendered

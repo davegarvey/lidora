@@ -701,7 +701,6 @@ export const AppProvider: ParentComponent = (props) => {
   let manualRefreshDepth = 0;
 
   const performManualRefresh = async (target: ReadonlySet<string>, syncFirst: boolean): Promise<void> => {
-    setManualFetching((n) => n + 1);
     beginLibraryActivity();
     manualRefreshDepth++;
     let refreshError: unknown = null;
@@ -747,6 +746,7 @@ export const AppProvider: ParentComponent = (props) => {
 
   const enqueueManualRefresh = (target: ReadonlySet<string>, syncFirst: boolean, coalesce: boolean): Promise<void> => {
     if (coalesce && activeManualRefresh) return activeManualRefresh;
+    setManualFetching((n) => n + 1);
     const operation = manualRefreshTail.then(() => performManualRefresh(target, syncFirst));
     manualRefreshTail = operation.catch(() => {});
     activeManualRefresh = operation;
