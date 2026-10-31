@@ -15,7 +15,7 @@ provides multi-device sync and AI agent integration.
 - **Deploy anywhere**: local dev, Node/Bun server, Docker, or Cloudflare Workers — all from one codebase.
 - **Unread filter**: switch between Unread and All within the selected feed or tags. The choice is remembered on each device; Starred shows both read and unread saved articles.
 - **Full-text**: summary-only feeds get full-text extraction via Readability.
-- **Sanitised articles**: feed and extracted article HTML passes through an allowlist sanitiser (DOMPurify) before it is stored and again before it is displayed. Relative images use the feed content's XML base, and remote image sources use the image proxy. Scripts, styles, forms, event handlers, `javascript:` links and same-origin frames are removed; figures, tables, links and media embeds are kept.
+- **Sanitised articles**: feed and extracted article HTML passes through an allowlist sanitiser (DOMPurify) before it is stored and again before it is displayed. Relative images use the feed content's XML base, and remote image sources use the image proxy. The proxy checks file signatures when a host labels an image as generic binary data. Scripts, styles, forms, event handlers, `javascript:` links and same-origin frames are removed; figures, tables, links and media embeds are kept.
 
 Learn more about [Lidora](https://lidora.app/about), including its [privacy policy](https://lidora.app/privacy) and [terms](https://lidora.app/terms).
 
@@ -263,8 +263,9 @@ sandboxing `Content-Security-Policy` and `X-Content-Type-Options: nosniff`, so
 proxied content opened directly runs in an opaque origin without scripts and
 cannot read Lidora's storage. Error responses are plain text and never forward
 upstream headers, and `/img` refuses upstream responses that are not
-`image/*`. Response headers identify whether a response came from the
-upstream, a feed cache, a URL cooldown, an origin cooldown, or the local gate.
+`image/*` or a recognized image file served as generic binary data. Response
+headers identify whether a response came from the upstream, a feed cache, a
+URL cooldown, an origin cooldown, or the local gate.
 
 The feed body cache is not part of sync or persistent storage. Cloudflare
 Workers store hashed feed failure keys and hashed origin reservation/cooldown
