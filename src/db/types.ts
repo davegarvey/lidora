@@ -180,6 +180,7 @@ export interface AppSettings {
   articleListWidth?: number;
   articleListWidthCustomized?: boolean;
   focusMode?: boolean;
+  automaticallyShowNewArticles?: boolean;
   /** 128-bit sync key as base64url (22 chars). Null = sync not enabled. */
   syncKey?: string | null;
   /** Monotonic server timestamp of the last successful pull. */
@@ -207,6 +208,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   articleListWidth: ARTICLE_LIST_WIDTH_DEFAULT,
   articleListWidthCustomized: false,
   focusMode: false,
+  automaticallyShowNewArticles: false,
   syncKey: null,
   lastSyncAt: null,
   lastStatsSyncAt: null,

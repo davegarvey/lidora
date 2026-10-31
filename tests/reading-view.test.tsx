@@ -55,6 +55,10 @@ describe('reading view focus-mode navigation', () => {
       feeds: () => [],
       items: () => [],
       closeReading,
+      pendingUpdateLabel: () => null,
+      pendingAnnouncement: () => '',
+      showPendingUpdates: vi.fn(async () => {}),
+      libraryUpdating: () => false,
       saveSettingsPatch: vi.fn(async () => {}),
     } as unknown as AppContext;
     dispose = render(() => <ReadingView />, document.body);
@@ -136,6 +140,10 @@ describe('reading view article body', () => {
       feeds: () => [],
       items: () => [item],
       closeReading: vi.fn(async () => {}),
+      pendingUpdateLabel: () => null,
+      pendingAnnouncement: () => '',
+      showPendingUpdates: vi.fn(async () => {}),
+      libraryUpdating: () => false,
       saveSettingsPatch: vi.fn(async () => {}),
     } as unknown as AppContext;
     document.body.innerHTML = '';

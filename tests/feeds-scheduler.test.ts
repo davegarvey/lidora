@@ -114,6 +114,28 @@ describe('refreshFeed', () => {
     expect(calls).toBe(1);
   });
 
+  it('records parser worker failures as actionable feed errors', async () => {
+    const { refreshFeed } = await import('../src/feeds/scheduler');
+    const parser = await import('../src/feeds/parse');
+    const id = 'worker-failure-feed';
+    await upsertFeed({
+      id,
+      url: 'https://worker-failure.example/feed.xml',
+      title: 'Feed',
+      learnedIntervalMs: 3_600_000,
+      lastFetched: null,
+    });
+    stubFetch(200, RSS);
+    const parse = vi.spyOn(parser, 'parseFeedResponsive').mockRejectedValue(new Error('parser worker failed'));
+    try {
+      await refreshFeed((await getFeed(id))!);
+    } finally {
+      parse.mockRestore();
+    }
+    expect((await getFeed(id))?.refreshError?.lastStatus).toBe(0);
+    expect((await getFeed(id))?.lastError).toBe('parser worker failed');
+  });
+
   it('does not invoke the background callback for a forced targeted refresh', async () => {
     const { refreshStaleFeeds, setOnRefresh } = await import('../src/feeds/scheduler');
     await upsertFeed({

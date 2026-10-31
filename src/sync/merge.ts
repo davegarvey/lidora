@@ -23,10 +23,15 @@ import { parsedItemToItem } from '../feeds/parse';
 
 export const MAX_ITEM_PAGES_PER_PULL = 50;
 
-let onSync: (() => void) | null = null;
+let onSync: ((force?: boolean) => void | Promise<void>) | null = null;
+let onSyncActivity: ((active: boolean) => void) | null = null;
 
-export function setOnSync(fn: (() => void) | null): void {
+export function setOnSync(fn: ((force?: boolean) => void | Promise<void>) | null): void {
   onSync = fn;
+}
+
+export function setOnSyncActivity(fn: ((active: boolean) => void) | null): void {
+  onSyncActivity = fn;
 }
 
 function toRemotePayload(p: PullPayload): RemotePayload {
@@ -106,7 +111,7 @@ export async function mergeForFirstTime(
   canonicalFeedIds?: ReadonlyMap<string, string>,
 ): Promise<void> {
   await applyRemoteState(payload, serverOffset, canonicalFeedIds);
-  onSync?.();
+  await onSync?.(true);
 }
 
 async function applyStatsPayload(payload: StatsPullPayload): Promise<void> {
@@ -188,9 +193,9 @@ export async function runItemsPull(afterOverride?: number): Promise<number> {
   return inserted;
 }
 
-async function pullItemsAndNotify(afterOverride?: number): Promise<void> {
+async function pullItemsAndNotify(afterOverride?: number, force = false): Promise<void> {
   try {
-    if (await runItemsPull(afterOverride) > 0) onSync?.();
+    if (await runItemsPull(afterOverride) > 0) await onSync?.(force);
   } catch (e) {
     console.error('Failed to pull server-polled items:', e);
   }
@@ -276,12 +281,18 @@ export async function runFirstTimeSetup(options: { register?: boolean } = {}): P
   // (the diff is computed from local DB state, not from the dirty queue).
   await clearAllDirty();
 
+  let statsSupported: boolean;
+  let statsPull: StatsPullPayload | null = null;
   try {
-    const statsSupported = await isStatsSyncAvailable();
-    let statsPull: StatsPullPayload | null = null;
-    if (statsSupported) {
-      statsPull = await pullStatsSince(0);
-    }
+    statsSupported = await isStatsSyncAvailable();
+    if (statsSupported) statsPull = await pullStatsSince(0);
+  } catch (e) {
+    markError('pull', e);
+    throw e;
+  }
+
+  onSyncActivity?.(true);
+  try {
     const pull = await pullSince(0);
     const payload = toRemotePayload(pull);
     const canonicalFeedIds = await canonicalizeLocalFeedIds(payload.feeds);
@@ -289,7 +300,14 @@ export async function runFirstTimeSetup(options: { register?: boolean } = {}): P
     const existingFlags = await getItemFlags();
     await pushLocalDiff(existingFeeds, existingFlags, payload.feeds, payload.flags);
     await mergePayload(payload, pull.serverTime, canonicalFeedIds);
-    await pullItemsAndNotify(0);
+    await pullItemsAndNotify(0, true);
+  } catch (e) {
+    markError('pull', e);
+    throw e;
+  } finally {
+    onSyncActivity?.(false);
+  }
+  try {
     if (statsPull) {
       await applyStatsPayload(statsPull);
       await setStoredLastStatsSyncAt(statsPull.serverTime);
@@ -309,6 +327,8 @@ export async function runFirstTimeSetup(options: { register?: boolean } = {}): P
 }
 
 export async function runPull(): Promise<number | null> {
+  onSyncActivity?.(true);
+  let libraryActivity = true;
   try {
     const since = (await getStoredLastSyncAt()) ?? 0;
     const pull = await pullSince(since);
@@ -322,14 +342,18 @@ export async function runPull(): Promise<number | null> {
       const newTime = Math.max(since, pull.serverTime);
       await setStoredLastSyncAt(newTime);
       scheduleFlush();
-      onSync?.();
+      await onSync?.();
     }
     await pullItemsAndNotify();
+    onSyncActivity?.(false);
+    libraryActivity = false;
     await runStatsPull();
     markPullSuccess();
     return Math.max(since, pull.serverTime);
   } catch (e) {
     markError('pull', e);
     throw e;
+  } finally {
+    if (libraryActivity) onSyncActivity?.(false);
   }
 }

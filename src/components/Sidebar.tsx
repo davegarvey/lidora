@@ -1,6 +1,6 @@
 import { For, Show, createMemo } from 'solid-js';
 import { useApp } from '../state';
-import { Settings, Plus, Search, ChevronLeft, ChevronRight, TriangleAlert, Star, CircleDot, MoreHorizontal, GripVertical, ChartNoAxesCombined } from 'lucide-solid';
+import { Settings, Plus, Search, ChevronLeft, ChevronRight, TriangleAlert, Star, CircleDot, MoreHorizontal, GripVertical, ChartNoAxesCombined, LoaderCircle } from 'lucide-solid';
 import { HelpIcon, LidoraMark, RefreshIcon } from './Icons';
 import { SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN } from '../db/types';
 import { usesCollapsedFeedNavigation } from '../desktopLayout';
@@ -88,6 +88,12 @@ export function Sidebar(props: { onNavigate?: () => void }) {
       <Show when={!collapsed()}>
         <div class="sidebar-header">
           <a class="sidebar-wordmark" href="/" title="Lidora">lidora</a>
+          <span class="library-update-status sidebar-update-status">
+            <Show when={ctx.state.view !== 'reading' && ctx.pendingUpdateLabel()}>
+              {(label) => <button type="button" class="library-update-action" aria-label={`${label()}, apply the latest article list`} onClick={() => void ctx.showPendingUpdates()}>{label()}</button>}
+            </Show>
+            <Show when={ctx.libraryUpdating()}><span class="library-updating" aria-label="Updating"><LoaderCircle size={14} aria-hidden="true" /><Show when={!ctx.pendingUpdateLabel()}>Updating…</Show></span></Show>
+          </span>
           <button
             class="sidebar-collapse desktop-only"
             title="Close sidebar"
@@ -251,6 +257,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
             </span>
           </div>
           <div class="collapsed-actions-top" onClick={(e) => e.stopPropagation()}>
+            <Show when={ctx.libraryUpdating()}><span class="collapsed-action library-updating" title="Updating" aria-label="Updating"><LoaderCircle size={14} /></span></Show>
             <button class="collapsed-action" title="Add feed" onClick={() => ctx.openModal({ kind: 'add-feed' })}>
               <Plus size={14} />
             </button>
