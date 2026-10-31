@@ -7,4 +7,4 @@
 
 ## Validation
 - [x] Run typecheck, lint, unit tests and production build.
-- [ ] Validate the change strictly, archive it with applied main specs, then run repository spec validation.
+- [x] Validate the change strictly, archive it with applied main specs, then run repository spec validation.
