@@ -26,7 +26,7 @@ import {
 import { RATE_LIMITS, checkRateLimit } from './ratelimit';
 import { nextMonotonicTime, currentMonotonicTime } from './monotonic';
 import { applyPush, isLegacyWrapper, type PushBody } from './apply-push';
-import { ensureSchema } from './schema';
+import { ensureSchemaOnce } from './schema';
 import { assertNoKeyLog, assertNoUserDataLog, assertNoUrlLog } from '../log';
 import { decodeItemId } from '../../src/sync/itemId';
 import { MAX_POLLED_FEEDS_PER_ACCOUNT, registerPolledFeeds, removeUnsubscribedPolledFeeds } from '../poll-registry';
@@ -152,10 +152,8 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
   app.options('*', (c) => c.text('Forbidden', 403));
 
   // Bootstrap schema on first request (idempotent).
-  let schemaReady: Promise<void> | null = null;
   app.use('*', async (_c, next) => {
-    if (!schemaReady) schemaReady = ensureSchema(db);
-    await schemaReady;
+    await ensureSchemaOnce(db);
     return next();
   });
 

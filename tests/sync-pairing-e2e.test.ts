@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare';
 import * as esbuild from 'esbuild';
 import path from 'path';
+import { ensureSchema } from '../server/sync/schema';
 import { getDb } from '../src/db/open';
 import { upsertFeed, listFeeds, getFeedByUrl } from '../src/db/feeds';
 import { getItem, insertOrUpdateItem, markRead } from '../src/db/items';
@@ -1001,6 +1002,7 @@ describe('sync pairing first-time setup', () => {
     const d1 = await mf.getD1Database('DB');
     await d1.prepare('DROP TABLE IF EXISTS feeds').run();
     await d1.prepare('DROP TABLE IF EXISTS flags').run();
+    await ensureSchema(d1);
 
     // First-time setup again (lastSyncAt is now set — the flow must ignore it).
     await withMfFetch(() => triggerFirstTime());

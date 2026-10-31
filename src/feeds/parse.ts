@@ -169,6 +169,7 @@ function applyXmlBase(parent: string | undefined, node: unknown): string | undef
 }
 
 function effectiveFeedBase(xml: string, baseUrl?: string): string | undefined {
+  if (!xml.includes('xml:base')) return baseUrl;
   try {
     const parsed = new XMLParser({ ignoreAttributes: false }).parse(xml) as Record<string, unknown>;
     const rootName = Object.keys(parsed).find((name) => !name.startsWith('?'));
