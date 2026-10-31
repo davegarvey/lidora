@@ -1,16 +1,7 @@
-import { Circle, CircleCheck, CircleQuestionMark, RefreshCw } from 'lucide-solid';
+import { Circle, CircleCheck, CircleQuestionMark } from 'lucide-solid';
 
 export function HelpIcon() {
   return <CircleQuestionMark size={14} />;
-}
-
-export function RefreshIcon(props: { spinning: boolean }) {
-  return (
-    <RefreshCw
-      size={14}
-      class={props.spinning ? 'refresh-icon-spinning' : ''}
-    />
-  );
 }
 
 export function CircleIcon() {

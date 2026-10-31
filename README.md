@@ -9,7 +9,7 @@ provides multi-device sync and AI agent integration.
 - **Local-only**: subscriptions, items, read/starred state, and lifetime reading statistics live in IndexedDB.
 - **Multi-device sync**: optional D1-backed sync via Cloudflare Workers (pairing-code based), including exact group read-once deduplication and approximate observed volume. You can delete your server-side sync data from Settings → Server data.
 - **Server-side polling**: on Workers, synced subscriptions are polled every 30 minutes, so items published while no device is open still arrive.
-- **Quiet library updates**: background arrivals stay out of the current article order until you choose `Show N new` (or `Show updates`). Turn on **Automatically show new articles** in Appearance to apply them as they arrive; this preference is local to each device. Explicit refreshes and new filters still apply immediately.
+- **Quiet library updates**: one neutral header spinner covers fetching, processing and applying updates; refresh buttons and individual feed rows stay still. Background arrivals stay out of the current article order until you choose `Show N new` (or `Show updates`). Turn on **Automatically show new articles** in Appearance to apply them as they arrive; this preference is local to each device. Explicit refreshes and new filters still apply immediately.
 - **AI agent connector**: a remote MCP server with OAuth lets chat and coding agents read subscriptions, statistics and recent articles, and manage subscriptions, after one approval. An OpenAPI document describes the sync API for other tools.
 - **Portable**: export/import subscriptions as OPML, or create a full-library backup for recovery.
 - **Offline**: installable PWA; works offline against cached data.

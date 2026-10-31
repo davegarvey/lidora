@@ -41,25 +41,6 @@ When no items match the current view, the river SHALL display a contextual empty
 - **AND** no feed fetch is in progress
 - **THEN** the river SHALL retain the existing subscription, empty-scope or failure feedback appropriate to the current selection
 
-### Requirement: Per-feed fetching indicator in sidebar
-
-The sidebar SHALL indicate when a specific feed is currently being fetched. A small animated spinner SHALL be displayed next to the feed's title while the fetch is in flight. The spinner SHALL be removed when the fetch completes (whether success or error).
-
-#### Scenario: Feed fetch in progress
-
-- **WHEN** a feed subscription is being fetched
-- **THEN** a small rotating spinner icon SHALL appear next to that feed's title in the sidebar
-
-#### Scenario: Feed fetch completes
-
-- **WHEN** the feed fetch completes (success or error)
-- **THEN** the spinner SHALL be removed from that feed's sidebar entry
-
-#### Scenario: Multiple feeds being fetched simultaneously
-
-- **WHEN** multiple feeds are being fetched concurrently
-- **THEN** each feed SHALL independently display its spinner while its own fetch is in flight
-
 ### Requirement: Items appear immediately after subscribe fetch
 
 After a user subscribes to a feed, the items SHALL appear in the river as soon as the initial fetch completes, without waiting for the periodic polling interval.

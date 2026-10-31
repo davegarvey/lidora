@@ -1,7 +1,8 @@
 import { For, Show, createMemo } from 'solid-js';
 import { useApp } from '../state';
-import { Settings, Plus, Search, ChevronLeft, ChevronRight, TriangleAlert, Star, CircleDot, MoreHorizontal, GripVertical, ChartNoAxesCombined, LoaderCircle } from 'lucide-solid';
-import { HelpIcon, LidoraMark, RefreshIcon } from './Icons';
+import { LibraryActivity } from './LibraryActivity';
+import { Settings, Plus, Search, ChevronLeft, ChevronRight, TriangleAlert, Star, CircleDot, MoreHorizontal, GripVertical, ChartNoAxesCombined, RefreshCw } from 'lucide-solid';
+import { HelpIcon, LidoraMark } from './Icons';
 import { SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN } from '../db/types';
 import { usesCollapsedFeedNavigation } from '../desktopLayout';
 import type { Feed } from '../db/types';
@@ -92,7 +93,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
             <Show when={ctx.state.view !== 'reading' && ctx.pendingUpdateLabel()}>
               {(label) => <button type="button" class="library-update-action" aria-label={`${label()}, apply the latest article list`} onClick={() => void ctx.showPendingUpdates()}>{label()}</button>}
             </Show>
-            <Show when={ctx.libraryUpdating()}><span class="library-updating" aria-label="Updating"><LoaderCircle size={14} aria-hidden="true" /><Show when={!ctx.pendingUpdateLabel()}>Updating…</Show></span></Show>
+            <Show when={ctx.state.view !== 'reading'}><LibraryActivity /></Show>
           </span>
           <button
             class="sidebar-collapse desktop-only"
@@ -120,9 +121,10 @@ export function Sidebar(props: { onNavigate?: () => void }) {
                 title={refreshing() ? 'Refreshing…' : refreshLabel()}
                 onClick={() => void ctx.refreshSelected()}
                 disabled={refreshing()}
+                aria-busy={refreshing()}
                 aria-label={refreshing() ? 'Refreshing feeds' : refreshLabel()}
               >
-                <RefreshIcon spinning={refreshing()} />
+                <RefreshCw size={14} />
               </button>
             </Show>
           </div>
@@ -175,7 +177,6 @@ export function Sidebar(props: { onNavigate?: () => void }) {
                   <FeedRow
                     feed={feed}
                     errors={ctx.feedErrors()}
-                    fetchingFeeds={ctx.fetchingFeeds()}
                     active={ctx.state.view !== 'stats' && ctx.state.view !== 'settings' && ctx.state.riverScope === feed.id}
                     onClick={() => selectFeed(feed)}
                     onEdit={() =>
@@ -250,14 +251,15 @@ export function Sidebar(props: { onNavigate?: () => void }) {
       </Show>
 
       <div class="collapsed-rail" onClick={onCollapsedRailClick}>
-          <div class="collapsed-brand">
-            <LidoraMark class="lidora-mark" size={20} />
+          <div class="collapsed-brand" data-updating={ctx.libraryUpdating() && ctx.state.view !== 'reading' ? 'true' : undefined}>
+            <Show when={ctx.libraryUpdating() && ctx.state.view !== 'reading'} fallback={<LidoraMark class="lidora-mark" size={20} />}>
+              <LibraryActivity />
+            </Show>
             <span class="expand-icon">
               <ChevronRight size={14} />
             </span>
           </div>
           <div class="collapsed-actions-top" onClick={(e) => e.stopPropagation()}>
-            <Show when={ctx.libraryUpdating()}><span class="collapsed-action library-updating" title="Updating" aria-label="Updating"><LoaderCircle size={14} /></span></Show>
             <button class="collapsed-action" title="Add feed" onClick={() => ctx.openModal({ kind: 'add-feed' })}>
               <Plus size={14} />
             </button>
@@ -267,9 +269,10 @@ export function Sidebar(props: { onNavigate?: () => void }) {
                 title={refreshing() ? 'Refreshing…' : refreshLabel()}
                 onClick={() => void ctx.refreshSelected()}
                 disabled={refreshing()}
+                aria-busy={refreshing()}
                 aria-label={refreshing() ? 'Refreshing feeds' : refreshLabel()}
               >
-                <RefreshIcon spinning={refreshing()} />
+                <RefreshCw size={14} />
               </button>
             </Show>
           </div>
@@ -330,7 +333,6 @@ interface FeedRowProps {
   feed: Feed;
   errors: Record<string, string>;
   active: boolean;
-  fetchingFeeds: Set<string>;
   onClick: () => void;
   onEdit: () => void;
 }
@@ -338,7 +340,6 @@ interface FeedRowProps {
 function FeedRow(props: FeedRowProps) {
   const error = () => props.errors[props.feed.id];
   const removed = () => props.feed.removedAt != null;
-  const isFetching = () => props.fetchingFeeds.has(props.feed.id);
   const retryLabel = () => {
     const err = props.feed.refreshError;
     if (!err) return null;
@@ -350,9 +351,6 @@ function FeedRow(props: FeedRowProps) {
   return (
     <div class={`feed ${props.active ? 'active' : ''}`} onClick={props.onClick}>
       <span class="title">{props.feed.title}</span>
-      <Show when={isFetching()}>
-        <span class="fetching-spinner" title="Fetching…" />
-      </Show>
       <Show when={error() || removed()}>
         <span class="error-mark" data-error={removed() ? 'Publisher removed this feed (HTTP 410)' : error()} title={removed() ? 'Publisher removed this feed (HTTP 410)' : retryLabel() ?? 'Last refresh failed'}><TriangleAlert size={12} /></span>
       </Show>

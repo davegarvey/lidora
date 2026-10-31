@@ -41,8 +41,8 @@ The client SHALL present neutral Header whisper feedback within existing mobile 
 
 #### Scenario: Long background operation
 - **WHEN** processing remains active beyond 300 ms
-- **THEN** the relevant existing chrome SHALL show a neutral activity indicator and `Updating…` where space permits
-- **AND** a collapsed rail MAY use a labelled Lucide activity icon
+- **THEN** the relevant existing chrome SHALL show one neutral rotating Lucide activity icon, without visible Updating text
+- **AND** a collapsed list navigation rail SHALL reuse its existing brand slot for the icon, without adding an action row
 
 #### Scenario: Phone reader hides the list header
 - **WHEN** the user reads on a phone while library updates run
@@ -54,6 +54,20 @@ The client SHALL present neutral Header whisper feedback within existing mobile 
 - **WHEN** the desktop navigation is collapsed
 - **THEN** activity SHALL remain discoverable in existing chrome
 - **AND** a pending text action SHALL use available reader chrome instead of overflowing the rail
+
+#### Scenario: Desktop reader and navigation are both visible
+- **WHEN** the reader is open while a desktop sidebar or navigation drawer is also visible
+- **THEN** only the reader header SHALL expose activity
+- **AND** sidebar and per-feed activity indicators SHALL NOT duplicate it
+
+#### Scenario: Reduced motion
+- **WHEN** reduced motion is requested and activity is shown
+- **THEN** the icon SHALL remain still and retain its accessible Updating articles label
+
+#### Scenario: Activity and pending arrivals coexist
+- **WHEN** arrivals are waiting and another operation is active
+- **THEN** the Show action SHALL remain still and actionable beside the single activity icon
+- **AND** no visible Updating text SHALL be added
 
 ### Requirement: Background list changes wait for reader intent by default
 After a non-empty list has been presented, the client SHALL persist background data immediately but defer changes to list membership and ordering while automatic arrivals are off. Resume and idle catch-up SHALL follow this policy. Own read/star actions SHALL apply immediately without admitting unrelated held arrivals. Feed removal, identity changes and missing records SHALL be reconciled safely without leaving stale actionable entries.
@@ -132,11 +146,11 @@ When automatic arrivals are enabled, background results SHALL publish automatica
 - **AND** keyboard focus SHALL remain on the same article by ID
 
 ### Requirement: Update controls remain accessible and quiet
-Updating text SHALL be noninteractive. Show actions SHALL be visibly underlined native buttons with descriptive accessible names, keyboard focus styles and at least 44px effective touch targets. Controls SHALL fit a 320px viewport and enlarged text without overlap or added rows. An unusually large count MAY use visible `Show new` with an exact-count accessible name.
+The activity icon SHALL be noninteractive with an accessible Updating articles label. Show actions SHALL be visibly underlined native buttons with descriptive accessible names, keyboard focus styles and at least 44px effective touch targets. Controls SHALL fit a 320px viewport and enlarged text without overlap or added rows. An unusually large count MAY use visible `Show new` with an exact-count accessible name.
 
 #### Scenario: Mobile user recognises the action
 - **WHEN** matching articles are waiting on a narrow viewport
-- **THEN** a visible verb and underline SHALL distinguish the Show action from activity text without requiring hover
+- **THEN** a visible verb and underline SHALL distinguish the Show action from the activity icon without requiring hover
 
 ### Requirement: Status announcements avoid interruption
 The client SHALL use one polite live-announcement source and announce availability once per pending episode rather than every count increment. Reduced motion SHALL remain understandable.

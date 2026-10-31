@@ -52,6 +52,17 @@ async function mount() {
 }
 
 describe('library update reconciliation', () => {
+  it('acknowledges a manual refresh synchronously and coalesces repeated actions', async () => {
+    await mount();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 304 }));
+    const first = ctx.refreshSelected();
+    expect(ctx.fetching()).toBe(1);
+    const repeated = ctx.refreshSelected();
+    expect(ctx.fetching()).toBe(1);
+    await Promise.all([first, repeated]);
+    expect(ctx.fetching()).toBe(0);
+  });
+
   it('replays a stale background query and promotes a concurrent explicit request', async () => {
     await mount();
     let finishStale: ((value: ReturnType<typeof result>) => void) | undefined;
