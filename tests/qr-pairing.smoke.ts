@@ -126,7 +126,7 @@ test.describe('QR pairing', () => {
     expect(redeemBody.syncKey).toBeTruthy();
     await pullResponse;
 
-    await expect(pageB.getByRole('status')).toHaveText('This device is now syncing', { timeout: 15_000 });
+    await expect(pageB.getByRole('status').filter({ hasText: /^This device is now syncing$/ })).toHaveText('This device is now syncing', { timeout: 15_000 });
     await expect(pageB).toHaveURL(/\/settings\/devices$/);
     await pageB.goto('/');
     await pageB.waitForSelector('.sidebar');
