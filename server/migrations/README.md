@@ -123,3 +123,7 @@ at most 500 feed URLs; polling pauses above the configured
 Migration `server/migrations-poll/0002_permanent_feed_redirects.sql` adds the
 candidate destination and independent observation count used to confirm a
 permanent feed redirect before migrating subscriptions and retained entries.
+
+Migration `server/migrations-poll/0003_feed_body_hash.sql` adds the nullable
+`body_hash` (SHA-256 of the last successfully stored feed body). A matching
+body is not parsed or written again.

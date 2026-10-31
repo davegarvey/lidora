@@ -15,7 +15,7 @@ import pkg from '../../../package.json';
 import { assertNoKeyLog } from '../../log';
 import { hasScope, type TokenAuth } from '../../sync/auth';
 import { RATE_LIMITS, checkRateLimit } from '../../sync/ratelimit';
-import { ensureSchema } from '../../sync/schema';
+import { ensureSchemaOnce } from '../../sync/schema';
 import { publicOrigin } from '../origin';
 import { discoverTools } from './discover';
 import { readTools } from './read-tools';
@@ -181,7 +181,6 @@ export function createMcpRoutes(options: McpRoutesOptions): Hono {
   const { db, pollDb, publicUrl } = options;
   const app = new Hono();
   const deps: Deps = { db, pollDb };
-  let schemaReady: Promise<void> | null = null;
 
   function unauthorised(c: Context, connectionId?: string): Response {
     const suffix = connectionId === undefined ? '' : `/mcp/c/${encodeURIComponent(connectionId)}`;
@@ -196,8 +195,7 @@ export function createMcpRoutes(options: McpRoutesOptions): Hono {
   async function handle(c: Context, connectionId?: string): Promise<Response> {
     const bearer = /^Bearer\s+(\S+)$/i.exec(c.req.header('Authorization') ?? '');
     if (!bearer) return unauthorised(c, connectionId);
-    if (!schemaReady) schemaReady = ensureSchema(db);
-    await schemaReady;
+    await ensureSchemaOnce(db);
     const auth = await options.oauth?.(bearer[1], c.req.url);
     if (!auth) {
       assertNoKeyLog(bearer[1]);

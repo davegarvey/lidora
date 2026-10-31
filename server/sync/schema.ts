@@ -1,5 +1,19 @@
 import { PROVIDER_SCHEMA } from '../agent/oauth/schema';
 
+const schemaReady = new WeakMap<D1Database, Promise<void>>();
+
+export function ensureSchemaOnce(db: D1Database): Promise<void> {
+  let ready = schemaReady.get(db);
+  if (!ready) {
+    ready = ensureSchema(db);
+    schemaReady.set(db, ready);
+    ready.catch(() => {
+      if (schemaReady.get(db) === ready) schemaReady.delete(db);
+    });
+  }
+  return ready;
+}
+
 export async function ensureSchema(db: D1Database): Promise<void> {
   const statements = [
     `CREATE TABLE IF NOT EXISTS users (

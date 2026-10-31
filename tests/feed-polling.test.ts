@@ -209,6 +209,90 @@ describe('server feed polling', () => {
     }
   });
 
+  it('skips parsing and writes when a feed without validators returns the same body', async () => {
+    const upstream: Upstream = { requests: [], respond: () => new Response(rss([{ guid: 'one' }])) };
+    const mf = await createMf(upstream);
+    try {
+      const key = makeSyncKey('bodyhash');
+      await register(mf, key);
+      await subscribe(mf, key, 'f', 'http://93.184.216.34/hash.xml');
+      await pull(mf, key);
+      await runCron(mf);
+      const db = await pollDb(mf);
+      const first = await db.prepare('SELECT body_hash, next_poll_at FROM polled_feeds').first<{ body_hash: string; next_poll_at: number }>();
+      expect(first?.body_hash).toMatch(/^[0-9a-f]{64}$/);
+
+      await db.prepare('DELETE FROM polled_items').run();
+      await clearFeedCache(mf, 'http://93.184.216.34/hash.xml');
+      await db.prepare('UPDATE polled_feeds SET next_poll_at = 0').run();
+      const before = Date.now();
+      await runCron(mf);
+      expect(feedRequests(upstream, '/hash.xml')).toBe(2);
+      const count = await db.prepare('SELECT COUNT(*) AS n FROM polled_items').first<{ n: number }>();
+      expect(count?.n).toBe(0);
+      const after = await db.prepare('SELECT body_hash, next_poll_at, last_status, failures FROM polled_feeds').first<{
+        body_hash: string; next_poll_at: number; last_status: number; failures: number;
+      }>();
+      expect(after?.body_hash).toBe(first?.body_hash);
+      expect(after?.last_status).toBe(200);
+      expect(after?.failures).toBe(0);
+      expect(after!.next_poll_at).toBeGreaterThanOrEqual(before + 30 * 60_000);
+    } finally {
+      await mf.dispose();
+    }
+  });
+
+  it('parses a changed body and records its hash', async () => {
+    let body = rss([{ guid: 'one' }]);
+    const upstream: Upstream = { requests: [], respond: () => new Response(body) };
+    const mf = await createMf(upstream);
+    try {
+      const key = makeSyncKey('bodychange');
+      await register(mf, key);
+      await subscribe(mf, key, 'f', 'http://93.184.216.34/change.xml');
+      await pull(mf, key);
+      await runCron(mf);
+      const db = await pollDb(mf);
+      const first = await db.prepare('SELECT body_hash FROM polled_feeds').first<{ body_hash: string }>();
+
+      body = rss([{ guid: 'one' }, { guid: 'two' }]);
+      await clearFeedCache(mf, 'http://93.184.216.34/change.xml');
+      await db.prepare('UPDATE polled_feeds SET next_poll_at = 0').run();
+      await runCron(mf);
+      expect((await items(mf, key)).items.map((i) => i.guid).sort()).toEqual(['one', 'two']);
+      const second = await db.prepare('SELECT body_hash FROM polled_feeds').first<{ body_hash: string }>();
+      expect(second?.body_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(second?.body_hash).not.toBe(first?.body_hash);
+    } finally {
+      await mf.dispose();
+    }
+  });
+
+  it('keeps the recorded hash when a body fails to parse', async () => {
+    let body = rss([{ guid: 'one' }]);
+    const upstream: Upstream = { requests: [], respond: () => new Response(body) };
+    const mf = await createMf(upstream);
+    try {
+      const key = makeSyncKey('badbody');
+      await register(mf, key);
+      await subscribe(mf, key, 'f', 'http://93.184.216.34/bad.xml');
+      await pull(mf, key);
+      await runCron(mf);
+      const db = await pollDb(mf);
+      const first = await db.prepare('SELECT body_hash FROM polled_feeds').first<{ body_hash: string }>();
+
+      body = 'this is not a feed';
+      await clearFeedCache(mf, 'http://93.184.216.34/bad.xml');
+      await db.prepare('UPDATE polled_feeds SET next_poll_at = 0').run();
+      await runCron(mf);
+      const after = await db.prepare('SELECT body_hash, failures FROM polled_feeds').first<{ body_hash: string; failures: number }>();
+      expect(after?.body_hash).toBe(first?.body_hash);
+      expect(after?.failures).toBe(1);
+    } finally {
+      await mf.dispose();
+    }
+  });
+
   it('leases due feeds before fetching so an interrupted run does not block the queue', async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((resolve) => { release = resolve; });

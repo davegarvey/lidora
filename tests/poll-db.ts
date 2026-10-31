@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Miniflare } from 'miniflare';
 
-const POLL_MIGRATIONS = ['0001_feed_polling.sql', '0002_permanent_feed_redirects.sql']
+const POLL_MIGRATIONS = ['0001_feed_polling.sql', '0002_permanent_feed_redirects.sql', '0003_feed_body_hash.sql']
   .map((name) => readFileSync(path.resolve(__dirname, `../server/migrations-poll/${name}`), 'utf8'));
 
 export async function applyPollMigration(mf: Miniflare, options: { maintainedAt?: number } = {}): Promise<void> {

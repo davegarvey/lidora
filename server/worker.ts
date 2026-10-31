@@ -51,9 +51,15 @@ function buildApp(env: WorkerBindings) {
   return app;
 }
 
+const apps = new WeakMap<WorkerBindings, ReturnType<typeof buildApp>>();
+
 export default {
   async fetch(request: Request, env: WorkerBindings): Promise<Response> {
-    const app = buildApp(env);
+    let app = apps.get(env);
+    if (!app) {
+      app = buildApp(env);
+      apps.set(env, app);
+    }
     return app.fetch(request, env);
   },
   async scheduled(event: ScheduledController, env: WorkerBindings): Promise<void> {

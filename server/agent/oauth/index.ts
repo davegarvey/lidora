@@ -3,7 +3,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import type { ClientMetadataResourceFetch } from '@better-auth/oauth-provider';
 import { generatePairingCode } from '../../sync/auth';
-import { ensureSchema } from '../../sync/schema';
+import { ensureSchemaOnce } from '../../sync/schema';
 import { RATE_LIMITS } from '../../sync/ratelimit';
 import { publicOrigin } from '../origin';
 import { createDecisionRoutes } from './decisions';
@@ -20,10 +20,9 @@ export interface OAuthRoutesOptions {
 }
 
 export function createOAuthRoutes({ db, publicUrl, secret, fetchMetadata }: OAuthRoutesOptions): Hono {
-  let schemaReady: Promise<void> | null = null;
   const ctx: OAuthContext = {
     db, publicUrl,
-    ready: () => schemaReady ??= ensureSchema(db),
+    ready: () => ensureSchemaOnce(db),
     provider: (issuer) => {
       if (!secret || secret.length < 32) throw new Error('BETTER_AUTH_SECRET must contain at least 32 characters');
       const url = new URL(issuer);

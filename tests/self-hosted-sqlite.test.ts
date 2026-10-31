@@ -26,6 +26,7 @@ describe('self-hosted SQLite D1 adapter', () => {
     expect(pollMigrations.results).toEqual([
       { name: '0001_feed_polling.sql' },
       { name: '0002_permanent_feed_redirects.sql' },
+      { name: '0003_feed_body_hash.sql' },
     ]);
 
     await sync.prepare('INSERT INTO users (sync_key, created_at) VALUES (?, ?)')

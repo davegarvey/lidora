@@ -12,6 +12,7 @@
  * /sync/items.
  */
 
+import { sha256Hex } from './sync/tokens';
 import { fetchFeedCached, validateUpstreamUrl } from './fetch';
 import { parseFeed, type ParsedItem } from '../src/feeds/parse';
 import { MAX_POLLED_FEEDS_PER_ACCOUNT, URL_CHUNK_SIZE, chunk, registerStatement } from './poll-registry';
@@ -42,6 +43,7 @@ interface DueFeed {
   failures: number;
   redirect_url: string | null;
   redirect_observations: number;
+  body_hash: string | null;
 }
 
 type PollOutcome = 'updated' | 'unchanged' | 'redirected' | 'deferred' | 'failed';
@@ -132,16 +134,17 @@ export function chunkItemRows(items: ParsedItem[]): string[] {
 function scheduleStatement(
   pollDb: D1Database,
   feedUrl: string,
-  fields: { etag: string | null; lastModified: string | null; nextPollAt: number; failures: number; status: number },
+  fields: { etag: string | null; lastModified: string | null; nextPollAt: number; failures: number; status: number; bodyHash?: string },
   now: number,
 ): D1PreparedStatement {
   return pollDb
     .prepare(
       `UPDATE polled_feeds
-       SET etag = ?, last_modified = ?, next_poll_at = ?, failures = ?, last_status = ?, updated_at = ?
+       SET etag = ?, last_modified = ?, next_poll_at = ?, failures = ?, last_status = ?, updated_at = ?,
+           body_hash = COALESCE(?, body_hash)
        WHERE feed_url = ?`,
     )
-    .bind(fields.etag, fields.lastModified, fields.nextPollAt, fields.failures, fields.status, now, feedUrl);
+    .bind(fields.etag, fields.lastModified, fields.nextPollAt, fields.failures, fields.status, now, fields.bodyHash ?? null, feedUrl);
 }
 
 function insertItemsStatement(pollDb: D1Database, feedUrl: string, rows: string, now: number): D1PreparedStatement {
@@ -303,14 +306,27 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
     return { outcome: 'failed', inserted: 0 };
   }
 
-  const parsed = parseFeed(await response.text(), response.headers.get('X-Lidora-Permanent-Redirect') ?? feedUrl);
+  const body = await response.text();
+  const bodyHash = await sha256Hex(body);
+  const wait = retryAfterMs(response.headers, 'X-Lidora-Retry-After') ?? 0;
+  if (feedUrl === feed.feed_url && bodyHash === feed.body_hash) {
+    await scheduleStatement(pollDb, feedUrl, {
+      etag: response.headers.get('ETag'),
+      lastModified: response.headers.get('Last-Modified'),
+      nextPollAt: now + Math.max(POLL_INTERVAL_MS, wait),
+      failures: 0,
+      status: 200,
+    }, now).run();
+    return { outcome: 'unchanged', inserted: 0 };
+  }
+
+  const parsed = parseFeed(body, response.headers.get('X-Lidora-Permanent-Redirect') ?? feedUrl);
   if (!parsed) {
     await recordFailure(pollDb, feed, 200, undefined, now);
     return { outcome: 'failed', inserted: 0 };
   }
 
   const chunks = chunkItemRows(parsed.items.slice(0, MAX_ITEMS_PER_POLL));
-  const wait = retryAfterMs(response.headers, 'X-Lidora-Retry-After') ?? 0;
   const results = await pollDb.batch([
     ...chunks.map((rows) => insertItemsStatement(pollDb, feedUrl, rows, now)),
     scheduleStatement(pollDb, feedUrl, {
@@ -319,6 +335,7 @@ async function pollFeed(syncDb: D1Database, pollDb: D1Database, feed: DueFeed, n
       nextPollAt: now + Math.max(POLL_INTERVAL_MS, wait),
       failures: 0,
       status: 200,
+      bodyHash,
     }, now),
   ]);
   const inserted = results
@@ -458,7 +475,7 @@ export async function pollFeeds(syncDb: D1Database, pollDb: D1Database, options:
   const startedAt = now();
   const due = await pollDb
     .prepare(
-      `SELECT feed_url, etag, last_modified, failures, redirect_url, redirect_observations FROM polled_feeds
+      `SELECT feed_url, etag, last_modified, failures, redirect_url, redirect_observations, body_hash FROM polled_feeds
        WHERE next_poll_at <= ? AND (last_status IS NULL OR last_status != 410)
        ORDER BY next_poll_at ASC LIMIT ?`,
     )
