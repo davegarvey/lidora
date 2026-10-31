@@ -49,6 +49,6 @@ Lidora — a simple, slick, browser-first RSS reader.
 ## OpenSpec
 
 Each change lives in `openspec/changes/<change>/`: `proposal.md` (the why), `specs/` (the WHAT, as deltas against `openspec/specs/`), `design.md` (the HOW) and `tasks.md`. Several changes may be in progress at once; list them with `openspec list`.
-A change may start as a proposal alone. Add its specs and tasks before implementation, include the change in the implementing PR, and run `openspec validate <change> --strict`. After merge, archive it into `openspec/changes/archive/` so its deltas update `openspec/specs/`.
+A change may start as a proposal alone. Add its specs and tasks before implementation, include the change in the implementing PR, and run `openspec validate <change> --strict` after completing its tasks. Before merging, run `openspec archive <change> --yes` so the CLI moves the change into `openspec/changes/archive/` and applies its deltas to `openspec/specs/`. Include both the archived change and updated main specs in the same implementing PR, then run `npm run spec:validate`. Do not merge an implementation PR with an active change that must be archived afterward.
 
 If implementation requires a spec deviation, update the relevant spec or design artifact AND mention the divergence in the task summary.
