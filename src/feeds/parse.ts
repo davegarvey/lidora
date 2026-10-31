@@ -134,6 +134,16 @@ export function parseFeed(xml: string, baseUrl?: string): ParsedFeed | null {
   };
 }
 
+export async function parseFeedResponsive(xml: string, baseUrl?: string): Promise<ParsedFeed | null> {
+  if (typeof Worker === 'undefined') return parseFeed(xml, baseUrl);
+  const worker = new Worker(new URL('./parse.worker.ts', import.meta.url), { type: 'module' });
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (event: MessageEvent<ParsedFeed | null>) => { worker.terminate(); resolve(event.data); };
+    worker.onerror = (event) => { worker.terminate(); reject(new Error(event.message || 'Feed parser worker failed')); };
+    worker.postMessage({ xml, baseUrl });
+  });
+}
+
 function unwrapText(value: unknown): string | undefined {
   if (typeof value === 'string') return value;
   if (value && typeof value === 'object') {

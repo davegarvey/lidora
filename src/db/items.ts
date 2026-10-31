@@ -34,7 +34,14 @@ export async function insertOrUpdateItem(item: ItemInput): Promise<void> {
 
 export async function bulkUpsertItems(inputs: ItemInput[], options: { insertOnly?: boolean } = {}): Promise<string[]> {
   if (inputs.length === 0) return [];
-  inputs = inputs.map((input) => (input.html ? { ...input, html: sanitiseArticleHtml(input.html) } : input));
+  const sanitized: ItemInput[] = [];
+  for (let offset = 0; offset < inputs.length; offset += 24) {
+    sanitized.push(...inputs.slice(offset, offset + 24).map((input) => (
+      input.html ? { ...input, html: sanitiseArticleHtml(input.html) } : input
+    )));
+    if (offset + 24 < inputs.length) await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+  inputs = sanitized;
   const db = await getDb();
   const feedId = inputs[0].feedId;
 
@@ -134,6 +141,15 @@ export async function bulkUpsertItems(inputs: ItemInput[], options: { insertOnly
 export async function getItem(id: string): Promise<Item | undefined> {
   const db = await getDb();
   return db.get('items', id);
+}
+
+export async function getExistingItemIds(ids: readonly string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const db = await getDb();
+  const tx = db.transaction('items', 'readonly');
+  const keys = await Promise.all(ids.map((id) => tx.store.getKey(id)));
+  await tx.done;
+  return new Set(keys.filter((key): key is string => typeof key === 'string'));
 }
 
 export async function getItemBody(id: string): Promise<ItemBody | undefined> {

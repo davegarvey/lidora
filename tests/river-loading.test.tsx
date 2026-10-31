@@ -65,6 +65,10 @@ function makeCtx() {
   const feedMap = createMemo(() => new Map(feeds().map((f) => [f.id, f])));
 
   const ctx: AppContext = {
+    pendingUpdateLabel: () => null,
+    pendingAnnouncement: () => '',
+    showPendingUpdates: async () => {},
+    libraryUpdating: () => false,
     hasScopedItems: () => false,
     setReadMode: async () => {},
     state,

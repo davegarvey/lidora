@@ -222,6 +222,7 @@ function Shell() {
         </section>
       </Show>
       <TopBar />
+      <span class="sr-only" role="status" aria-live="polite" aria-atomic="true">{ctx.pendingAnnouncement()}</span>
       <Sidebar onNavigate={() => ctx.setState({ sidebarOpen: false })} />
       <div
         class="sidebar-backdrop"

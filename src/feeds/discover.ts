@@ -1,5 +1,5 @@
 import { fetchFeed, fetchArticleHtml } from './fetch';
-import { parseFeed, type ParsedFeed } from './parse';
+import { parseFeedResponsive, type ParsedFeed } from './parse';
 
 export interface DiscoveredFeed {
   url: string;
@@ -39,7 +39,7 @@ export async function discoverFeed(url: string): Promise<DiscoveredFeed | null> 
 async function tryParse(url: string) {
   const result = await fetchFeed(url);
   if (result.kind !== 'modified') return null;
-  return parseFeed(result.body, url);
+  return parseFeedResponsive(result.body, url);
 }
 
 /**

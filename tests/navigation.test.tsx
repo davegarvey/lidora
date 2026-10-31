@@ -45,6 +45,10 @@ function makeContext(collapsed = false, view: 'river' | 'reading' | 'settings' =
   const openSettings = vi.fn();
   const setRiverScope = vi.fn();
   const ctx = {
+    pendingUpdateLabel: () => null,
+    pendingAnnouncement: () => '',
+    showPendingUpdates: async () => {},
+    libraryUpdating: () => false,
     state,
     feeds,
     feedMap: createMemo(() => new Map()),

@@ -462,6 +462,10 @@ a:hover { text-decoration: underline; }
     left: 12px;
   }
 
+  .topbar .library-update-status { position: absolute; right: 8px; top: 0; height: 40px; min-width: 0; max-width: 38vw; }
+  .topbar .library-update-action { overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-size: .72rem; }
+  .topbar .library-updating { font-size: .72rem; }
+
   .topbar .wordmark {
     font-family: var(--serif-stack);
     font-style: italic;
@@ -2127,6 +2131,15 @@ a:hover { text-decoration: underline; }
   animation: refresh-spin 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
   transform-origin: 50% 50%;
 }
+
+.library-update-status { display: flex; align-items: center; justify-content: flex-end; min-width: 4rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.library-updating { display: inline-flex; align-items: center; gap: .35rem; color: var(--subtext); font-size: .78rem; white-space: nowrap; }
+.library-update-action { border: 0; background: transparent; color: var(--text); text-decoration: underline; text-underline-offset: .18em; font: inherit; font-size: .78rem; white-space: nowrap; min-height: 44px; padding: 0 .35rem; cursor: pointer; }
+.library-update-action:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; border-radius: 4px; }
+.reading-update-status { margin-left: auto; }
+.sidebar-update-status { margin-left: auto; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .library-updating svg { animation: none !important; } }
 @keyframes refresh-spin {
   to { transform: rotate(360deg); }
 }

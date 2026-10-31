@@ -2,7 +2,7 @@ import { createSignal } from 'solid-js';
 import { getFeed, listFeeds, updateFeed, upsertFeed } from '../db/feeds';
 import { bulkUpsertItems } from '../db/items';
 import { fetchFeed, type FeedSourceStatus } from './fetch';
-import { parseFeed, parsedToItems } from './parse';
+import { parseFeedResponsive, parsedToItems } from './parse';
 import type { RefreshTarget } from './scope';
 import type { Feed, FeedRefreshError } from '../db/types';
 import {
@@ -30,10 +30,15 @@ const feedRefreshes = new Map<string, Promise<void>>();
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let dueTimer: ReturnType<typeof setTimeout> | null = null;
 let schedulerEpoch: number | null = null;
-let onRefresh: (() => void) | null = null;
+let onRefresh: (() => void | Promise<void>) | null = null;
+let onLibraryActivity: ((active: boolean) => void) | null = null;
 
-export function setOnRefresh(fn: (() => void) | null): void {
+export function setOnRefresh(fn: (() => void | Promise<void>) | null): void {
   onRefresh = fn;
+}
+
+export function setOnLibraryActivity(fn: ((active: boolean) => void) | null): void {
+  onLibraryActivity = fn;
 }
 
 export function startScheduler(): void {
@@ -80,10 +85,15 @@ export async function refreshStaleFeeds(options: RefreshOptions = {}): Promise<v
     if (forceAll) return true;
     return scheduledFeedDueAt(f, schedulerEpoch, now) <= now;
   });
-  await mapConcurrent(stale, (f) => refreshFeed(f), 4);
-  await runStorageRetention().catch(() => undefined);
-  if (!forceAll && stale.length > 0 && onRefresh && !isIdle()) {
-    onRefresh();
+  if (stale.length > 0) onLibraryActivity?.(true);
+  try {
+    await mapConcurrent(stale, (f) => refreshFeed(f), 4);
+    await runStorageRetention().catch(() => undefined);
+    if (!forceAll && stale.length > 0 && onRefresh && !isIdle()) {
+      await onRefresh();
+    }
+  } finally {
+    if (stale.length > 0) onLibraryActivity?.(false);
   }
   void scheduleAutomaticRun();
 }
@@ -133,7 +143,9 @@ async function mapConcurrent<T, R>(
       results[i] = await fn(item);
     }
   });
-  await Promise.all(workers);
+  const settled = await Promise.allSettled(workers);
+  const failure = settled.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+  if (failure) throw failure.reason;
   return results;
 }
 
@@ -255,7 +267,7 @@ async function refreshFeedOnce(feed: Feed): Promise<void> {
       clearFeedError(workingFeed);
       return;
     }
-    const parsed = parseFeed(result.body, result.permanentRedirectUrl ?? workingFeed.url);
+    const parsed = await parseFeedResponsive(result.body, result.permanentRedirectUrl ?? workingFeed.url);
     if (!parsed) {
       await recordFeedError(workingFeed, 'Failed to parse feed', 200);
       return;
@@ -296,6 +308,8 @@ async function refreshFeedOnce(feed: Feed): Promise<void> {
       title: updatedFeed.title,
     });
     clearFeedError(workingFeed);
+  } catch (error) {
+    await recordFeedError(feed, error instanceof Error ? error.message : 'Feed processing failed', 0);
   } finally {
     setFetchingFeeds((prev) => {
       const next = new Set(prev);

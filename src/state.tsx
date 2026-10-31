@@ -4,7 +4,7 @@ import { createSignal, createMemo, createContext, useContext, onCleanup } from '
 import type { ParentComponent } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { listFeeds } from './db/feeds';
-import { getItem, listSelectedItems, markRead, toggleStar as dbToggleStar } from './db/items';
+import { getExistingItemIds, getItem, listSelectedItems, markRead, toggleStar as dbToggleStar } from './db/items';
 import type { Feed, Item } from './db/types';
 import { pairingErrorMessage } from './sync/pairing';
 import { writeItemHistory, parseItemIdFromUrl, hashId, isStatsPath, itemIdFromHistoryState, parseSettingsPath, settingsUrl } from './routing';
@@ -13,6 +13,7 @@ import { getMeta, setMeta } from './db/meta';
 import { DEFAULT_SETTINGS, DEFAULT_STATS_SORT, SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN } from './db/types';
 import type { AppSettings, StatsSortColumn, StatsSortDirection, StatsSortPreference, ThemePreference } from './db/types';
 import { defaultArticleListWidth, isNarrowViewport, normalizeDesktopLayoutSettings, viewAfterScopeChange } from './desktopLayout';
+import { mergePresentedRecords, pendingPresentation } from './libraryUpdates';
 
 const SETTINGS_KEY = 'settings';
 
@@ -60,12 +61,12 @@ async function getSettings(): Promise<AppSettings> {
 async function saveSettings(settings: AppSettings): Promise<void> {
   await setMeta(SETTINGS_KEY, settings);
 }
-import { refreshStaleFeeds, fetchingState, startScheduler, setOnRefresh } from './feeds/scheduler';
+import { refreshStaleFeeds, fetchingState, startScheduler, setOnRefresh, setOnLibraryActivity } from './feeds/scheduler';
 import { enqueueFlag, clearAllDirty, enqueueStatsIfSync, enqueueReadMarkerIfSync } from './sync/queue';
 import { resetSyncStatus } from './sync/status';
 import { scheduleFlush, flushNow } from './sync/push';
 import { bootSync, pullIfStale, pullNow, settlePulls, triggerFirstTime } from './sync/init';
-import { setOnSync } from './sync/merge';
+import { setOnSync, setOnSyncActivity } from './sync/merge';
 import { getStoredSyncKey, isValidSyncKey, generateSyncKey, setStoredSyncKey, clearPendingRotation } from './sync/key';
 import { redeemCode, register } from './sync/client';
 import { rotateStoredSyncKey } from './sync/rotate';
@@ -150,13 +151,17 @@ export interface AppContext {
   fetchingFeeds: () => Set<string>;
   hydrated: () => boolean;
   reloadFeeds: () => Promise<Feed[]>;
-  reloadItems: () => Promise<void>;
+  reloadItems: (background?: boolean) => Promise<void>;
   setRiverScope: (feedId: string | null) => void;
   toggleTag: (tag: string) => void;
   clearTags: () => void;
   toggleStarFilter: () => void;
   openItem: (item: Item, replace?: boolean) => Promise<void>;
   closeReading: () => Promise<void>;
+  pendingUpdateLabel: () => string | null;
+  pendingAnnouncement: () => string;
+  showPendingUpdates: () => Promise<void>;
+  libraryUpdating: () => boolean;
   toggleSidebar: () => void;
   toggleSidebarDesktop: () => void;
   openModal: (modal: ModalKind) => void;
@@ -249,6 +254,47 @@ export const AppProvider: ParentComponent = (props) => {
   });
   const activeTagSet = createMemo(() => new Set(state.activeTags));
   const [storedItems, setItems] = createSignal<Item[]>([]);
+  const [pendingUpdateLabel, setPendingUpdateLabel] = createSignal<string | null>(null);
+  const [pendingAnnouncement, setPendingAnnouncement] = createSignal('');
+  const [libraryUpdating, setLibraryUpdating] = createSignal(false);
+  let candidateItems: Item[] | null = null;
+  const updatePendingLabel = (label: string | null) => {
+    if (!pendingUpdateLabel() && label) setPendingAnnouncement(label);
+    if (!label) setPendingAnnouncement('');
+    setPendingUpdateLabel(label);
+  };
+  let requestedRevision = 0;
+  let forcePublishThrough = 0;
+  let activityStartedAt = 0;
+  let activityVisibleAt = 0;
+  let activityCount = 0;
+  let activityGeneration = 0;
+  let activityDelay: ReturnType<typeof setTimeout> | null = null;
+  let activityVisible = false;
+  const beginLibraryActivity = () => {
+    activityCount += 1;
+    if (activityCount === 1) {
+      activityGeneration += 1;
+      activityStartedAt = Date.now();
+      activityDelay = setTimeout(() => {
+        activityVisible = true;
+        activityVisibleAt = Date.now();
+        setLibraryUpdating(true);
+      }, 300);
+    }
+  };
+  const endLibraryActivity = async () => {
+    activityCount = Math.max(0, activityCount - 1);
+    if (activityCount > 0 || !activityStartedAt) return;
+    const generation = activityGeneration;
+    if (activityDelay) clearTimeout(activityDelay);
+    activityDelay = null;
+    if (activityVisible) await new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, 300 - (Date.now() - activityVisibleAt))));
+    if (activityCount > 0 || generation !== activityGeneration) return;
+    activityStartedAt = 0;
+    activityVisible = false;
+    setLibraryUpdating(false);
+  };
   const [hasScopedItems, setHasScopedItems] = createSignal(false);
   const items = createMemo(() => {
     const scope = refreshTargetForSelection(feeds(), state.riverScope, state.activeTags);
@@ -270,7 +316,7 @@ export const AppProvider: ParentComponent = (props) => {
       if (away > 5 * 60_000) {
         await reloadFeeds();
         if (disposed) return;
-        await reloadItems();
+        await reloadItems(true);
         if (disposed) return;
         if (!idleAtHide) {
           await pullIfStale(30_000);
@@ -294,6 +340,7 @@ export const AppProvider: ParentComponent = (props) => {
     lastFeedUrl: null,
     statsSort: { ...DEFAULT_STATS_SORT },
   });
+  const reconcileAfterLocalAction: { run?: (background: boolean) => Promise<void> } = {};
 
   const markReadAndSync = async (item: Item, read: boolean) => {
     await markRead(item.id, read);
@@ -322,6 +369,7 @@ export const AppProvider: ParentComponent = (props) => {
       }
     }
     scheduleFlush();
+    if (state.view !== 'reading') await reconcileAfterLocalAction.run?.(items().length > 0);
   };
 
   const toggleStarAndSync = async (item: Item) => {
@@ -369,10 +417,14 @@ export const AppProvider: ParentComponent = (props) => {
   };
 
   let reloadItemsPromise: Promise<void> | null = null;
-  const reloadItems = async () => {
+  const reloadItems = async (background = false) => {
+    requestedRevision += 1;
+    if (!background) forcePublishThrough = requestedRevision;
     if (reloadItemsPromise) return reloadItemsPromise;
     const reload = (async () => {
+      beginLibraryActivity();
       do {
+        const revision = requestedRevision;
         const scope = state.riverScope;
         const tags = [...state.activeTags];
         const mode = state.readMode;
@@ -382,15 +434,95 @@ export const AppProvider: ParentComponent = (props) => {
           unreadOnly: mode === 'unread' && !starred,
           starredOnly: starred,
         });
+        if (revision !== requestedRevision) continue;
         if (scope !== state.riverScope || mode !== state.readMode || starred !== state.starredOnly || tags.join('\0') !== state.activeTags.join('\0')) continue;
+        const existingIds = await getExistingItemIds(storedItems().map((item) => item.id));
+        if (revision !== requestedRevision) continue;
+        if (existingIds.size !== storedItems().length) setItems(storedItems().filter((item) => existingIds.has(item.id)));
+        const river = document.querySelector<HTMLElement>('.river');
+        const visibleRows = [...(river?.querySelectorAll<HTMLElement>('[data-item-id]') ?? [])];
+        const riverBounds = river?.getBoundingClientRect();
+        const topbar = document.querySelector<HTMLElement>('.topbar');
+        const topbarBottom = topbar && getComputedStyle(topbar).display !== 'none' ? topbar.getBoundingClientRect().bottom : 0;
+        const riverTop = riverBounds ? Math.max(riverBounds.top, topbarBottom) : topbarBottom;
+        const anchor = visibleRows.find((row) => row.getBoundingClientRect().bottom > riverTop);
+        const anchorId = anchor?.dataset.itemId;
+        const anchorOffset = anchor ? anchor.getBoundingClientRect().top - riverTop : null;
+        const previousList = items();
+        const previousAnchorIndex = anchorId ? previousList.findIndex((item) => item.id === anchorId) : -1;
+        const focusedId = (document.activeElement instanceof Element ? document.activeElement.closest<HTMLElement>('[data-item-id]')?.dataset.itemId : undefined)
+          ?? previousList[state.focusedIndex]?.id;
         setHasScopedItems(result.hasStoredItems);
         const retained = state.view === 'reading' ? storedItems().find((item) => item.id === state.currentItem?.id) : undefined;
         if (retained && !result.items.some((item) => item.id === retained.id) && refreshTargetForSelection(feeds(), scope, tags).has(retained.feedId)) {
           const position = storedItems().findIndex((item) => item.id === retained.id);
           result.items.splice(Math.min(position, result.items.length), 0, retained);
         }
-        setItems(result.items);
-        break;
+        const current = items();
+        const defer = background && revision > forcePublishThrough && current.length > 0 && !settings().automaticallyShowNewArticles;
+        if (defer) {
+          candidateItems = result.items;
+          const pendingLabel = pendingPresentation(current, result.items);
+          setItems(mergePresentedRecords(storedItems(), result.items));
+          updatePendingLabel(pendingLabel);
+          if (!pendingLabel) candidateItems = null;
+        } else {
+          setItems(result.items);
+          candidateItems = null;
+          updatePendingLabel(null);
+          const resultIds = new Set(result.items.map((item) => item.id));
+          let restoreAnchorId = anchorId && resultIds.has(anchorId) ? anchorId : undefined;
+          if (!restoreAnchorId && previousAnchorIndex >= 0) {
+            for (let distance = 1; distance < previousList.length && !restoreAnchorId; distance += 1) {
+              for (const neighborIndex of [previousAnchorIndex - distance, previousAnchorIndex + distance]) {
+                const neighbor = previousList[neighborIndex];
+                if (neighbor && resultIds.has(neighbor.id)) { restoreAnchorId = neighbor.id; break; }
+              }
+            }
+          }
+          const previousFocusIndex = focusedId ? previousList.findIndex((item) => item.id === focusedId) : -1;
+          let restoreFocusId = focusedId && resultIds.has(focusedId) ? focusedId : undefined;
+          if (!restoreFocusId && previousFocusIndex >= 0) {
+            for (let distance = 1; distance < previousList.length && !restoreFocusId; distance += 1) {
+              for (const neighborIndex of [previousFocusIndex - distance, previousFocusIndex + distance]) {
+                const neighbor = previousList[neighborIndex];
+                if (neighbor && resultIds.has(neighbor.id)) { restoreFocusId = neighbor.id; break; }
+              }
+            }
+          }
+          const restoreOffset = restoreAnchorId === anchorId ? anchorOffset : riverTop;
+          if (state.view !== 'reading' && typeof requestAnimationFrame === 'function' && document.visibilityState !== 'hidden') {
+            await new Promise<void>((resolve) => {
+              let settled = false;
+              const finish = () => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(frameFallback);
+                document.removeEventListener('visibilitychange', onFrameVisibility);
+                resolve();
+              };
+              const restore = () => {
+                if (!restoreAnchorId || document.visibilityState === 'hidden') return;
+                const nextRiver = document.querySelector<HTMLElement>('.river');
+                const nextAnchor = [...(nextRiver?.querySelectorAll<HTMLElement>('[data-item-id]') ?? [])].find((row) => row.dataset.itemId === restoreAnchorId);
+                const nextTopbar = document.querySelector<HTMLElement>('.topbar');
+                const nextTopbarBottom = nextTopbar && getComputedStyle(nextTopbar).display !== 'none' ? nextTopbar.getBoundingClientRect().bottom : 0;
+                if (restoreFocusId) [...(nextRiver?.querySelectorAll<HTMLElement>('[data-item-id]') ?? [])].find((row) => row.dataset.itemId === restoreFocusId)?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+                if (restoreFocusId) setState({ focusedIndex: result.items.findIndex((item) => item.id === restoreFocusId) });
+                if (nextRiver && nextAnchor && restoreOffset !== null) nextRiver.scrollTo({ top: nextRiver.scrollTop + nextAnchor.getBoundingClientRect().top - Math.max(nextRiver.getBoundingClientRect().top, nextTopbarBottom) - restoreOffset, behavior: 'instant' as ScrollBehavior });
+              };
+              const onFrameVisibility = () => { if (document.visibilityState === 'hidden') finish(); };
+              const frameFallback = setTimeout(finish, 1000);
+              document.addEventListener('visibilitychange', onFrameVisibility);
+              requestAnimationFrame(() => {
+                if (settled) return;
+                restore();
+                requestAnimationFrame(finish);
+              });
+            });
+          }
+        }
+        if (revision === requestedRevision) break;
       } while (true);
     })();
     reloadItemsPromise = reload;
@@ -398,7 +530,15 @@ export const AppProvider: ParentComponent = (props) => {
       await reload;
     } finally {
       if (reloadItemsPromise === reload) reloadItemsPromise = null;
+      await endLibraryActivity();
     }
+  };
+  reconcileAfterLocalAction.run = reloadItems;
+
+  const showPendingUpdates = async () => {
+    await reloadItems(false);
+    document.querySelector<HTMLElement>('.river')?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    queueMicrotask(() => document.querySelector<HTMLElement>('[data-item-idx] button, .river-empty button')?.focus());
   };
 
   const setReadMode = async (mode: ReadMode) => {
@@ -504,7 +644,7 @@ export const AppProvider: ParentComponent = (props) => {
       await markReadAndSync(item, true);
     }
     if (state.readMode === 'unread' && !state.starredOnly) {
-      await reloadItems();
+      await reloadItems(true);
       setState({ focusedIndex: items().findIndex((entry) => entry.id === item.id) });
     }
   };
@@ -515,7 +655,7 @@ export const AppProvider: ParentComponent = (props) => {
     setState({ view: 'river', currentItem: null, returnToItemId: null });
     history.replaceState(null, '', '/');
     try {
-      await reloadItems();
+      await reloadItems(true);
       if (openedId) {
         const neighbour = remainingNeighbour(previous, items(), openedId);
         setState({ returnToItemId: neighbour, focusedIndex: neighbour ? items().findIndex((item) => item.id === neighbour) : -1 });
@@ -562,6 +702,7 @@ export const AppProvider: ParentComponent = (props) => {
 
   const performManualRefresh = async (target: ReadonlySet<string>, syncFirst: boolean): Promise<void> => {
     setManualFetching((n) => n + 1);
+    beginLibraryActivity();
     manualRefreshDepth++;
     let refreshError: unknown = null;
     let reloadError: unknown = null;
@@ -600,6 +741,7 @@ export const AppProvider: ParentComponent = (props) => {
     } finally {
       manualRefreshDepth = Math.max(0, manualRefreshDepth - 1);
       setManualFetching((n) => Math.max(0, n - 1));
+      await endLibraryActivity();
     }
   };
 
@@ -625,18 +767,28 @@ export const AppProvider: ParentComponent = (props) => {
 
   const reloadBoth = async () => {
     await reloadFeeds();
-    await reloadItems();
+    const availableFeeds = new Set(feeds().map((feed) => feed.id));
+    const retainedItems = storedItems().filter((item) => availableFeeds.has(item.feedId));
+    if (retainedItems.length !== storedItems().length) setItems(retainedItems);
+    await reloadItems(true);
   };
 
   const toggleStar = async (item: Item) => {
     await toggleStarAndSync(item);
-    await reloadItems();
+    await reloadItems(true);
   };
 
   const saveSettingsPatch = async (patch: Partial<AppSettings>) => {
-    const next = { ...settings(), ...patch };
+    const previous = settings();
+    const next = { ...previous, ...patch };
     setSettings(next);
-    await saveSettings(next);
+    try {
+      await saveSettings(next);
+    } catch (error) {
+      setSettings(previous);
+      throw error;
+    }
+    if (patch.automaticallyShowNewArticles) await reloadItems(false);
     if ('theme' in patch || 'highContrast' in patch) {
       applyTheme(next.theme, next.highContrast);
     }
@@ -771,6 +923,10 @@ export const AppProvider: ParentComponent = (props) => {
     toggleStarFilter,
     openItem,
     closeReading,
+    pendingUpdateLabel,
+    pendingAnnouncement,
+    showPendingUpdates,
+    libraryUpdating,
     toggleSidebar,
     toggleSidebarDesktop,
     openModal,
@@ -846,9 +1002,11 @@ export const AppProvider: ParentComponent = (props) => {
       }
     }
     if (readMigrationState() === 'idle') startScheduler();
-    setOnRefresh(() => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
-    setOnSync(() => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) reloadBoth(); });
-    onCatchup(() => { if (readMigrationState() === 'idle') { void pullIfStale(30_000); void reloadItems(); } });
+    setOnRefresh(async () => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) await reloadBoth(); });
+    setOnSync(async (force) => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && (force || !isIdle())) await reloadBoth(); });
+    setOnSyncActivity((active) => { if (active) beginLibraryActivity(); else void endLibraryActivity(); });
+    setOnLibraryActivity((active) => { if (active) beginLibraryActivity(); else void endLibraryActivity(); });
+    onCatchup(() => { if (readMigrationState() === 'idle') { void pullIfStale(30_000); void reloadItems(true); } });
 
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('online', onOnline);
