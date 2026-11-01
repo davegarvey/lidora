@@ -23,6 +23,9 @@ export function RiverHeader(props: { scrolled: boolean }) {
       <header class="river-header" data-scrolled={props.scrolled || undefined}>
         <div class="river-header-inner">
           <h2 class="river-header-title" title={title()}>{title()}</h2>
+          <Show when={ctx.pendingUpdateLabel()}>
+            {(label) => <button type="button" class="library-update-action" aria-label={`${label()}, apply the latest article list`} onClick={() => void ctx.showPendingUpdates()}>{label()}</button>}
+          </Show>
           <div class="river-header-toggles">
             <button
               type="button"

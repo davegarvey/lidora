@@ -87,10 +87,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
         <div class="sidebar-header">
           <a class="sidebar-wordmark" href="/" title="Lidora">lidora</a>
           <span class="library-update-status sidebar-update-status">
-            <Show when={ctx.state.view !== 'reading' && ctx.pendingUpdateLabel()}>
-              {(label) => <button type="button" class="library-update-action" aria-label={`${label()}, apply the latest article list`} onClick={() => void ctx.showPendingUpdates()}>{label()}</button>}
-            </Show>
-            <Show when={ctx.state.view !== 'reading'}><LibraryActivity /></Show>
+            <LibraryActivity />
           </span>
           <button
             class="sidebar-collapse desktop-only"
@@ -228,8 +225,8 @@ export function Sidebar(props: { onNavigate?: () => void }) {
       </Show>
 
       <div class="collapsed-rail" onClick={onCollapsedRailClick}>
-          <div class="collapsed-brand" data-updating={ctx.libraryUpdating() && ctx.state.view !== 'reading' ? 'true' : undefined}>
-            <Show when={ctx.libraryUpdating() && ctx.state.view !== 'reading'} fallback={<LidoraMark class="lidora-mark" size={20} />}>
+          <div class="collapsed-brand" data-updating={ctx.libraryUpdating() ? 'true' : undefined}>
+            <Show when={ctx.libraryUpdating()} fallback={<LidoraMark class="lidora-mark" size={20} />}>
               <LibraryActivity />
             </Show>
             <span class="expand-icon">

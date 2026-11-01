@@ -33,7 +33,7 @@ The client SHALL track work that may affect the selected list from fetch/sync or
 - **AND** the pending Show action SHALL remain available
 
 ### Requirement: Quiet feedback occupies existing chrome
-The client SHALL present neutral Header whisper feedback within existing mobile top-bar, desktop navigation or reader chrome, without adding vertical layout, overlaying articles or moving existing header controls. Passive activity SHALL appear after 300 ms and, once visible, remain at least 300 ms. Completion SHALL clear quietly. The cue SHALL use no Mauve activity accent or percentage progress.
+The client SHALL present neutral Header whisper feedback without adding vertical layout, overlaying articles or moving existing header controls. Library activity SHALL appear in existing mobile top-bar or desktop navigation chrome. The pending Show action SHALL appear in the article list header, between the list title and its toggles. The reading chrome SHALL NOT show library activity or pending list actions. Passive activity SHALL appear after 300 ms and, once visible, remain at least 300 ms. Completion SHALL clear quietly. The cue SHALL use no Mauve activity accent or percentage progress.
 
 #### Scenario: Fast background operation
 - **WHEN** background processing and reconciliation finish within 300 ms
@@ -45,20 +45,19 @@ The client SHALL present neutral Header whisper feedback within existing mobile 
 - **AND** a collapsed list navigation rail SHALL reuse its existing brand slot for the icon, without adding an action row
 
 #### Scenario: Phone reader hides the list header
-- **WHEN** the user reads on a phone while library updates run
-- **THEN** activity SHALL use the existing reading chrome
-- **AND** it SHALL NOT add another header
-- **AND** pending list actions SHALL be offered upon return to the list
+- **WHEN** the user reads on a phone or in desktop focus mode while library updates run
+- **THEN** no activity cue SHALL be shown
+- **AND** pending list actions SHALL be offered in the list header upon return to the list
 
 #### Scenario: Compact desktop navigation
 - **WHEN** the desktop navigation is collapsed
-- **THEN** activity SHALL remain discoverable in existing chrome
-- **AND** a pending text action SHALL use available reader chrome instead of overflowing the rail
+- **THEN** activity SHALL remain discoverable in the rail's brand slot, including while an article is open
+- **AND** a pending Show action SHALL appear in the visible article list header
 
 #### Scenario: Desktop reader and navigation are both visible
 - **WHEN** the reader is open while a desktop sidebar or navigation drawer is also visible
-- **THEN** only the reader header SHALL expose activity
-- **AND** sidebar and per-feed activity indicators SHALL NOT duplicate it
+- **THEN** the sidebar header SHALL expose activity
+- **AND** the reading chrome and per-feed activity indicators SHALL NOT duplicate it
 
 #### Scenario: Reduced motion
 - **WHEN** reduced motion is requested and activity is shown
@@ -66,8 +65,9 @@ The client SHALL present neutral Header whisper feedback within existing mobile 
 
 #### Scenario: Activity and pending arrivals coexist
 - **WHEN** arrivals are waiting and another operation is active
-- **THEN** the Show action SHALL remain still and actionable beside the single activity icon
+- **THEN** the Show action SHALL remain still and actionable in the list header while the single activity icon remains in the navigation chrome
 - **AND** no visible Updating text SHALL be added
+- **AND** the list header toggles SHALL NOT move when the Show action appears or disappears
 
 ### Requirement: Background list changes wait for reader intent by default
 After a non-empty list has been presented, the client SHALL persist background data immediately but defer changes to list membership and ordering while automatic arrivals are off. Resume and idle catch-up SHALL follow this policy. Own read/star actions SHALL apply immediately without admitting unrelated held arrivals. Feed removal, identity changes and missing records SHALL be reconciled safely without leaving stale actionable entries.

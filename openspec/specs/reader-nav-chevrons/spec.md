@@ -49,7 +49,7 @@ Reading view SHALL display ◀ and ▶ chevrons in the sticky chrome on mobile/t
 - **THEN** the corresponding chevron SHALL appear ghosted (non-interactive)
 
 ### Requirement: Chrome simplification
-The sticky reading chrome SHALL display only a back arrow (no text), a flex spacer, and action buttons (star, open original, shortcuts). Feed name and relative time SHALL NOT appear in the chrome.
+The sticky reading chrome SHALL display only a back arrow (no text) where applicable, the chrome title within a flex spacer, and action buttons that act on the open article or reading layout (focus mode, ranking feedback, star, open original). It SHALL NOT display a keyboard-shortcuts button, library activity or pending list actions. Feed name and relative time SHALL NOT appear in the chrome.
 
 #### Scenario: Chrome shows back arrow only (no "All" text)
 - **WHEN** user is in reading view
@@ -58,6 +58,10 @@ The sticky reading chrome SHALL display only a back arrow (no text), a flex spac
 #### Scenario: No feed name or relative time in chrome
 - **WHEN** user is in reading view
 - **THEN** the chrome SHALL NOT display the feed name or relative time
+
+#### Scenario: No transient or unrelated controls in chrome
+- **WHEN** user is in reading view while library updates run or arrivals are pending
+- **THEN** the chrome SHALL NOT display an activity icon, a Show action or a keyboard-shortcuts button
 
 ### Requirement: Byline shows feed name and human-readable relative time
 The body byline beneath the article title SHALL display: author (if available), feed name, and human-readable relative time. The relative time SHALL use decaying precision: "2h ago" for <24h, "last Wednesday" / "Wednesday" for <7d, "last month" for <60d, "Jun 2026" for older.
