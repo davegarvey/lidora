@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import { Star, CircleDot, ArrowDownWideNarrow, Lightbulb } from 'lucide-solid';
+import { Star, CircleDot, Lightbulb } from 'lucide-solid';
 import { useApp } from '../state';
 
 export function RiverHeader(props: { scrolled: boolean }) {
@@ -56,7 +56,7 @@ export function RiverHeader(props: { scrolled: boolean }) {
               aria-pressed={forYouActive()}
               onClick={() => void ctx.setArticleOrder(forYouActive() ? 'latest' : 'for-you')}
             >
-              {forYouActive() ? <Lightbulb size={16} /> : <ArrowDownWideNarrow size={16} />}
+              <Lightbulb size={16} />
             </button>
           </div>
         </div>
