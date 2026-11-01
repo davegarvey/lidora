@@ -38,6 +38,8 @@ function makeContext(overrides: Partial<AppState> = {}, feeds: Feed[] = [{ id: '
     ...overrides,
   } as AppState);
   const [order, setOrder] = createSignal<'latest' | 'for-you'>('latest');
+  const [pending, setPending] = createSignal<string | null>(null);
+  const showPendingUpdates = vi.fn(async () => { setPending(null); });
   const ctx = {
     state,
     feeds: () => feeds,
@@ -46,8 +48,10 @@ function makeContext(overrides: Partial<AppState> = {}, feeds: Feed[] = [{ id: '
     toggleStarFilter: () => setStore({ starredOnly: !state.starredOnly }),
     setReadMode: async (mode: 'all' | 'unread') => { setStore({ readMode: mode }); },
     setArticleOrder: async (next: 'latest' | 'for-you') => { setOrder(next); },
+    pendingUpdateLabel: pending,
+    showPendingUpdates,
   } as unknown as AppContext;
-  return { ctx, setStore };
+  return { ctx, setStore, setPending, showPendingUpdates };
 }
 
 const button = (name: string) => document.querySelector<HTMLButtonElement>(`.river-header button[aria-label="${name}"]`);
@@ -99,6 +103,23 @@ describe('river list header', () => {
     const forYou = button('Article order: For you');
     expect(forYou?.getAttribute('aria-pressed')).toBe('true');
     expect(forYou?.title).toBe('Article order: For you');
+  });
+
+  it('places the pending Show action between the title and the toggles', async () => {
+    const { ctx, setPending, showPendingUpdates } = makeContext();
+    mount(ctx);
+    expect(document.querySelector('.river-header .library-update-action')).toBeNull();
+
+    setPending('Show 3 new');
+    const show = button('Show 3 new, apply the latest article list');
+    expect(show?.textContent).toBe('Show 3 new');
+    expect(show?.previousElementSibling?.classList.contains('river-header-title')).toBe(true);
+    expect(show?.nextElementSibling?.classList.contains('river-header-toggles')).toBe(true);
+
+    show?.click();
+    await Promise.resolve();
+    expect(showPendingUpdates).toHaveBeenCalledOnce();
+    expect(document.querySelector('.river-header .library-update-action')).toBeNull();
   });
 
   it('disables Unread while Starred is active and composes the toggles', async () => {

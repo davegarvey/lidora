@@ -87,9 +87,6 @@ export function Sidebar(props: { onNavigate?: () => void }) {
         <div class="sidebar-header">
           <a class="sidebar-wordmark" href="/" title="Lidora">lidora</a>
           <span class="library-update-status sidebar-update-status">
-            <Show when={ctx.pendingUpdateLabel()}>
-              {(label) => <button type="button" class="library-update-action" aria-label={`${label()}, apply the latest article list`} onClick={() => void ctx.showPendingUpdates()}>{label()}</button>}
-            </Show>
             <LibraryActivity />
           </span>
           <button

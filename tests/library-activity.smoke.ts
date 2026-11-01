@@ -122,15 +122,16 @@ async function backgroundRefresh(page: Page) {
   });
 }
 
-test('pending Show stays still and actionable beside the single icon on a narrow phone', async ({ page }) => {
+test('pending Show sits in the list header while the activity icon stays in the top bar on a narrow phone', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 });
   await seed(page);
   const entries = ['new', ...Array.from({ length: 12 }, (_, index) => `article-${index}`)];
   const xml = '<rss version="2.0"><channel><title>Activity feed</title><link>https://example.com/</link><description>Fixture</description>' + entries.map((id, index) => `<item><guid>${id}</guid><title>Article ${id}</title><pubDate>${new Date(Date.now() - index * 1000).toUTCString()}</pubDate></item>`).join('') + '</channel></rss>';
   await page.route('**/feed?**', (route) => route.fulfill({ status: 200, contentType: 'application/xml', body: xml }));
   await backgroundRefresh(page);
-  const show = page.locator('.topbar').getByRole('button', { name: /Show 1 new/ });
+  const show = page.locator('.river-header').getByRole('button', { name: /Show 1 new/ });
   await expect(show).toBeVisible();
+  await expect(page.locator('.topbar .library-update-action')).toHaveCount(0);
   await expect(page.locator('.river-item')).toHaveCount(12);
   let release: (() => void) | undefined;
   const responseReady = new Promise<void>((resolve) => { release = resolve; });
@@ -144,11 +145,12 @@ test('pending Show stays still and actionable beside the single icon on a narrow
     await expectSingleSpinner(page, '.topbar');
     await expect(show).toBeEnabled();
     await expect(show).toHaveCSS('animation-name', 'none');
+    const toggles = page.locator('.river-header-toggles');
+    const togglesBounds = await toggles.boundingBox();
     const actionBounds = await show.boundingBox();
-    const iconBounds = await page.locator('.topbar .library-updating').boundingBox();
+    expect(togglesBounds).not.toBeNull();
     expect(actionBounds).not.toBeNull();
-    expect(iconBounds).not.toBeNull();
-    expect(actionBounds!.x + actionBounds!.width).toBeLessThanOrEqual(iconBounds!.x + 1);
+    expect(actionBounds!.x + actionBounds!.width).toBeLessThanOrEqual(togglesBounds!.x + 1);
     await show.click();
     await expect(page.locator('.river-item')).toHaveCount(13);
     await expectSingleSpinner(page, '.topbar');
