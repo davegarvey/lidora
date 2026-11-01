@@ -1,18 +1,15 @@
 import { createSignal, createEffect, createMemo, Show, onMount, onCleanup } from 'solid-js';
 import { useApp } from '../state';
-import { LibraryActivity } from './LibraryActivity';
-import { ArrowLeft, ChevronLeft, ChevronRight, CircleQuestionMark, ExternalLink, Star, ThumbsDown, ThumbsUp } from 'lucide-solid';
+import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Star, ThumbsDown, ThumbsUp } from 'lucide-solid';
 import { openItemForReading } from '../articles/service';
 import { sanitiseArticleHtml } from '../articles/sanitise';
 import { FocusModeToggle } from './FocusModeToggle';
 import { navigateReaderByOffset } from '../readerNavigation';
 import { humanRelativeTime } from '../util/time';
 import { SWIPE, swipeDirection, isVerticalDominant, clampTranslate } from '../util/swipe';
-import { usesCollapsedFeedNavigation } from '../desktopLayout';
 
 export function ReadingView() {
   const ctx = useApp();
-  const [viewportWidth, setViewportWidth] = createSignal(window.innerWidth);
   const [body, setBody] = createSignal<string>('');
   const safeBody = createMemo(() => sanitiseArticleHtml(body()));
   const [extractionFailed, setExtractionFailed] = createSignal(false);
@@ -72,12 +69,6 @@ export function ReadingView() {
     );
     observer.observe(titleRef);
     onCleanup(() => observer.disconnect());
-  });
-
-  onMount(() => {
-    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
-    window.addEventListener('resize', updateViewportWidth);
-    onCleanup(() => window.removeEventListener('resize', updateViewportWidth));
   });
 
   onMount(() => {
@@ -196,10 +187,6 @@ export function ReadingView() {
               </span>
             </span>
             <FocusModeToggle />
-            <Show when={viewportWidth() > 768 && !ctx.state.focusMode && (ctx.state.sidebarHiddenDesktop || usesCollapsedFeedNavigation(viewportWidth())) && ctx.pendingUpdateLabel()}>
-              {(label) => <button type="button" class="library-update-action reading-update-status" aria-label={`${label()}, apply the latest article list`} onClick={() => void ctx.showPendingUpdates()}>{label()}</button>}
-            </Show>
-            <LibraryActivity class="reading-update-status" />
             <button
               class="desktop-only ranking-feedback"
               onClick={() => setRankingFeedback('more')}
@@ -236,13 +223,6 @@ export function ReadingView() {
             >
               <ExternalLink size={16} />
             </a>
-            <button
-              class="desktop-only"
-              title="Keyboard shortcuts (?)"
-              onClick={() => ctx.openModal({ kind: 'shortcuts' })}
-            >
-              <CircleQuestionMark size={16} />
-            </button>
           </div>
       </div>
 

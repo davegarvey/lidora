@@ -1927,12 +1927,14 @@ a:hover { text-decoration: underline; }
 
 .reading .reading-chrome .star {
   align-items: center;
-  color: var(--accent);
+  color: var(--subtext);
   padding: 4px;
   border-radius: 4px;
 }
 
-.reading .reading-chrome .star.dim { color: var(--overlay); }
+.reading .reading-chrome .star[aria-pressed="true"] {
+  color: var(--accent);
+}
 
 .reading .reading-chrome .ranking-feedback {
   display: inline-flex;
@@ -2006,7 +2008,7 @@ a:hover { text-decoration: underline; }
   pointer-events: none;
 }
 
-.reading .reading-bottom-bar .bottom-bar-btn.star {
+.reading .reading-bottom-bar .bottom-bar-btn.star[aria-pressed="true"] {
   color: var(--accent);
 }
 
@@ -2026,8 +2028,8 @@ a:hover { text-decoration: underline; }
   background: var(--surface);
 }
 
-.reading .reading-bottom-bar .bottom-bar-btn.star:hover,
-.reading .reading-bottom-bar .bottom-bar-btn.star:focus-visible {
+.reading .reading-bottom-bar .bottom-bar-btn.star[aria-pressed="true"]:hover,
+.reading .reading-bottom-bar .bottom-bar-btn.star[aria-pressed="true"]:focus-visible {
   background: var(--accent-dim);
   color: var(--accent-text);
 }
@@ -2064,8 +2066,8 @@ a:hover { text-decoration: underline; }
   color: var(--accent-text);
 }
 
-.reading .reading-chrome .star:hover,
-.reading .reading-chrome .star:focus-visible {
+.reading .reading-chrome .star[aria-pressed="true"]:hover,
+.reading .reading-chrome .star[aria-pressed="true"]:focus-visible {
   background: var(--accent-dim);
   color: var(--accent-text);
 }
@@ -2245,7 +2247,6 @@ a:hover { text-decoration: underline; }
 .collapsed-brand[data-updating="true"] .expand-icon { display: none; }
 .library-update-action { border: 0; background: transparent; color: var(--text); text-decoration: underline; text-underline-offset: .18em; font: inherit; font-size: .78rem; white-space: nowrap; min-height: 44px; padding: 0 .35rem; cursor: pointer; }
 .library-update-action:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; border-radius: 4px; }
-.reading-update-status { margin-left: auto; }
 .sidebar-update-status { margin-left: auto; min-width: 0; }
 @media (prefers-reduced-motion: reduce) { .library-updating svg { animation: none !important; } }
 @keyframes library-update-spin {

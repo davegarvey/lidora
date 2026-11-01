@@ -77,23 +77,23 @@ test('one icon-only activity cue follows the visible header across layouts and r
     await page.getByRole('button', { name: 'Close feeds sidebar' }).click();
 
     await page.locator('.river-item').first().click();
-    for (const width of [390, 769, 820, 1440]) {
-      await page.setViewportSize({ width, height: 900 });
-      await expectSingleSpinner(page, '.reading-chrome');
-    }
+    await page.setViewportSize({ width: 390, height: 900 });
+    await expect(page.locator('.library-updating:visible')).toHaveCount(0);
     await page.setViewportSize({ width: 820, height: 900 });
-    await page.locator('.collapsed-brand').click();
-    await expectSingleSpinner(page, '.reading-chrome');
-    await page.locator('.sidebar-backdrop').click({ position: { x: 800, y: 400 } });
+    await expectSingleSpinner(page, '.collapsed-brand');
+    await expect(page.locator('.reading-chrome .library-updating')).toHaveCount(0);
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole('button', { name: 'Enable focus mode', exact: true }).click();
-    await expectSingleSpinner(page, '.reading-chrome');
+    await expectSingleSpinner(page, '.sidebar-header');
+    await expect(page.locator('.reading-chrome .library-updating')).toHaveCount(0);
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const still = page.getByRole('img', { name: 'Updating articles', exact: true });
     await expect(still).toHaveCount(1);
     await expect(still.locator('svg')).toHaveCSS('animation-name', 'none');
     await expect(still).toHaveText('');
+
+    await page.getByRole('button', { name: 'Enable focus mode', exact: true }).click();
+    await expect(page.locator('.library-updating:visible')).toHaveCount(0);
   } finally {
     release?.();
   }

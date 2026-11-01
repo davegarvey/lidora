@@ -143,25 +143,6 @@ Reading view SHALL keep a back button as the leftmost element of the top chrome 
 - **WHEN** the viewport is too narrow to show the article list and reader as separate panes
 - **THEN** the single-column reading view displays a back button in the top-left chrome
 
-### Requirement: Help CTA is desktop-only
-
-The keyboard-shortcuts help button in reading view SHALL be visible only on desktop viewports and SHALL NOT be displayed on mobile (≤768px) or on touch devices with coarse pointers at mobile widths.
-
-#### Scenario: Help visible on desktop
-
-- **WHEN** the user is in reading view on a viewport >768px
-- **THEN** the help button is visible and opens the shortcuts overlay
-
-#### Scenario: Help hidden on mobile
-
-- **WHEN** the user is in reading view on a viewport ≤768px
-- **THEN** the help button SHALL NOT be displayed, regardless of pointer type
-
-#### Scenario: Help remains accessible via keyboard on desktop
-
-- **WHEN** the user presses `?` in reading view on desktop
-- **THEN** the shortcuts overlay opens as before
-
 ### Requirement: Mobile swipe navigation between articles
 
 On touch devices, a horizontal swipe in the reading view SHALL navigate between articles: swipe left → next article, swipe right → prev article. The gesture SHALL NOT engage from vertical scrolling (dead zone before any visual shift, axis lock that bails when vertical motion dominates), SHALL NOT capture gestures starting in the screen-edge zones reserved for the browser's native back/forward swipe, SHALL NOT capture touches that begin on interactive or horizontally scrollable elements, and SHALL require the swipe to cross a commit threshold — otherwise the view snaps back without navigating.
@@ -247,3 +228,14 @@ When the user has no subscriptions and the river has no items, the river SHALL s
 
 - **WHEN** the visitor chooses Import OPML or Pair a device
 - **THEN** Settings SHALL open with the relevant subscription or sync controls available
+
+### Requirement: Reading star is neutral until starred
+The star button in the reading chrome and the mobile bottom action bar SHALL use the neutral icon colour when the article is not starred and the Mauve accent when it is starred. Its Mauve hover wash SHALL apply only when the article is starred.
+
+#### Scenario: Unstarred article
+- **WHEN** the open article is not starred
+- **THEN** the star button SHALL use the same neutral colour as the neighbouring action buttons
+
+#### Scenario: Starred article
+- **WHEN** the open article is starred
+- **THEN** the star button SHALL use the Mauve accent and a filled star icon
