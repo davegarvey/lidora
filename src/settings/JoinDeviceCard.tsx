@@ -123,7 +123,7 @@ export function JoinForm(props: JoinFormProps) {
             disabled={busy() || camera() === false}
             onClick={openScanner}
           >
-            <ScanLine size={18} />
+            <ScanLine size={16} />
           </button>
         </div>
         <Show when={camera() === false}>

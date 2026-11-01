@@ -19,7 +19,7 @@ export function Section(props: { title: string; children: JSX.Element }) {
         <div class="settings-section__head">
           <Show when={layout?.narrow()}>
             <button type="button" class="settings-back" aria-label="Back to settings" onClick={() => layout?.back()}>
-              <ChevronLeft size={20} />
+              <ChevronLeft size={16} />
             </button>
           </Show>
           <h2 id="settings-section-heading" tabIndex={-1} ref={heading}>{props.title}</h2>

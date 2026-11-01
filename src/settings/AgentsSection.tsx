@@ -154,7 +154,7 @@ function ConnectCard() {
       >
         <div>
           <button type="button" class="btn primary agent-copy" onClick={() => void copy(agentSetupPrompt(connectUrl()!), setCopiedPrompt)}>
-            {copiedPrompt() ? <Check size={14} /> : <Copy size={14} />}
+            {copiedPrompt() ? <Check size={16} /> : <Copy size={16} />}
             {copiedPrompt() ? 'Copied' : 'Copy setup instructions'}
           </button>
         </div>
@@ -170,7 +170,7 @@ function ConnectCard() {
             onClick={() => void copy(connectUrl()!, setCopiedUrl)}
             aria-label="Copy connection link"
           >
-            {copiedUrl() ? <Check size={14} /> : <Copy size={14} />}
+            {copiedUrl() ? <Check size={16} /> : <Copy size={16} />}
           </button>
         </div>
       </Show>
@@ -307,18 +307,18 @@ function AgentRow(props: { token: AgentTokenInfo; reload: () => Promise<void>; o
                 onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setRenaming(false); } }}
                 ref={(el) => queueMicrotask(() => el.focus())}
               />
-              <button class="btn" type="submit" aria-label="Save name"><Check size={14} /></button>
-              <button class="btn subtle" type="button" aria-label="Cancel rename" onClick={() => setRenaming(false)}><X size={14} /></button>
+              <button class="btn" type="submit" aria-label="Save name"><Check size={16} /></button>
+              <button class="btn subtle" type="button" aria-label="Cancel rename" onClick={() => setRenaming(false)}><X size={16} /></button>
             </form>
           </Show>
           <div class="agent-row__detail">{detailOf(props.token)}</div>
         </div>
         <div class="agent-row__actions">
           <button type="button" class="btn subtle" aria-label={`Rename ${titleOf(props.token)}`} onClick={startRename}>
-            <Pencil size={14} />
+            <Pencil size={16} />
           </button>
           <PanelButton panel={panel} variant="subtle" openOnly ariaLabel={`Revoke ${titleOf(props.token)}`}>
-            <Trash2 size={14} />
+            <Trash2 size={16} />
           </PanelButton>
         </div>
       </div>
@@ -431,7 +431,7 @@ function ApprovalCode() {
           />
           <button type="submit" class="btn" disabled={busy() || !codeInput().trim()}>Look up</button>
           <button type="button" class="btn btn--icon" aria-label="Scan a QR code" disabled={busy()} onClick={() => setScanning(true)}>
-            <ScanLine size={18} />
+            <ScanLine size={16} />
           </button>
         </form>
         <Show when={error()}>

@@ -141,7 +141,7 @@ export function Stats() {
                   aria-controls="stats-definitions"
                   onClick={toggleDefinitions}
                 >
-                  <CircleQuestionMark size={15} aria-hidden="true" />
+                  <CircleQuestionMark size={16} aria-hidden="true" />
                   <span>How this works</span>
                 </button>
                 <Show when={definitionsOpen()}>
@@ -161,7 +161,7 @@ export function Stats() {
                         aria-label="Close stats explanation"
                         onClick={closeDefinitions}
                       >
-                        <X size={15} aria-hidden="true" />
+                        <X size={16} aria-hidden="true" />
                       </button>
                     </div>
                     <dl>

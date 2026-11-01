@@ -75,13 +75,13 @@ export function SettingsView() {
             <header class="settings-header">
               <Show when={narrow()}>
                 <button type="button" class="settings-back" aria-label="Close settings" onClick={() => ctx.closeSettings()}>
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={16} />
                 </button>
               </Show>
               <h1>Settings</h1>
               <Show when={!narrow()}>
                 <button type="button" class="settings-close" aria-label="Close settings" onClick={() => ctx.closeSettings()}>
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </Show>
             </header>
@@ -105,7 +105,7 @@ export function SettingsView() {
                       >
                         <span>{TITLES[section]}</span>
                         <Show when={narrow()}>
-                          <ChevronRight size={18} />
+                          <ChevronRight size={16} />
                         </Show>
                       </a>
                     </li>

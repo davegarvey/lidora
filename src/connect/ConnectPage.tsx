@@ -197,7 +197,7 @@ export function ConnectPage(props: { requestId?: string | null; navigate?: (url:
               <div class="connect__code" aria-label="Approval code">{displayApprovalCode(view()!.approvalCode!)}</div>
               <div class="connect__actions connect__actions--center">
                 <button class="btn" onClick={() => void copyCode()}>
-                  {copied() ? <Check size={14} /> : <Copy size={14} />}
+                  {copied() ? <Check size={16} /> : <Copy size={16} />}
                   {copied() ? 'Copied' : 'Copy code'}
                 </button>
               </div>

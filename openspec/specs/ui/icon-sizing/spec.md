@@ -7,17 +7,22 @@ Define a consistent visual scale for Lucide icons across navigation, toolbar and
 
 ### Requirement: Consistent navigation and toolbar icon sizing
 
-Clickable navigation, toolbar and row-action controls SHALL use 16 px Lucide icons on desktop. Noninteractive status and drag indicators SHALL use 14 px icons; compact inline affordances or tiny status markers, such as tag removal or a feed error mark, SHALL use 12 px icons. Mobile reader action-bar icons MAY use 16–18 px icons to suit their larger touch targets. Icon size SHALL NOT determine or reduce interactive hit-area sizes.
+The icon that serves as an action control's visual cue SHALL use 16 px across navigation, toolbars, rows, settings, forms, dialogs and mobile controls, whether alone or alongside a short label. Inline adornments, input hints, drag handles, sort-direction hints and status spinners SHALL use 14 px. Compact inline affordances and tiny status markers SHALL use 12 px. Noninteractive swipe cues MAY use 22 px. Icon size SHALL NOT determine or reduce interactive hit-area sizes.
 
 #### Scenario: Desktop navigation and toolbar actions
-- **WHEN** a desktop navigation, toolbar or row-action control is shown
-- **THEN** its Lucide icon SHALL use 16 px
+- **WHEN** an action control appears in navigation, a toolbar, a row, settings, a form or a dialog
+- **THEN** its action icon SHALL use 16 px
 
 #### Scenario: Secondary and compact actions
-- **WHEN** a noninteractive status or drag indicator is shown
+- **WHEN** an inline adornment, input hint, drag handle, sort-direction hint or status spinner is shown
 - **THEN** its icon SHALL use 14 px
 - **AND** a compact inline affordance or tiny status marker SHALL use 12 px
 
 #### Scenario: Mobile reader actions
 - **WHEN** the reader action bar is shown on mobile
-- **THEN** its icons MAY use 16–18 px while retaining touch targets appropriate for touch input
+- **THEN** its action icons SHALL use 16 px
+- **AND** its hit areas SHALL be sized independently from the icons
+
+#### Scenario: Swipe feedback
+- **WHEN** a noninteractive visual cue is shown during an article swipe
+- **THEN** its icon MAY use 22 px

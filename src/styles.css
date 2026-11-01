@@ -1593,6 +1593,10 @@ a:hover { text-decoration: underline; }
     background: var(--surface);
     color: var(--text);
   }
+
+  .river-header-toggle.active:hover:not(:disabled) {
+    color: var(--accent);
+  }
 }
 
 .river-header-toggle:focus-visible {

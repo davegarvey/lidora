@@ -135,7 +135,7 @@ export function QrScannerOverlay(props: { onClose: (paired?: boolean) => void; o
         onClick={() => props.onClose(false)}
         aria-label="Close scanner"
       >
-        <X size={24} />
+        <X size={16} />
       </button>
       <div class="scanner-viewfinder">
         <video ref={videoRef} class="scanner-video" autoplay playsinline muted aria-label="Camera view for QR code scanning" />
