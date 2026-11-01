@@ -151,7 +151,7 @@ function PairingCode() {
             <div class="pair-code__row">
               <span class="pair-code__value">{display(current().code)}</span>
               <button type="button" class="btn" aria-label="Copy pairing code" onClick={() => void copy()}>
-                <Show when={copied()} fallback={<Copy size={14} />}><Check size={14} /></Show>
+                <Show when={copied()} fallback={<Copy size={16} />}><Check size={16} /></Show>
                 <span>{copied() ? 'Copied' : 'Copy'}</span>
               </button>
               <div class="pair-code__expiry">

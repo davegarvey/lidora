@@ -8,7 +8,7 @@ Define the sidebar's structure: compact add and refresh actions in the Feeds hea
 
 ### Requirement: Heading row compact actions
 
-The sidebar SHALL render the Add feed and Refresh actions as compact icon buttons inside the Feeds heading row when at least one feed is subscribed. The buttons SHALL have accessible labels and SHALL behave identically to the current full-width actions.
+The sidebar SHALL render the Add feed and Refresh actions as compact icon buttons inside the Feeds heading row when at least one feed is subscribed. The buttons SHALL have accessible labels and SHALL behave identically to the current full-width actions. On coarse-pointer devices, each button SHALL provide a hit area at least 44 × 44 CSS px while retaining a 16 px icon.
 
 #### Scenario: Feeds heading shows compact actions
 - **WHEN** the sidebar is expanded and at least one feed is subscribed
@@ -31,6 +31,11 @@ The sidebar SHALL render the Add feed and Refresh actions as compact icon button
 #### Scenario: Buttons are accessible
 - **WHEN** the heading action buttons are rendered
 - **THEN** each button exposes an accessible name describing its action and current refresh scope
+
+#### Scenario: Touch targets fit a finger
+- **WHEN** the sidebar heading actions are shown on a coarse-pointer device
+- **THEN** each button provides a hit area at least 44 × 44 CSS px
+- **AND** its Lucide icon remains 16 px
 
 ### Requirement: Fixed navigation zones
 The sidebar SHALL keep the Feeds heading row and the tag chips fixed while the feed list scrolls independently. The heading row and tag chips SHALL remain visible at all scroll positions of the feed list.

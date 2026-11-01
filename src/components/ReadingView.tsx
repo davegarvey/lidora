@@ -188,7 +188,7 @@ export function ReadingView() {
       <div class="reading-chrome" data-scrolled={scrolled() || undefined}>
           <div class="reading-chrome-inner">
             <button class="back" onClick={() => ctx.closeReading()} title="Back (Esc)" aria-label="Back">
-              <ArrowLeft size={14} />
+              <ArrowLeft size={16} />
             </button>
             <span class="chrome-spacer">
               <span class="chrome-title" data-shown={showChromeTitle() || undefined} data-loading={loading() || undefined}>
@@ -207,7 +207,7 @@ export function ReadingView() {
               aria-label={`More from ${feedName()}`}
               aria-pressed={ctx.settings().feedRankingFeedback?.[currentItem()?.feedId ?? ''] === 'more'}
             >
-              <ThumbsUp size={14} />
+              <ThumbsUp size={16} />
             </button>
             <button
               class="desktop-only ranking-feedback"
@@ -216,7 +216,7 @@ export function ReadingView() {
               aria-label={`Less from ${feedName()}`}
               aria-pressed={ctx.settings().feedRankingFeedback?.[currentItem()?.feedId ?? ''] === 'less'}
             >
-              <ThumbsDown size={14} />
+              <ThumbsDown size={16} />
             </button>
             <button
               class="star desktop-only"
@@ -225,7 +225,7 @@ export function ReadingView() {
               aria-pressed={currentItem()?.starred ?? false}
               aria-label={currentItem()?.starred ? 'Unstar' : 'Star'}
             >
-              <Star size={14} fill={currentItem()?.starred ? 'currentColor' : 'none'} />
+              <Star size={16} fill={currentItem()?.starred ? 'currentColor' : 'none'} />
             </button>
             <a
               class="open-original desktop-only"
@@ -234,14 +234,14 @@ export function ReadingView() {
               rel="noopener noreferrer"
               title="Open"
             >
-              <ExternalLink size={14} />
+              <ExternalLink size={16} />
             </a>
             <button
               class="desktop-only"
               title="Keyboard shortcuts (?)"
               onClick={() => ctx.openModal({ kind: 'shortcuts' })}
             >
-              <CircleQuestionMark size={14} />
+              <CircleQuestionMark size={16} />
             </button>
           </div>
       </div>
@@ -268,7 +268,7 @@ export function ReadingView() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <ExternalLink size={14} />
+                    <ExternalLink size={16} />
                   </a>
                 </div>
               </Show>
@@ -288,7 +288,7 @@ export function ReadingView() {
             title="Previous article (k)"
             aria-label="Previous article"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
         </Show>
         <div class="bottom-bar-center">
@@ -317,7 +317,7 @@ export function ReadingView() {
             aria-pressed={currentItem()?.starred ?? false}
             aria-label={currentItem()?.starred ? 'Unstar' : 'Star'}
           >
-            <Star size={18} fill={currentItem()?.starred ? 'currentColor' : 'none'} />
+            <Star size={16} fill={currentItem()?.starred ? 'currentColor' : 'none'} />
           </button>
           <a
             class="bottom-bar-btn open-original"
@@ -327,7 +327,7 @@ export function ReadingView() {
             title="Open"
             aria-label="Open original"
           >
-            <ExternalLink size={18} />
+            <ExternalLink size={16} />
           </a>
         </div>
         <Show when={!singleItem()}>
@@ -338,7 +338,7 @@ export function ReadingView() {
             title="Next article (j)"
             aria-label="Next article"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={16} />
           </button>
         </Show>
       </div>
@@ -349,14 +349,14 @@ export function ReadingView() {
           classList={{ ghosted: !hasPrev() }}
           onClick={() => hasPrev() && navigate(-1)}
         >
-          <ChevronLeft size={24} />
+          <ChevronLeft size={16} />
         </div>
         <div
           class="reading-zone reading-zone-next desktop-only"
           classList={{ ghosted: !hasNext() }}
           onClick={() => hasNext() && navigate(1)}
         >
-          <ChevronRight size={24} />
+          <ChevronRight size={16} />
         </div>
       </Show>
     </main>

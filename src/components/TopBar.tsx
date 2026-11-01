@@ -16,7 +16,7 @@ export function TopBar() {
         aria-expanded={open()}
         onClick={() => ctx.toggleSidebar()}
       >
-        {open() ? <ChevronLeft size={18} /> : <PanelLeft size={18} />}
+        {open() ? <ChevronLeft size={16} /> : <PanelLeft size={16} />}
       </button>
       <a class="wordmark" href="/" title="Lidora">lidora</a>
       <span class="library-update-status">

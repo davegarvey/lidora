@@ -217,7 +217,7 @@ export function River() {
                     aria-label={`More from ${ctx.feedMap().get(item.feedId)?.title ?? 'this feed'}`}
                     aria-pressed={ctx.settings().feedRankingFeedback?.[item.feedId] === 'more'}
                   >
-                    <ThumbsUp size={14} />
+                    <ThumbsUp size={16} />
                   </button>
                   <button
                     class="action-btn ranking-feedback"
@@ -230,7 +230,7 @@ export function River() {
                     aria-label={`Less from ${ctx.feedMap().get(item.feedId)?.title ?? 'this feed'}`}
                     aria-pressed={ctx.settings().feedRankingFeedback?.[item.feedId] === 'less'}
                   >
-                    <ThumbsDown size={14} />
+                    <ThumbsDown size={16} />
                   </button>
                   <button
                     class="action-btn read-toggle"
@@ -255,7 +255,7 @@ export function River() {
                     }}
                     aria-label={item.starred ? 'Unstar' : 'Star'}
                   >
-                    <Star size={14} fill={item.starred ? 'currentColor' : 'none'} />
+                    <Star size={16} fill={item.starred ? 'currentColor' : 'none'} />
                   </button>
                 </div>
               </article>

@@ -97,7 +97,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
             title="Close sidebar"
             onClick={() => ctx.toggleSidebarDesktop()}
           >
-            <ChevronLeft size={14} />
+            <ChevronLeft size={16} />
           </button>
         </div>
 
@@ -110,7 +110,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
               aria-label="Add feed"
               onClick={() => ctx.openModal({ kind: 'add-feed' })}
             >
-              <Plus size={14} />
+              <Plus size={16} />
             </button>
             <Show when={ctx.feeds().length > 0}>
               <button
@@ -121,7 +121,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
                 aria-busy={refreshing()}
                 aria-label={refreshing() ? 'Refreshing feeds' : refreshLabel()}
               >
-                <RefreshCw size={14} />
+                <RefreshCw size={16} />
               </button>
             </Show>
           </div>
@@ -176,7 +176,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
             aria-current={ctx.state.view === 'stats' ? 'page' : undefined}
             onClick={() => { ctx.openStats(); props.onNavigate?.(); }}
           >
-            <ChartNoAxesCombined size={14} />
+            <ChartNoAxesCombined size={16} />
             <span>Stats</span>
           </button>
           <button
@@ -184,7 +184,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
             title="Search / Command palette"
             onClick={() => ctx.openModal({ kind: 'palette' })}
           >
-            <Search size={14} />
+            <Search size={16} />
             <span>Palette</span>
           </button>
           <button
@@ -193,7 +193,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
             aria-current={ctx.state.view === 'settings' ? 'page' : undefined}
             onClick={() => { ctx.openSettings(); props.onNavigate?.(); }}
           >
-            <Settings size={14} />
+            <Settings size={16} />
             <span>Settings</span>
           </button>
           <button
@@ -233,12 +233,12 @@ export function Sidebar(props: { onNavigate?: () => void }) {
               <LibraryActivity />
             </Show>
             <span class="expand-icon">
-              <ChevronRight size={14} />
+              <ChevronRight size={16} />
             </span>
           </div>
           <div class="collapsed-actions-top" onClick={(e) => e.stopPropagation()}>
             <button class="collapsed-action" title="Add feed" onClick={() => ctx.openModal({ kind: 'add-feed' })}>
-              <Plus size={14} />
+              <Plus size={16} />
             </button>
             <Show when={ctx.feeds().length > 0}>
               <button
@@ -249,13 +249,13 @@ export function Sidebar(props: { onNavigate?: () => void }) {
                 aria-busy={refreshing()}
                 aria-label={refreshing() ? 'Refreshing feeds' : refreshLabel()}
               >
-                <RefreshCw size={14} />
+                <RefreshCw size={16} />
               </button>
             </Show>
           </div>
           <div class="collapsed-actions-bottom" onClick={(e) => e.stopPropagation()}>
             <button class="collapsed-action" title="Search / Command palette" onClick={() => ctx.openModal({ kind: 'palette' })}>
-              <Search size={14} />
+              <Search size={16} />
             </button>
             <button
               class="collapsed-action"
@@ -265,7 +265,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
               aria-current={ctx.state.view === 'stats' ? 'page' : undefined}
               onClick={() => ctx.openStats()}
             >
-              <ChartNoAxesCombined size={14} />
+              <ChartNoAxesCombined size={16} />
             </button>
             <button
               class="collapsed-action"
@@ -275,7 +275,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
               aria-current={ctx.state.view === 'settings' ? 'page' : undefined}
               onClick={() => ctx.openSettings()}
             >
-              <Settings size={14} />
+              <Settings size={16} />
             </button>
             <button class="collapsed-action desktop-only" title="Keyboard shortcuts (?)" onClick={() => ctx.openModal({ kind: 'shortcuts' })}>
               <HelpIcon />
@@ -312,7 +312,7 @@ function FeedRow(props: FeedRowProps) {
         <span class="error-mark" data-error={removed() ? 'Publisher removed this feed (HTTP 410)' : error()} title={removed() ? 'Publisher removed this feed (HTTP 410)' : retryLabel() ?? 'Last refresh failed'}><TriangleAlert size={12} /></span>
       </Show>
       <button class="edit-btn" title={`Edit ${props.feed.title}`} onClick={(e) => { e.stopPropagation(); props.onEdit(); }}>
-        <MoreHorizontal size={14} />
+        <MoreHorizontal size={16} />
       </button>
     </div>
   );

@@ -17,7 +17,7 @@ export function FocusModeToggle() {
         void ctx.saveSettingsPatch({ focusMode });
       }}
     >
-      <Focus size={14} />
+      <Focus size={16} />
     </button>
   );
 }

@@ -1,15 +1,15 @@
 import { Circle, CircleCheck, CircleQuestionMark } from 'lucide-solid';
 
 export function HelpIcon() {
-  return <CircleQuestionMark size={14} />;
+  return <CircleQuestionMark size={16} />;
 }
 
 export function CircleIcon() {
-  return <Circle size={14} />;
+  return <Circle size={16} />;
 }
 
 export function CircleCheckIcon() {
-  return <CircleCheck size={14} />;
+  return <CircleCheck size={16} />;
 }
 
 export function LidoraMark(props: { size: number; class?: string }) {
