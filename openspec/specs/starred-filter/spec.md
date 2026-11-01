@@ -6,11 +6,11 @@ Let readers limit the article list to starred items within the selected feeds or
 
 ## Requirements
 
-### Requirement: Sidebar star toggle
-The sidebar SHALL display a ★ button that toggles the starred-only filter on and off. The button SHALL use the Mauve accent color when active (consistent with active tag chips) and SHALL have a filled star icon when active. The button SHALL NOT clear `riverScope` or `activeTags` when toggled.
+### Requirement: List header star toggle
+The article list header SHALL display a ★ button that toggles the starred-only filter on and off. The button SHALL use the Mauve accent color when active and SHALL have a filled star icon when active. Its accessible name and tooltip SHALL describe filtering to starred articles, distinct from starring the open article. The button SHALL NOT clear `riverScope` or `activeTags` when toggled.
 
 #### Scenario: Toggle star filter on
-- **WHEN** the user clicks the ★ button in the sidebar
+- **WHEN** the user clicks the ★ button in the article list header
 - **THEN** the star filter becomes active
 - **AND** the ★ button displays with filled icon and active accent color
 - **AND** the current item list narrows to show only starred items
@@ -47,14 +47,6 @@ The river item list SHALL filter to starred-only items when `starredOnly` is tru
 - **WHEN** `starredOnly` is true
 - **AND** `activeTags` has one or more tags
 - **THEN** only starred items from feeds matching those tags SHALL be displayed
-
-### Requirement: Collapsed sidebar rail
-The ★ button SHALL also appear in the collapsed desktop sidebar rail (where Add Feed, Refresh, Search, Settings, Shortcuts appear). This ensures the filter is accessible without expanding the sidebar.
-
-#### Scenario: Collapsed rail shows star toggle
-- **WHEN** the sidebar is collapsed on desktop
-- **THEN** a ★ button SHALL be visible in the action rail
-- **AND** clicking it SHALL toggle the star filter identically to the expanded sidebar button
 
 ### Requirement: Empty state awareness
 When the star filter is active and no items match, the empty state SHALL display a contextually appropriate message and provide a way to disable the filter.

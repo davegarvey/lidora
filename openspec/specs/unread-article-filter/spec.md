@@ -18,13 +18,13 @@ The app SHALL offer Unread and All modes, defaulting to All when no active prefe
 - **THEN** the control SHALL be disabled and both read and unread starred articles SHALL be eligible within the current feed/tag selection
 - **AND** disabling Starred SHALL restore the remembered Unread / All mode
 
-### Requirement: Sidebar filter control
-The control SHALL be a single icon toggle (Lucide `CircleDot`) in the sidebar filter chips beside Starred, on desktop and in the mobile sidebar drawer, and in the collapsed desktop sidebar rail beside Starred. Pressed SHALL mean Unread; unpressed SHALL mean All. It SHALL NOT occupy a row above the article list or appear in the mobile top header. While Starred is active the toggle SHALL be disabled and not highlighted. The toggle SHALL have an accessible name, expose its pressed state and support keyboard and touch activation.
+### Requirement: List header filter control
+The control SHALL be a single icon toggle (Lucide `CircleDot`) in the article list header beside Starred, on desktop and mobile. Pressed SHALL mean Unread; unpressed SHALL mean All. It SHALL NOT appear in the sidebar chips, the mobile sidebar drawer, the collapsed desktop rail or the mobile top bar. While Starred is active the toggle SHALL be disabled and not highlighted. The toggle SHALL have an accessible name, expose its pressed state and support keyboard and touch activation.
 
 #### Scenario: Browse the article list
 - **WHEN** the article list is visible on desktop or mobile
-- **THEN** the first article SHALL begin directly below the existing chrome without a filter row above it
-- **AND** the Unread toggle SHALL appear in the sidebar filter chips, or in the collapsed rail when the desktop sidebar is collapsed
+- **THEN** the Unread toggle SHALL appear in the article list header
+- **AND** it SHALL NOT appear among the sidebar tag chips
 
 #### Scenario: Starred active
 - **WHEN** Starred is active

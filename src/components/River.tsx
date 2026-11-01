@@ -6,10 +6,12 @@ import { getDbStatus, onDbStatusChange } from '../db/open';
 import { relativeTime } from '../util/time';
 import { Star, CircleCheck, ThumbsDown, ThumbsUp } from 'lucide-solid';
 import { CircleIcon, CircleCheckIcon } from './Icons';
+import { RiverHeader } from './RiverHeader';
 
 export function River() {
   const ctx = useApp();
   let containerRef: HTMLDivElement | undefined;
+  const [scrolled, setScrolled] = createSignal(false);
 
   const visibleItems = ctx.items;
 
@@ -161,7 +163,8 @@ export function River() {
   };
 
   return (
-    <main class="river" id="article-list" ref={containerRef} onMouseLeave={() => ctx.setState({ focusedIndex: -1 })} onMouseMove={() => { mouseMoved = true; lastMouseMoveTime = performance.now(); }}>
+    <main class="river" id="article-list" ref={containerRef} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)} onMouseLeave={() => ctx.setState({ focusedIndex: -1 })} onMouseMove={() => { mouseMoved = true; lastMouseMoveTime = performance.now(); }}>
+      <RiverHeader scrolled={scrolled()} />
       <div class="river-inner">
         <Show when={listState() === 'items'} fallback={listState() === 'loading' ? <LoadingMessage message={loadingMessage()} /> : <EmptyState />}>
           <For each={visibleItems()}>
