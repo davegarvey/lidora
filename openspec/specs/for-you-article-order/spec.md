@@ -24,7 +24,7 @@ The app SHALL offer Latest and For you ordering for the current article list. La
 
 ### Requirement: Quiet ordering control
 
-The Latest and For you control SHALL be a single icon toggle (Lucide `ArrowDownWideNarrow`) in the article list header. Pressed SHALL mean For you; unpressed SHALL mean Latest. Its accessible name and tooltip SHALL state the current order. It SHALL NOT appear in the sidebar chips, the mobile sidebar drawer or the collapsed desktop rail. It SHALL be accessible by pointer, keyboard and touch and expose its pressed state to assistive technology.
+The Latest and For you control SHALL be a single icon toggle in the article list header. It SHALL show the Lucide `Lightbulb` icon when For you is selected and `ArrowDownWideNarrow` when Latest is selected. Both icons SHALL be 16 px. Pressed SHALL mean For you; unpressed SHALL mean Latest. Its accessible name and tooltip SHALL state the current order. It SHALL NOT appear in the sidebar chips, the mobile sidebar drawer or the collapsed desktop rail. It SHALL be accessible by pointer, keyboard and touch and expose its pressed state to assistive technology.
 
 #### Scenario: Choose an order without obscuring articles
 - **WHEN** the article list is shown on desktop or mobile
