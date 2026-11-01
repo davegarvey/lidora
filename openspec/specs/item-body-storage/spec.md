@@ -23,27 +23,35 @@ The database SHALL have an `itemBodies` object store keyed by article ID, holdin
 - **AND** its article metadata and flags SHALL remain unless the unread-record retention age is also reached
 
 ### Requirement: Version 10 is the schema baseline
-`DB_VERSION` SHALL be 11. The upgrade handler SHALL create the version 11 layout directly for a new database, migrate a version 10 database in place by adding the `items.by-last-seen` index and stamping existing items with the migration time, and retain the version 9 body-splitting path while stamping its items. It SHALL delete every object store and recreate the version 11 layout, empty, for a database older than version 9. The handler SHALL NOT contain upgrade steps for versions 2 to 8, and code outside the upgrade handler SHALL read only the current layout.
+
+`DB_VERSION` SHALL be 12. The upgrade handler SHALL create the version 12 layout directly for a new database, migrate a version 11 database in place by adding the `items.by-feed-created` index, migrate a version 10 database by adding the `items.by-last-seen` and `items.by-feed-created` indexes and stamping existing items with the migration time, and retain the version 9 body-splitting path while stamping its items and adding both indexes. It SHALL delete every object store and recreate the version 12 layout, empty, for a database older than version 9. The handler SHALL NOT contain upgrade steps for versions 2 to 8, and code outside the upgrade handler SHALL read only the current layout.
 
 #### Scenario: New database
 - **WHEN** a new database is opened
-- **THEN** it SHALL be created at version 11 with the stores `feeds`, `items`, `itemBodies`, `itemFlags`, `meta`, `feedStats` and `readMarkers`
-- **AND** `items` SHALL have a `by-last-seen` index
+- **THEN** it SHALL be created at version 12 with the stores `feeds`, `items`, `itemBodies`, `itemFlags`, `meta`, `feedStats` and `readMarkers`
+- **AND** `items` SHALL have `by-last-seen` and compound `by-feed-created` indexes
 
 #### Scenario: Version 9 database
 - **WHEN** a version 9 database is opened
-- **THEN** it SHALL be upgraded to version 11 with an empty `itemBodies` store and no `html` or `extractedHtml` on any article record
+- **THEN** it SHALL be upgraded to version 12 with an empty `itemBodies` store and no `html` or `extractedHtml` on any article record
 - **AND** every item SHALL receive `lastSeenAt`
+- **AND** `items` SHALL have `by-last-seen` and compound `by-feed-created` indexes
 - **AND** article flags, read markers, feed statistics and settings SHALL be unchanged
 
 #### Scenario: Version 10 database
 - **WHEN** a version 10 database is opened
 - **THEN** its existing stores and records SHALL remain
-- **AND** each existing item SHALL receive `lastSeenAt` and the new index SHALL be present
+- **AND** each existing item SHALL receive `lastSeenAt`
+- **AND** `items` SHALL have `by-last-seen` and compound `by-feed-created` indexes
+
+#### Scenario: Version 11 database
+- **WHEN** a version 11 database is opened
+- **THEN** its existing stores and item records SHALL remain unchanged
+- **AND** `items` SHALL gain a compound `by-feed-created` index on `feedId` and `createdAt`
 
 #### Scenario: Database older than version 9
 - **WHEN** a database at any version from 1 to 8 is opened
-- **THEN** every object store SHALL be deleted and the version 11 layout SHALL be created empty
+- **THEN** every object store SHALL be deleted and the version 12 layout SHALL be created empty
 
 ### Requirement: The version 9 upgrade drops bodies within one transaction
 The upgrade SHALL run inside the version-change transaction and SHALL walk `items` with a cursor, holding at most one article record at a time rather than loading the library into memory. For each record with `html` or `extractedHtml` it SHALL rewrite the article record without those fields. It SHALL NOT write any record to `itemBodies`, because reading every stored body to copy it takes about 2.5 times as long as stripping it (75.5 s against 29.7 s on a library of 30,000 articles). If the upgrade fails, the transaction SHALL abort and the database SHALL remain at version 9.

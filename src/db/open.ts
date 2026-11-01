@@ -15,6 +15,7 @@ export interface RssReaderDB extends DBSchema {
     value: Item;
     indexes: {
       'by-feed-published': [string, number];
+      'by-feed-created': [string, number];
       'by-guid': string;
       'by-published': number;
       'by-last-seen': [number, string];
@@ -87,6 +88,7 @@ function createLayout(db: IDBPDatabase<RssReaderDB>): void {
   db.createObjectStore('feeds', { keyPath: 'id' }).createIndex('by-url', 'url', { unique: false });
   const items = db.createObjectStore('items', { keyPath: 'id' });
   items.createIndex('by-feed-published', ['feedId', 'publishedAt']);
+  items.createIndex('by-feed-created', ['feedId', 'createdAt']);
   items.createIndex('by-guid', 'guid');
   items.createIndex('by-published', 'publishedAt');
   items.createIndex('by-last-seen', ['lastSeenAt', 'id']);
@@ -128,7 +130,7 @@ async function dropBodiesFromItems(db: IDBPDatabase<RssReaderDB>, transaction: V
 export async function upgradeDb<T extends DBSchema>(
   legacyDb: IDBPDatabase<T>,
   oldVersion: number,
-  _newVersion: number | null,
+  newVersion: number | null,
   legacyTransaction: IDBPTransaction<T, StoreNames<T>[], 'versionchange'>,
 ): Promise<void> {
   const db = legacyDb as unknown as IDBPDatabase<RssReaderDB>;
@@ -136,6 +138,7 @@ export async function upgradeDb<T extends DBSchema>(
   if (oldVersion === PREVIOUS_VERSION) {
     const items = transaction.objectStore('items');
     items.createIndex('by-last-seen', ['lastSeenAt', 'id']);
+    if ((newVersion ?? DB_VERSION) >= 12) items.createIndex('by-feed-created', ['feedId', 'createdAt']);
     const now = Date.now();
     let cursor = await items.openCursor();
     while (cursor) {
@@ -144,12 +147,17 @@ export async function upgradeDb<T extends DBSchema>(
     }
     return;
   }
+  if (oldVersion === 11) {
+    transaction.objectStore('items').createIndex('by-feed-created', ['feedId', 'createdAt']);
+    return;
+  }
   if (oldVersion === BODY_SPLIT_VERSION) {
     transaction.done.catch(() => {});
     try {
       await dropBodiesFromItems(db, transaction);
       const items = transaction.objectStore('items');
       items.createIndex('by-last-seen', ['lastSeenAt', 'id']);
+      if ((newVersion ?? DB_VERSION) >= 12) items.createIndex('by-feed-created', ['feedId', 'createdAt']);
       const now = Date.now();
       let cursor = await items.openCursor();
       while (cursor) {

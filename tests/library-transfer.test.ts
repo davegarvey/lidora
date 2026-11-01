@@ -1,13 +1,13 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { databaseNameForHost } from '../src/db/types';
+import { DB_VERSION, databaseNameForHost } from '../src/db/types';
 import { getDb } from '../src/db/open';
 import { LIBRARY_STORES, createLibraryBackup, libraryDigest, mergeLibraries, readLibrarySnapshot, writeMergedLibrary, type LibrarySnapshot } from '../src/db/library-transfer';
 
 function library(feedId: string, url: string, title: string): LibrarySnapshot {
   const itemId = `${feedId}::guid-1`;
   return {
-    schemaVersion: 11,
+    schemaVersion: DB_VERSION,
     feeds: [{ id: feedId, url, title, titleAt: 10, tags: [], lastFetched: 100, learnedIntervalMs: 3_600_000 }],
     items: [{ id: itemId, feedId, guid: 'guid-1', title: `${title} story`, publishedAt: 1, updatedAt: 1, excerpt: 'summary', read: false, starred: false, createdAt: 1, lastSeenAt: 1 }],
     itemBodies: [{ id: itemId, feedId, html: '<p>full feed body</p>', htmlBaseUrl: new URL('posts/', url).toString(), extractedHtml: '<p>saved text</p>' }],
@@ -58,6 +58,23 @@ describe('full library transfer', () => {
     expect(merged.meta.find((row) => row.key === 'settings')?.value).toMatchObject({ theme: 'dark', syncKey: 'account-key', lastItemsCursor: 18 });
     expect(merged.meta.find((row) => row.key === 'destination-only')?.value).toBe('kept');
     expect(merged.meta.find((row) => row.key === 'sync_dirty')?.value).toHaveLength(2);
+  });
+
+  it('remaps local feed-ranking preferences when source feed identities change', () => {
+    const source = library('source', 'https://shared.example/feed.xml', 'Source');
+    const destination = library('target', 'https://shared.example/feed.xml', 'Destination');
+    source.meta.find((row) => row.key === 'settings')!.value = {
+      articleOrder: 'for-you',
+      feedRankingFeedback: { source: 'more' },
+    };
+    destination.meta.find((row) => row.key === 'settings')!.value = {
+      articleOrder: 'latest',
+      feedRankingFeedback: { target: 'less', unrelated: 'more' },
+    };
+    const merged = mergeLibraries(source, destination);
+    const settings = merged.meta.find((row) => row.key === 'settings')?.value as Record<string, unknown>;
+    expect(settings.articleOrder).toBe('for-you');
+    expect(settings.feedRankingFeedback).toEqual({ target: 'more', unrelated: 'more' });
   });
 
   it('leaves destination data unchanged when validation fails and accepts a full backup', async () => {

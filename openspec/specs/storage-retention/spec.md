@@ -6,6 +6,7 @@ Define local article retention and browser storage persistence behavior so Sift 
 ## Requirements
 
 ### Requirement: Age-based local retention
+
 Each stored article SHALL record when it was most recently included in a successful feed parse or sync item pull. Existing articles SHALL be stamped at migration time. After each refresh sweep, the client SHALL scan no more than 500 items for each cleanup pass and SHALL retain a continuation key so successive sweeps progress through eligible items. The client SHALL delete body records for unstarred items unseen for at least 90 days, and SHALL delete item records for unstarred unread items unseen for at least 365 days. It SHALL keep read and starred item records. Deleting an unread item SHALL also delete its body, flag and read marker. Lifetime feed statistics SHALL remain unchanged.
 
 #### Scenario: Old body expires but article history remains
@@ -27,7 +28,7 @@ Each stored article SHALL record when it was most recently included in a success
 - **THEN** `lastSeenAt` SHALL be updated even when the device already has that item
 
 #### Scenario: Existing library receives a safe migration timestamp
-- **WHEN** a version 10 database is upgraded to version 11
+- **WHEN** a version 10 database is upgraded to version 12
 - **THEN** all existing items SHALL receive the migration time as `lastSeenAt`
 - **AND** feeds, items, flags, markers, statistics, settings and body records SHALL remain present
 

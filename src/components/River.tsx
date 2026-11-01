@@ -4,7 +4,7 @@ import { refreshTargetForSelection } from '../feeds/scope';
 import type { Item } from '../db/types';
 import { getDbStatus, onDbStatusChange } from '../db/open';
 import { relativeTime } from '../util/time';
-import { Star, CircleCheck } from 'lucide-solid';
+import { Star, CircleCheck, ThumbsDown, ThumbsUp } from 'lucide-solid';
 import { CircleIcon, CircleCheckIcon } from './Icons';
 
 export function River() {
@@ -203,6 +203,32 @@ export function River() {
                   </Show>
                 </div>
                 <div class="actions">
+                  <button
+                    class="action-btn ranking-feedback"
+                    title={`More from ${ctx.feedMap().get(item.feedId)?.title ?? 'this feed'}`}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void ctx.setFeedRankingFeedback(item.feedId, 'more');
+                    }}
+                    aria-label={`More from ${ctx.feedMap().get(item.feedId)?.title ?? 'this feed'}`}
+                    aria-pressed={ctx.settings().feedRankingFeedback?.[item.feedId] === 'more'}
+                  >
+                    <ThumbsUp size={14} />
+                  </button>
+                  <button
+                    class="action-btn ranking-feedback"
+                    title={`Less from ${ctx.feedMap().get(item.feedId)?.title ?? 'this feed'}`}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void ctx.setFeedRankingFeedback(item.feedId, 'less');
+                    }}
+                    aria-label={`Less from ${ctx.feedMap().get(item.feedId)?.title ?? 'this feed'}`}
+                    aria-pressed={ctx.settings().feedRankingFeedback?.[item.feedId] === 'less'}
+                  >
+                    <ThumbsDown size={14} />
+                  </button>
                   <button
                     class="action-btn read-toggle"
                     title={item.read ? 'Mark unread' : 'Mark read'}

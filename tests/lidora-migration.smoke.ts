@@ -93,7 +93,7 @@ test('backup recovery rejects invalid files without creating a library, then res
   const backup = {
     format: 'lidora-library',
     library: {
-      schemaVersion: 11,
+      schemaVersion: 12,
       feeds: [{ id: feedId, url: 'https://recovery.example/feed.xml', title: 'Recovered feed', lastFetched: 1, learnedIntervalMs: 3600000 }],
       items: [{ id: itemId, feedId, guid: 'article-1', title: 'Recovered article', publishedAt: 1, updatedAt: 1, excerpt: 'summary', read: false, starred: true, createdAt: 1, lastSeenAt: 1 }],
       itemBodies: [{ id: itemId, feedId, html: '<p>recovered body</p>', extractedHtml: '<p>saved extraction</p>' }],

@@ -148,7 +148,7 @@ export function databaseNameForHost(hostname: string): string {
 }
 
 export const DB_NAME = databaseNameForHost(typeof window === 'undefined' ? '' : window.location.hostname);
-export const DB_VERSION = 11;
+export const DB_VERSION = 12;
 
 export const DEFAULT_LEARNED_INTERVAL_MS = 60 * 60 * 1000;
 export const MIN_LEARNED_INTERVAL_MS = 30 * 60 * 1000;
@@ -176,6 +176,8 @@ export interface AppSettings {
   /** @deprecated No longer used. Kept for backward compat with persisted settings. */
   readFilter?: 'unread' | 'all';
   articleReadMode?: 'all' | 'unread';
+  articleOrder?: 'latest' | 'for-you';
+  feedRankingFeedback?: Record<string, 'more' | 'less'>;
   sidebarWidth?: number;
   articleListWidth?: number;
   articleListWidthCustomized?: boolean;
@@ -215,4 +217,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastItemsCursor: null,
   serverOffset: null,
   statsSort: DEFAULT_STATS_SORT,
+  articleOrder: 'latest',
+  feedRankingFeedback: {},
 };

@@ -1,5 +1,6 @@
 import { createLibraryBackup, libraryDigest, parseLibraryBackup, restoreLibraryBackup, writeMergedLibrary, type LibraryRecord, type LibraryStore } from '../db/library-transfer';
 import { setMigrationState } from './source-lock';
+import { DB_VERSION } from '../db/types';
 
 const SOURCE_ORIGIN = 'https://sift.davegarvey.workers.dev';
 const stores = ['feeds', 'items', 'itemBodies', 'meta', 'itemFlags', 'feedStats', 'readMarkers'] as const satisfies readonly LibraryStore[];
@@ -94,7 +95,7 @@ async function receiveMessage(event: MessageEvent<unknown>): Promise<void> {
   if (!current || typeof event.data !== 'object' || event.data === null) return;
   const message = event.data as Record<string, unknown>;
   if (message.type === 'begin') {
-    if (message.schemaVersion !== 11 || typeof message.digest !== 'string' || !/^[a-f0-9]{64}$/.test(message.digest)) {
+    if (message.schemaVersion !== DB_VERSION || typeof message.digest !== 'string' || !/^[a-f0-9]{64}$/.test(message.digest)) {
       post(current.port, { type: 'error', message: 'This library version cannot be moved by this release.' });
       return;
     }
@@ -167,7 +168,7 @@ async function receiveMessage(event: MessageEvent<unknown>): Promise<void> {
       for (const store of stores) {
         if (current.stores[store].length !== current.expectedCounts[store]) throw new Error('A library section was incomplete. The destination was not changed.');
       }
-      const snapshot = { schemaVersion: 11, ...current.stores };
+      const snapshot = { schemaVersion: DB_VERSION, ...current.stores };
       if (await libraryDigest(snapshot) !== current.digest) throw new Error('The library failed its integrity check. The destination was not changed.');
       if (status) status.textContent = 'Checking the library and saving it to this browser…';
       setMigrationState('transferring');

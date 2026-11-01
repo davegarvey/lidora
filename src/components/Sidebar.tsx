@@ -1,7 +1,7 @@
 import { For, Show, createMemo } from 'solid-js';
 import { useApp } from '../state';
 import { LibraryActivity } from './LibraryActivity';
-import { Settings, Plus, Search, ChevronLeft, ChevronRight, TriangleAlert, Star, CircleDot, MoreHorizontal, GripVertical, ChartNoAxesCombined, RefreshCw } from 'lucide-solid';
+import { Settings, Plus, Search, ChevronLeft, ChevronRight, TriangleAlert, Star, CircleDot, MoreHorizontal, GripVertical, ChartNoAxesCombined, RefreshCw, Sparkles } from 'lucide-solid';
 import { HelpIcon, LidoraMark } from './Icons';
 import { SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN } from '../db/types';
 import { usesCollapsedFeedNavigation } from '../desktopLayout';
@@ -28,6 +28,8 @@ export function Sidebar(props: { onNavigate?: () => void }) {
   const hasActiveTags = () => ctx.state.activeTags.length > 0;
   const unreadOnly = () => ctx.state.readMode === 'unread';
   const toggleUnreadOnly = () => void ctx.setReadMode(unreadOnly() ? 'all' : 'unread');
+  const forYouActive = () => ctx.settings().articleOrder === 'for-you';
+  const toggleForYou = () => void ctx.setArticleOrder(forYouActive() ? 'latest' : 'for-you');
   const unreadFilterLabel = () => ctx.state.starredOnly ? 'Unread filter is off while showing starred' : 'Show unread only';
 
   const visibleFeeds = createMemo(() => {
@@ -136,6 +138,16 @@ export function Sidebar(props: { onNavigate?: () => void }) {
                 type="button"
               >
                 all
+              </button>
+              <button
+                class={`tag-chip ${forYouActive() ? 'active' : ''}`}
+                onClick={toggleForYou}
+                type="button"
+                title="For you article order"
+                aria-label="For you article order"
+                aria-pressed={forYouActive()}
+              >
+                For you
               </button>
               <button
                 class={`tag-chip ${ctx.state.starredOnly ? 'active' : ''}`}
@@ -285,6 +297,16 @@ export function Sidebar(props: { onNavigate?: () => void }) {
               onClick={() => ctx.toggleStarFilter()}
             >
               <Star size={14} />
+            </button>
+            <button
+              class="collapsed-action"
+              classList={{ active: forYouActive() }}
+              title="For you article order"
+              aria-label="For you article order"
+              aria-pressed={forYouActive()}
+              onClick={toggleForYou}
+            >
+              <Sparkles size={14} />
             </button>
             <button
               class="collapsed-action"
