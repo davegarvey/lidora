@@ -24,16 +24,16 @@ The app SHALL offer Latest and For you ordering for the current article list. La
 
 ### Requirement: Quiet ordering control
 
-The Latest and For you control SHALL use the existing filter/navigation chrome and SHALL NOT add a persistent row above the article list. It SHALL be accessible by pointer, keyboard and touch, expose the selected order to assistive technology, and remain available in the mobile and collapsed-sidebar layouts.
+The Latest and For you control SHALL be a single icon toggle (Lucide `ArrowDownWideNarrow`) in the article list header. Pressed SHALL mean For you; unpressed SHALL mean Latest. Its accessible name and tooltip SHALL state the current order. It SHALL NOT appear in the sidebar chips, the mobile sidebar drawer or the collapsed desktop rail. It SHALL be accessible by pointer, keyboard and touch and expose its pressed state to assistive technology.
 
 #### Scenario: Choose an order without obscuring articles
 - **WHEN** the article list is shown on desktop or mobile
-- **THEN** the reader SHALL be able to switch between Latest and For you in existing chrome
-- **AND** the first article SHALL remain directly below the existing chrome
+- **THEN** the reader SHALL be able to switch between Latest and For you from the list header
+- **AND** the control SHALL NOT appear among the sidebar tag chips
 
 #### Scenario: Selected order is announced
 - **WHEN** a screen reader focuses the ordering control
-- **THEN** it SHALL announce the available order and which one is selected
+- **THEN** it SHALL announce that the control sets the article order and whether For you is selected
 
 ### Requirement: Recent feed reading preference
 

@@ -7,11 +7,11 @@ Defines how the sidebar presents itself when the user has no feeds subscribed.
 ## Requirements
 
 ### Requirement: Filter chips hidden without feeds
-The sidebar SHALL not render the tag filter chips (`all`, starred) when there are no subscribed feeds.
+The sidebar SHALL not render the tag filter chips (`all` and tags) when there are no subscribed feeds.
 
 #### Scenario: No feeds on boot
 - **WHEN** the user has zero subscribed feeds and the sidebar is expanded
-- **THEN** the `all` and starred filter chips are not displayed
+- **THEN** the `all` filter chip is not displayed
 
 #### Scenario: Feeds added later
 - **WHEN** the user adds their first feed

@@ -14,7 +14,7 @@
 ## 3. Documentation and verification
 
 - [x] 3.1 Update the README wherever it describes the location of the Starred, Unread or For you controls.
-- [ ] 3.2 Run typecheck, lint, tests and build, check desktop, three-pane and mobile layouts in the browser, and run `openspec validate river-list-header --strict`.
+- [x] 3.2 Run typecheck, lint, tests and build, check desktop, three-pane and mobile layouts in the browser, and run `openspec validate river-list-header --strict`.
 
 ## Workflow follow-up
 
