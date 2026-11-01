@@ -71,6 +71,8 @@ function makeCtx() {
     libraryUpdating: () => false,
     hasScopedItems: () => false,
     setReadMode: async () => {},
+    setArticleOrder: async () => {},
+    setFeedRankingFeedback: async () => {},
     state,
     setState,
     feeds,
@@ -227,6 +229,29 @@ describe('River loading vs empty state', () => {
     expect(document.body.textContent).toContain('First article');
     expect(document.body.textContent).not.toContain('Loading');
     expect(document.body.textContent).not.toContain('Welcome to Lidora');
+  });
+
+  it('exposes feed-scoped thumb feedback beside the article actions', () => {
+    const m = createRoot((d) => {
+      disposeCtx = d;
+      return makeCtx();
+    });
+    ctxRef.value = m.ctx;
+    m.setFeeds([{ id: 'f1', url: 'https://example.com/feed', title: 'Example feed', tags: [] } as unknown as Feed]);
+    m.setHydrated(true);
+    m.setItems([
+      { id: 'f1::a', feedId: 'f1', guid: 'a', title: 'First article', publishedAt: 1, read: false, starred: false } as unknown as Item,
+    ]);
+    const feedback = vi.spyOn(m.ctx, 'setFeedRankingFeedback');
+
+    dispose = render(() => <River />, document.body);
+
+    const more = document.querySelector<HTMLButtonElement>('button[aria-label="More from Example feed"]');
+    const less = document.querySelector<HTMLButtonElement>('button[aria-label="Less from Example feed"]');
+    expect(more?.getAttribute('aria-pressed')).toBe('false');
+    expect(less?.getAttribute('aria-pressed')).toBe('false');
+    more?.click();
+    expect(feedback).toHaveBeenCalledWith('f1', 'more');
   });
 
   it('shows the filtered empty state when feeds exist but no items match', () => {

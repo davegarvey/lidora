@@ -15,6 +15,7 @@ provides multi-device sync and AI agent integration.
 - **Offline**: installable PWA; works offline against cached data.
 - **Deploy anywhere**: local dev, Node/Bun server, Docker, or Cloudflare Workers — all from one codebase.
 - **Unread filter**: switch between Unread and All within the selected feed or tags. The choice is remembered on each device; Starred shows both read and unread saved articles.
+- **Article order**: choose Latest or For you within the current feed and tag filters. For you balances recency with recent reading behavior and optional More/Less feedback for a feed; it keeps each feed's articles newest-first. The choice and feedback stay on this device. Thumbs in the river and reading pane steer the feed's ranking, not the individual article.
 - **Full-text**: summary-only feeds get full-text extraction via Readability.
 - **Sanitised articles**: feed and extracted article HTML passes through an allowlist sanitiser (DOMPurify) before it is stored and again before it is displayed. Relative images use the feed content's XML base, and remote image sources use the image proxy. The proxy checks file signatures when a host labels an image as generic binary data. Scripts, styles, forms, event handlers, `javascript:` links and same-origin frames are removed; figures, tables, links and media embeds are kept.
 

@@ -1714,9 +1714,14 @@ a:hover { text-decoration: underline; }
 
 @media (hover: hover) {
   .river-item:hover .actions,
-  .river-item.focused .actions {
+  .river-item.focused .actions,
+  .river-item:focus-within .actions {
     opacity: 1;
   }
+}
+
+.river-item:focus-within .actions {
+  opacity: 1;
 }
 
 .river-item .action-btn {
@@ -1735,6 +1740,11 @@ a:hover { text-decoration: underline; }
 .river-item .action-btn:hover {
   background: var(--accent-dim);
   color: var(--accent-text);
+}
+
+.river-item .ranking-feedback[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--surface);
 }
 
 /* Reading view. */
@@ -1829,6 +1839,20 @@ a:hover { text-decoration: underline; }
 
 .reading .reading-chrome .star.dim { color: var(--overlay); }
 
+.reading .reading-chrome .ranking-feedback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--subtext);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.reading .reading-chrome .ranking-feedback[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--surface);
+}
+
 .reading .reading-chrome .open-original {
   align-items: center;
   color: var(--subtext);
@@ -1865,7 +1889,7 @@ a:hover { text-decoration: underline; }
 .reading .reading-bottom-bar .bottom-bar-center {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
 }
 
 .reading .reading-bottom-bar .bottom-bar-btn {
@@ -1900,6 +1924,11 @@ a:hover { text-decoration: underline; }
 .reading .reading-bottom-bar .bottom-bar-btn:focus-visible {
   background: var(--surface);
   color: var(--text);
+}
+
+.reading .reading-bottom-bar .bottom-bar-btn.ranking-feedback[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--surface);
 }
 
 .reading .reading-bottom-bar .bottom-bar-btn.star:hover,

@@ -52,6 +52,7 @@ describe('reading view focus-mode navigation', () => {
     contextRef.value = {
       state,
       setState: (patch: Partial<AppState>) => setStore(patch),
+      settings: () => ({ feedRankingFeedback: {} }),
       feeds: () => [],
       items: () => [],
       closeReading,
@@ -60,6 +61,7 @@ describe('reading view focus-mode navigation', () => {
       showPendingUpdates: vi.fn(async () => {}),
       libraryUpdating: () => false,
       saveSettingsPatch: vi.fn(async () => {}),
+      setFeedRankingFeedback: vi.fn(async () => {}),
     } as unknown as AppContext;
     dispose = render(() => <ReadingView />, document.body);
   });
@@ -137,6 +139,7 @@ describe('reading view article body', () => {
     contextRef.value = {
       state,
       setState: (patch: Partial<AppState>) => setStore(patch),
+      settings: () => ({ feedRankingFeedback: {} }),
       feeds: () => [],
       items: () => [item],
       closeReading: vi.fn(async () => {}),
@@ -145,6 +148,7 @@ describe('reading view article body', () => {
       showPendingUpdates: vi.fn(async () => {}),
       libraryUpdating: () => false,
       saveSettingsPatch: vi.fn(async () => {}),
+      setFeedRankingFeedback: vi.fn(async () => {}),
     } as unknown as AppContext;
     document.body.innerHTML = '';
     dispose = render(() => <ReadingView />, document.body);

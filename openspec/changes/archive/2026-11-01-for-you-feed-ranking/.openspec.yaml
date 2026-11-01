@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-11-01
+goal: Let readers rank their filtered articles by recency and feed preference
+  while preserving chronological reading.

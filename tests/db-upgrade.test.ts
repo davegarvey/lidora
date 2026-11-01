@@ -12,7 +12,7 @@ const FRESH_LAYOUT: Record<string, { keyPath: string; indexes: Record<string, st
   feeds: { keyPath: 'id', indexes: { 'by-url': 'url' } },
   items: {
     keyPath: 'id',
-    indexes: { 'by-feed-published': ['feedId', 'publishedAt'], 'by-guid': 'guid', 'by-published': 'publishedAt', 'by-last-seen': ['lastSeenAt', 'id'] },
+    indexes: { 'by-feed-published': ['feedId', 'publishedAt'], 'by-feed-created': ['feedId', 'createdAt'], 'by-guid': 'guid', 'by-published': 'publishedAt', 'by-last-seen': ['lastSeenAt', 'id'] },
   },
   itemBodies: { keyPath: 'id', indexes: { 'by-feed-id': 'feedId' } },
   itemFlags: { keyPath: 'id', indexes: { 'by-read': 'read', 'by-starred': 'starred', 'by-feed-id': 'feedId' } },
@@ -102,18 +102,28 @@ async function seedV10(name: string): Promise<void> {
   db.close();
 }
 
+async function seedV11(name: string): Promise<void> {
+  await seedV10(name);
+  const db = await openDB(name, 11, {
+    upgrade(_upgrading, oldVersion, _newVersion, transaction) {
+      if (oldVersion === 10) transaction.objectStore('items').createIndex('by-last-seen', ['lastSeenAt', 'id']);
+    },
+  });
+  db.close();
+}
+
 async function snapshot(db: AnyDb, store: string): Promise<unknown[]> {
   return db.getAll(store);
 }
 
-describe('database version 11', () => {
+describe('database version 12', () => {
   it('is the current version', () => {
-    expect(DB_VERSION).toBe(11);
+    expect(DB_VERSION).toBe(12);
   });
 
-  it('creates the version 11 layout directly for a new database', async () => {
+  it('creates the version 12 layout directly for a new database', async () => {
     const db = await openDB(freshName(), DB_VERSION, { upgrade });
-    expect(db.version).toBe(11);
+    expect(db.version).toBe(12);
     expect(describeLayout(db)).toEqual(FRESH_LAYOUT);
     for (const store of Object.keys(FRESH_LAYOUT)) expect(await db.count(store)).toBe(0);
     db.close();
@@ -129,7 +139,7 @@ describe('database version 11', () => {
     before.close();
 
     const db = await openDB(name, DB_VERSION, { upgrade });
-    expect(db.version).toBe(11);
+    expect(db.version).toBe(12);
     expect(describeLayout(db)).toEqual(FRESH_LAYOUT);
 
     for (const store of untouched) expect(await snapshot(db, store)).toEqual(expected[store]);
@@ -169,12 +179,31 @@ describe('database version 11', () => {
     before.close();
 
     const db = await openDB(name, DB_VERSION, { upgrade });
-    expect(db.version).toBe(11);
+    expect(db.version).toBe(12);
     expect(await db.get('feeds', 'f1')).toEqual(feed);
     expect(await db.get('itemBodies', 'f1::both')).toEqual(body);
     expect(await snapshot(db, 'itemFlags')).toEqual(flags);
     for (const item of await db.getAll('items')) expect(item.lastSeenAt).toEqual(expect.any(Number));
     expect(db.transaction('items').store.indexNames.contains('by-last-seen')).toBe(true);
+    expect(db.transaction('items').store.index('by-feed-created').keyPath).toEqual(['feedId', 'createdAt']);
+    db.close();
+  });
+
+  it('adds the recent-cohort index to version 11 without rewriting records', async () => {
+    const name = freshName();
+    await seedV11(name);
+    const before = await openDB(name, 11);
+    const items = await snapshot(before, 'items');
+    const feeds = await snapshot(before, 'feeds');
+    const markers = await snapshot(before, 'readMarkers');
+    before.close();
+
+    const db = await openDB(name, DB_VERSION, { upgrade });
+    expect(db.version).toBe(12);
+    expect(await snapshot(db, 'items')).toEqual(items);
+    expect(await snapshot(db, 'feeds')).toEqual(feeds);
+    expect(await snapshot(db, 'readMarkers')).toEqual(markers);
+    expect(db.transaction('items').store.index('by-feed-created').keyPath).toEqual(['feedId', 'createdAt']);
     db.close();
   });
 
@@ -193,7 +222,7 @@ describe('database version 11', () => {
     db.close();
   });
 
-  it.each([2, 5, 8])('resets a version %i database to an empty version 11 layout', async (version) => {
+  it.each([2, 5, 8])('resets a version %i database to an empty version 12 layout', async (version) => {
     const name = freshName();
     const old = await openDB(name, version, {
       upgrade(upgrading) {
@@ -209,7 +238,7 @@ describe('database version 11', () => {
     old.close();
 
     const db = await openDB(name, DB_VERSION, { upgrade });
-    expect(db.version).toBe(11);
+    expect(db.version).toBe(12);
     expect(describeLayout(db)).toEqual(FRESH_LAYOUT);
     for (const store of Object.keys(FRESH_LAYOUT)) expect(await db.count(store)).toBe(0);
     db.close();

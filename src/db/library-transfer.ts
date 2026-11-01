@@ -156,13 +156,33 @@ function mergeMeta(source: LibraryRecord[], destination: LibraryRecord[], feedId
   for (const sourceRow of source) {
     const key = String(sourceRow.key);
     const destinationRow = merged.get(key);
-    if (!destinationRow) {
-      merged.set(key, sourceRow);
-    } else if (key === 'settings' && isRecord(sourceRow.value) && isRecord(destinationRow.value)) {
-      if (typeof sourceRow.value.syncKey === 'string' && typeof destinationRow.value.syncKey === 'string' && sourceRow.value.syncKey !== destinationRow.value.syncKey) {
-        retainSyncAccount(destinationRow);
+    if (key === 'settings' && isRecord(sourceRow.value)) {
+      const sourceFeedback = isRecord(sourceRow.value.feedRankingFeedback)
+        ? Object.fromEntries(Object.entries(sourceRow.value.feedRankingFeedback).map(([feedId, preference]) => [feedIds.get(feedId) ?? feedId, preference]))
+        : undefined;
+      if (destinationRow && isRecord(destinationRow.value)) {
+        if (typeof sourceRow.value.syncKey === 'string' && typeof destinationRow.value.syncKey === 'string' && sourceRow.value.syncKey !== destinationRow.value.syncKey) {
+          retainSyncAccount(destinationRow);
+        }
+        const destinationFeedback = isRecord(destinationRow.value.feedRankingFeedback)
+          ? destinationRow.value.feedRankingFeedback
+          : {};
+        merged.set(key, {
+          key,
+          value: {
+            ...destinationRow.value,
+            ...sourceRow.value,
+            ...(sourceFeedback ? { feedRankingFeedback: { ...destinationFeedback, ...sourceFeedback } } : {}),
+          },
+        });
+      } else {
+        merged.set(key, {
+          key,
+          value: { ...sourceRow.value, ...(sourceFeedback ? { feedRankingFeedback: sourceFeedback } : {}) },
+        });
       }
-      merged.set(key, { key, value: { ...destinationRow.value, ...sourceRow.value } });
+    } else if (!destinationRow) {
+      merged.set(key, sourceRow);
     } else if (key === 'lidora-migration-retained-sync-accounts' && Array.isArray(sourceRow.value) && Array.isArray(destinationRow.value)) {
       const accounts = new Map<string, LibraryRecord>();
       for (const entry of [...destinationRow.value, ...sourceRow.value]) {

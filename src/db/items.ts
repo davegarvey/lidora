@@ -366,3 +366,38 @@ export async function listSelectedItems(options: {
   }
   return { items, hasStoredItems };
 }
+
+export async function listForYouCandidates(options: {
+  feedIds: ReadonlySet<string>;
+  unreadOnly: boolean;
+  starredOnly: boolean;
+  limit?: number;
+}): Promise<{ items: Item[]; hasStoredItems: boolean }> {
+  const limit = options.limit ?? 500;
+  const perFeedLimit = Math.max(1, Math.min(limit, Math.ceil((limit * 2) / Math.max(1, options.feedIds.size))));
+  const results = await Promise.all([...options.feedIds].map(async (feedId) => {
+    const db = await getDb();
+    const tx = db.transaction('items', 'readonly');
+    const index = tx.store.index('by-feed-published');
+    const range = IDBKeyRange.bound([feedId, -Infinity], [feedId, Infinity]);
+    const [hasStoredItems, items] = await Promise.all([
+      index.getKey(range).then((key) => key !== undefined),
+      (async () => {
+        const matches: Item[] = [];
+        let cursor = await index.openCursor(range, 'prev');
+        while (cursor && matches.length < perFeedLimit) {
+          const item = cursor.value;
+          if ((!options.unreadOnly || !item.read) && (!options.starredOnly || item.starred)) matches.push(item);
+          cursor = await cursor.continue();
+        }
+        return matches;
+      })(),
+    ]);
+    await tx.done;
+    return { hasStoredItems, items };
+  }));
+  return {
+    items: results.flatMap((result) => result.items),
+    hasStoredItems: results.some((result) => result.hasStoredItems),
+  };
+}

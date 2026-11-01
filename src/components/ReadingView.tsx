@@ -1,7 +1,7 @@
 import { createSignal, createEffect, createMemo, Show, onMount, onCleanup } from 'solid-js';
 import { useApp } from '../state';
 import { LibraryActivity } from './LibraryActivity';
-import { ArrowLeft, ChevronLeft, ChevronRight, CircleQuestionMark, ExternalLink, Star } from 'lucide-solid';
+import { ArrowLeft, ChevronLeft, ChevronRight, CircleQuestionMark, ExternalLink, Star, ThumbsDown, ThumbsUp } from 'lucide-solid';
 import { openItemForReading } from '../articles/service';
 import { sanitiseArticleHtml } from '../articles/sanitise';
 import { FocusModeToggle } from './FocusModeToggle';
@@ -108,6 +108,11 @@ export function ReadingView() {
     });
   };
 
+  const setRankingFeedback = (feedback: 'more' | 'less') => {
+    const item = currentItem();
+    if (item) void ctx.setFeedRankingFeedback(item.feedId, feedback);
+  };
+
   const singleItem = () => ctx.items().length <= 1;
 
   // --- Swipe prev/next navigation (touch-only) -------------------------------
@@ -196,6 +201,24 @@ export function ReadingView() {
             </Show>
             <LibraryActivity class="reading-update-status" />
             <button
+              class="desktop-only ranking-feedback"
+              onClick={() => setRankingFeedback('more')}
+              title={`More from ${feedName()}`}
+              aria-label={`More from ${feedName()}`}
+              aria-pressed={ctx.settings().feedRankingFeedback?.[currentItem()?.feedId ?? ''] === 'more'}
+            >
+              <ThumbsUp size={14} />
+            </button>
+            <button
+              class="desktop-only ranking-feedback"
+              onClick={() => setRankingFeedback('less')}
+              title={`Less from ${feedName()}`}
+              aria-label={`Less from ${feedName()}`}
+              aria-pressed={ctx.settings().feedRankingFeedback?.[currentItem()?.feedId ?? ''] === 'less'}
+            >
+              <ThumbsDown size={14} />
+            </button>
+            <button
               class="star desktop-only"
               onClick={() => void toggleStarClick()}
               title={currentItem()?.starred ? 'Unstar (s)' : 'Star (s)'}
@@ -269,6 +292,24 @@ export function ReadingView() {
           </button>
         </Show>
         <div class="bottom-bar-center">
+          <button
+            class="bottom-bar-btn ranking-feedback"
+            onClick={() => setRankingFeedback('more')}
+            title={`More from ${feedName()}`}
+            aria-label={`More from ${feedName()}`}
+            aria-pressed={ctx.settings().feedRankingFeedback?.[currentItem()?.feedId ?? ''] === 'more'}
+          >
+            <ThumbsUp size={16} />
+          </button>
+          <button
+            class="bottom-bar-btn ranking-feedback"
+            onClick={() => setRankingFeedback('less')}
+            title={`Less from ${feedName()}`}
+            aria-label={`Less from ${feedName()}`}
+            aria-pressed={ctx.settings().feedRankingFeedback?.[currentItem()?.feedId ?? ''] === 'less'}
+          >
+            <ThumbsDown size={16} />
+          </button>
           <button
             class="bottom-bar-btn star"
             onClick={() => void toggleStarClick()}

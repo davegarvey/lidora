@@ -4,8 +4,11 @@ import { createSignal, createMemo, createContext, useContext, onCleanup } from '
 import type { ParentComponent } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { listFeeds } from './db/feeds';
-import { getExistingItemIds, getItem, listSelectedItems, markRead, toggleStar as dbToggleStar } from './db/items';
+import { getExistingItemIds, getItem, listForYouCandidates, listSelectedItems, markRead, toggleStar as dbToggleStar } from './db/items';
 import type { Feed, Item } from './db/types';
+import { listRecentFeedReadSamples } from './db/feed-ranking';
+import { rankForYou, smoothFeedReadRates } from './articles/feedRanking';
+import type { FeedRankingFeedback } from './articles/feedRanking';
 import { pairingErrorMessage } from './sync/pairing';
 import { writeItemHistory, parseItemIdFromUrl, hashId, isStatsPath, itemIdFromHistoryState, parseSettingsPath, settingsUrl } from './routing';
 import type { SettingsSection } from './routing';
@@ -41,6 +44,13 @@ function normalizeStatsSort(value: unknown): StatsSortPreference {
   return { column: candidate.column, direction: candidate.direction };
 }
 
+function normalizeFeedRankingFeedback(value: unknown): Record<string, FeedRankingFeedback> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, FeedRankingFeedback] => (
+    entry[1] === 'more' || entry[1] === 'less'
+  )));
+}
+
 async function getSettings(): Promise<AppSettings> {
   const stored = await getMeta<Partial<AppSettings>>(SETTINGS_KEY, {});
   const sidebarWidth = typeof stored.sidebarWidth === 'number' && Number.isFinite(stored.sidebarWidth)
@@ -55,6 +65,8 @@ async function getSettings(): Promise<AppSettings> {
     ...desktopLayout,
     statsSort,
     articleReadMode: normalizeReadMode(stored.articleReadMode),
+    articleOrder: stored.articleOrder === 'for-you' ? 'for-you' : 'latest',
+    feedRankingFeedback: normalizeFeedRankingFeedback(stored.feedRankingFeedback),
   };
 }
 
@@ -143,6 +155,8 @@ export interface AppContext {
   items: () => Item[];
   hasScopedItems: () => boolean;
   setReadMode: (mode: ReadMode) => Promise<void>;
+  setArticleOrder: (order: 'latest' | 'for-you') => Promise<void>;
+  setFeedRankingFeedback: (feedId: string, feedback: FeedRankingFeedback) => Promise<void>;
   allTags: () => string[];
   activeTagSet: () => Set<string>;
   settings: () => AppSettings;
@@ -429,13 +443,26 @@ export const AppProvider: ParentComponent = (props) => {
         const tags = [...state.activeTags];
         const mode = state.readMode;
         const starred = state.starredOnly;
-        const result = await listSelectedItems({
-          feedIds: refreshTargetForSelection(feeds(), scope, tags),
-          unreadOnly: mode === 'unread' && !starred,
-          starredOnly: starred,
-        });
+        const articleOrder = settings().articleOrder ?? 'latest';
+        const rankingFeedback = settings().feedRankingFeedback ?? {};
+        const selectedFeedIds = refreshTargetForSelection(feeds(), scope, tags);
+        const result = articleOrder === 'for-you'
+          ? await listForYouCandidates({
+            feedIds: selectedFeedIds,
+            unreadOnly: mode === 'unread' && !starred,
+            starredOnly: starred,
+          })
+          : await listSelectedItems({
+            feedIds: selectedFeedIds,
+            unreadOnly: mode === 'unread' && !starred,
+            starredOnly: starred,
+          });
+        if (articleOrder === 'for-you') {
+          const recentSamples = await listRecentFeedReadSamples(feeds().map((feed) => feed.id));
+          result.items = rankForYou(result.items, smoothFeedReadRates(recentSamples), rankingFeedback).slice(0, 500);
+        }
         if (revision !== requestedRevision) continue;
-        if (scope !== state.riverScope || mode !== state.readMode || starred !== state.starredOnly || tags.join('\0') !== state.activeTags.join('\0')) continue;
+        if (scope !== state.riverScope || mode !== state.readMode || starred !== state.starredOnly || articleOrder !== (settings().articleOrder ?? 'latest') || rankingFeedback !== settings().feedRankingFeedback || tags.join('\0') !== state.activeTags.join('\0')) continue;
         const existingIds = await getExistingItemIds(storedItems().map((item) => item.id));
         if (revision !== requestedRevision) continue;
         if (existingIds.size !== storedItems().length) setItems(storedItems().filter((item) => existingIds.has(item.id)));
@@ -544,6 +571,22 @@ export const AppProvider: ParentComponent = (props) => {
   const setReadMode = async (mode: ReadMode) => {
     setState({ readMode: mode, focusedIndex: -1 });
     await saveSettingsPatch({ articleReadMode: mode });
+    await reloadItems();
+  };
+
+  const setArticleOrder = async (order: 'latest' | 'for-you') => {
+    if ((settings().articleOrder ?? 'latest') === order) return;
+    setState({ focusedIndex: -1 });
+    await saveSettingsPatch({ articleOrder: order });
+    await reloadItems();
+  };
+
+  const setFeedRankingFeedback = async (feedId: string, feedback: FeedRankingFeedback) => {
+    const current = settings().feedRankingFeedback ?? {};
+    const next = { ...current };
+    if (current[feedId] === feedback) delete next[feedId];
+    else next[feedId] = feedback;
+    await saveSettingsPatch({ feedRankingFeedback: next });
     await reloadItems();
   };
 
@@ -908,6 +951,8 @@ export const AppProvider: ParentComponent = (props) => {
     items,
     hasScopedItems,
     setReadMode,
+    setArticleOrder,
+    setFeedRankingFeedback,
     allTags,
     activeTagSet,
     settings,
