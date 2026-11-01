@@ -45,7 +45,7 @@ async function expectStoredReadMode(page: Page, mode: 'all' | 'unread') {
 test('desktop filter persists, retains the opened row, restores neighbour focus and reaches caught up', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await seed(page);
-  const filter = page.locator('.sidebar .tag-chips').getByRole('button', { name: 'Show unread only' });
+  const filter = page.locator('.river-header').getByRole('button', { name: 'Show unread only' });
   await expect(page.locator('.river .read-filter')).toHaveCount(0);
   await expect(filter).toHaveAttribute('aria-pressed', 'false');
   await filter.click();
@@ -71,19 +71,18 @@ test('desktop filter persists, retains the opened row, restores neighbour focus 
   await expect(page.locator('.river-item')).toHaveCount(3);
 });
 
-test('mobile filter lives in the sidebar chips and starred bypasses unread mode', async ({ page }) => {
+test('mobile filter lives in the list header and starred bypasses unread mode', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await seed(page);
   await expect(page.locator('.topbar').getByRole('button', { name: 'Show unread only' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Open feeds sidebar' }).click();
-  const chips = page.locator('.sidebar .tag-chips');
+  const chips = page.locator('.river-header');
   const filter = chips.getByRole('button', { name: 'Show unread only' });
   await expect(filter).toBeVisible();
   await filter.click();
   await expect(filter).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.river-item')).toHaveCount(2);
   await expect(page.locator('.river-item').first()).toContainText('Article 1');
-  await chips.getByRole('button', { name: 'Toggle starred filter' }).click();
+  await chips.getByRole('button', { name: 'Show starred only' }).click();
   await expect(page.locator('.river-item')).toHaveCount(1);
   await expect(page.locator('.river-item')).toContainText('Article 3');
   await expect(filter).toBeDisabled();
@@ -92,7 +91,7 @@ test('mobile filter lives in the sidebar chips and starred bypasses unread mode'
 test('reader keyboard navigation removes the previous read row and stays on eligible articles', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await seed(page);
-  await page.locator('.sidebar .tag-chips').getByRole('button', { name: 'Show unread only' }).click();
+  await page.locator('.river-header').getByRole('button', { name: 'Show unread only' }).click();
   await page.locator('.river-item').first().click();
   await page.keyboard.press('j');
   await expect(page.locator('.river-item')).toHaveCount(1);
@@ -103,18 +102,18 @@ test('reader keyboard navigation removes the previous read row and stays on elig
   await expect(page.getByText('You’re caught up', { exact: true })).toBeVisible();
 });
 
-test('desktop unread chip is disabled while starred is active', async ({ page }) => {
+test('desktop unread toggle is disabled while starred is active', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await seed(page);
-  const chips = page.locator('.sidebar .tag-chips');
+  const chips = page.locator('.river-header');
   const filter = chips.getByRole('button', { name: 'Show unread only' });
   await filter.click();
   await expect(page.locator('.river-item')).toHaveCount(2);
-  await chips.getByRole('button', { name: 'Toggle starred filter' }).click();
+  await chips.getByRole('button', { name: 'Show starred only' }).click();
   await expect(page.locator('.river-item')).toHaveCount(1);
   await expect(filter).toBeDisabled();
   await expect(filter).not.toHaveClass(/active/);
-  await chips.getByRole('button', { name: 'Toggle starred filter' }).click();
+  await chips.getByRole('button', { name: 'Show starred only' }).click();
   await expect(filter).toBeEnabled();
   await expect(filter).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.river-item')).toHaveCount(2);
