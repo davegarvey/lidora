@@ -4,7 +4,7 @@ import { refreshTargetForSelection } from '../feeds/scope';
 import type { Item } from '../db/types';
 import { getDbStatus, onDbStatusChange } from '../db/open';
 import { relativeTime } from '../util/time';
-import { Star, CircleCheck, ThumbsDown, ThumbsUp } from 'lucide-solid';
+import { Star, CircleCheck, ThumbsDown, ThumbsUp, Plus, Sparkles, FileUp } from 'lucide-solid';
 import { CircleIcon, CircleCheckIcon } from './Icons';
 import { RiverHeader } from './RiverHeader';
 
@@ -312,25 +312,43 @@ function EmptyState() {
       }
     };
     return (
-      <div class="empty-state">
-        <div class="headline">Welcome to Lidora</div>
-        <p class="welcome-copy">Follow the websites you like and read their new posts in one place. Everything stays in this browser; no account needed.</p>
-        <div class="welcome-actions">
-        <button type="button" class="primary-cta" onClick={() => ctx.openModal({ kind: 'add-feed' })}>
-          Add your first feed
-        </button>
-        <button type="button" class="secondary-cta" disabled={addingSamples()} onClick={() => void addSampleFeeds()}>
-          {addingSamples() ? 'Adding feeds…' : 'Try sample feeds'}
-        </button>
-        <button type="button" class="secondary-cta" onClick={() => ctx.openSettings('subscriptions')}>
-          Import OPML
-        </button>
-        <button type="button" class="secondary-cta" onClick={() => ctx.openSettings('devices')}>
-          Pair a device
-        </button>
+      <div class="empty-state welcome">
+        <div class="welcome-intro">
+          <h1 class="welcome-title">A quiet place to read the web</h1>
+          <p class="welcome-copy">Follow any site with a feed and read its new posts in one place. Your subscriptions stay in this browser; no account needed.</p>
         </div>
-        <Show when={sampleError()}><p class="welcome-copy" role="status">A sample feed could not be added. Try again or add a feed manually.</p></Show>
-        <a class="welcome-about" href="/about">About Lidora</a>
+        <div class="welcome-start">
+          <ul class="welcome-actions">
+            <li>
+              <button type="button" class="welcome-action primary" onClick={() => ctx.openModal({ kind: 'add-feed' })}>
+                <Plus size={16} />
+                <span class="welcome-action-label">Add a feed</span>
+                <span class="welcome-action-note">Paste a site’s address</span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="welcome-action" aria-busy={addingSamples()} onClick={() => void addSampleFeeds()}>
+                <Sparkles size={16} />
+                <span class="welcome-action-label">{addingSamples() ? 'Adding sample feeds…' : 'Try sample feeds'}</span>
+                <span class="welcome-action-note">Mozilla Hacks and NASA</span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="welcome-action" onClick={() => ctx.openSettings('subscriptions')}>
+                <FileUp size={16} />
+                <span class="welcome-action-label">Import OPML</span>
+                <span class="welcome-action-note">From another reader</span>
+              </button>
+            </li>
+          </ul>
+          <Show when={sampleError()}><p class="welcome-error" role="status">A sample feed could not be added. Try again or add a feed manually.</p></Show>
+          <p class="welcome-pair">
+            Already use Lidora in another browser? <button type="button" class="welcome-link" onClick={() => ctx.openSettings('devices')}>Pair this one</button>
+          </p>
+          <p class="welcome-footer">
+            Works offline · Full articles · Optional sync · <a href="/about">About Lidora</a>
+          </p>
+        </div>
       </div>
     );
   }

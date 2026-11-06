@@ -206,7 +206,7 @@ describe('River loading vs empty state', () => {
     m.setItems([]);
     m.setHydrated(true);
 
-    expect(document.body.textContent).toContain('Welcome to Lidora');
+    expect(document.body.textContent).toContain('A quiet place to read the web');
     expect(document.body.textContent).not.toContain('Loading');
   });
 
@@ -228,7 +228,7 @@ describe('River loading vs empty state', () => {
 
     expect(document.body.textContent).toContain('First article');
     expect(document.body.textContent).not.toContain('Loading');
-    expect(document.body.textContent).not.toContain('Welcome to Lidora');
+    expect(document.body.textContent).not.toContain('A quiet place to read the web');
   });
 
   it('exposes feed-scoped thumb feedback beside the article actions', () => {
@@ -270,7 +270,7 @@ describe('River loading vs empty state', () => {
 
     expect(document.body.textContent).toContain('No items yet');
     expect(document.body.textContent).not.toContain('Loading');
-    expect(document.body.textContent).not.toContain('Welcome to Lidora');
+    expect(document.body.textContent).not.toContain('A quiet place to read the web');
   });
   it.each([
     { stored: true, failed: false, message: 'You’re caught up' },
