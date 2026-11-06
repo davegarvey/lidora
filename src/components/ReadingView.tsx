@@ -5,7 +5,7 @@ import { openItemForReading } from '../articles/service';
 import { sanitiseArticleHtml } from '../articles/sanitise';
 import { FocusModeToggle } from './FocusModeToggle';
 import { navigateReaderByOffset } from '../readerNavigation';
-import { humanRelativeTime } from '../util/time';
+import { fullTimestamp, humanRelativeTime } from '../util/time';
 import { SWIPE, swipeDirection, isVerticalDominant, clampTranslate } from '../util/swipe';
 
 export function ReadingView() {
@@ -237,7 +237,12 @@ export function ReadingView() {
                 </Show>
                 {feedName()}
                 {' · '}
-                <span>{humanRelativeTime(new Date(currentItem()!.publishedAt))}</span>
+                <time
+                  datetime={new Date(currentItem()!.publishedAt).toISOString()}
+                  title={fullTimestamp(new Date(currentItem()!.publishedAt))}
+                >
+                  {humanRelativeTime(new Date(currentItem()!.publishedAt))}
+                </time>
               </div>
               <Show when={extractionFailed()}>
                 <div class="extraction-notice">
