@@ -13,9 +13,9 @@ Migrations are applied as part of the deploy pipeline, immediately before
 
 - **Workers Builds (production deploys):** the deploy command is
   `npm run deploy:ci` (apply `sift-sync` and `sift-poll` migrations, then
-  `wrangler deploy`, retried once). The build command is `npm run build`;
-  `wrangler.toml` has no build hook, so the app is built once. Configure this in the dashboard: Worker → Settings →
-  Builds → Deploy command. The build's API token must include D1 edit
+  `wrangler deploy`). The build command is `npm run build`; `wrangler.toml`
+  has no build hook, so the app is built once. Configure this in the
+  dashboard: Worker → Settings → Builds → Deploy command. The build's API token must include D1 edit
   permission (the auto-generated token does not — use your own token with
   D1 edit).
 - **Previews (non-production branches):** the non-production branch deploy

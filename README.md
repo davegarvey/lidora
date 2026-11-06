@@ -55,9 +55,7 @@ npm run deploy    # pull + build + apply sift-sync and sift-poll migrations + de
 Migrations are applied as part of the deploy, immediately before the
 Worker ships. Workers Builds uses `npm run build` as its build command and
 `npm run deploy:ci` (migrations, then deploy, without `git pull` or a
-second build) as its deploy command. `deploy:ci` retries `wrangler deploy`
-once after 15 seconds, because Cloudflare API errors during deploy are
-occasionally transient.
+second build) as its deploy command.
 
 Polling uses a separate D1 database named `sift-poll`, bound as `POLL_DB`, so
 its item store cannot fill the sync database. Create and bind it once before
@@ -229,7 +227,7 @@ ignored because clients can supply it themselves.
   with a seeded test token (see `tests/conformance/`)
 - `npm run spec:validate` — strict OpenSpec validation of `openspec/specs/` (runs in CI)
 - `npm run deploy` — `git pull --ff-only && vite build && wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && wrangler deploy`
-- `npm run deploy:ci` — migrations and deploy, without `git pull` or a build, retrying `wrangler deploy` once (Workers Builds deploy command, after its `npm run build` build command)
+- `npm run deploy:ci` — migrations and deploy, without `git pull` or a build (Workers Builds deploy command, after its `npm run build` build command)
 
 ## Privacy
 
