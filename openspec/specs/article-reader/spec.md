@@ -42,21 +42,6 @@ When feed HTML contains a link labeled `Source` that resolves to the item's own 
 - **WHEN** feed HTML ends with an existing full-article CTA such as `Read full article`
 - **THEN** the parser SHALL continue to classify the HTML as partial content
 
-### Requirement: Article figures use the full reading column on mobile
-
-In the mobile reading view, article figures SHALL use the full width of the padded reading column without the browser's default horizontal figure margins. The article body's existing horizontal padding SHALL remain in effect, and desktop figure spacing SHALL remain unchanged.
-
-#### Scenario: Figure content on mobile
-
-- **WHEN** an article containing a `figure` is displayed at a viewport width of 768 CSS pixels or narrower
-- **THEN** the figure has no horizontal margin
-- **AND** its content can use the full width inside the reading body's existing horizontal padding
-
-#### Scenario: Figure spacing on desktop
-
-- **WHEN** an article containing a `figure` is displayed at a viewport width wider than 768 CSS pixels
-- **THEN** the existing desktop figure spacing remains unchanged
-
 ### Requirement: Article HTML is sanitised before rendering
 
 The reading view SHALL pass every article body through an allowlist HTML sanitiser immediately before inserting it into the page. The sanitiser SHALL remove `script`, `style`, `form`, `object`, `svg` and `math` elements, every event-handler attribute, `id`, `class` and `name` attributes, and URLs with a `javascript:` scheme. It SHALL keep `figure`, `figcaption`, `picture`, `source`, `img` (with `src`, `srcset`, `alt`, `width`, `height` and `data-original-src`), `strong`, `em`, `small`, `b`, `i`, headings, lists, `blockquote`, `pre`, `code`, tables, and links with `href`, `target` and `rel`. Relative `/img?url=` proxy URLs SHALL be preserved. Inline `style` SHALL be kept only on `img`, `iframe`, `video` and `embed`. An `iframe` or `embed` SHALL be removed unless its `src` is an absolute `http:` or `https:` URL. Any element with a `target` SHALL render with `target="_blank"` and `rel="noopener noreferrer"`.
@@ -143,3 +128,25 @@ The reader SHALL resolve remote image URLs against the full content's effective 
 
 - **WHEN** an image source candidate is malformed or uses a non-HTTP(S) scheme
 - **THEN** that candidate SHALL be omitted from the rendered image sources
+
+### Requirement: Article figures use standard element styles
+
+The reading view SHALL style article figures by standard element, without site-specific classes, using the theme tokens. A `figure` SHALL have vertical spacing and no horizontal margin at every viewport width. An image inside it SHALL be centred and scale down to the column width with automatic height, without being enlarged beyond its natural size. A `figcaption` SHALL use the interface sans-serif font, a smaller size than body text and the muted text colour.
+
+#### Scenario: Figure with title, image and caption
+
+- **WHEN** an article contains a `figure` with a bold title paragraph, an `img` and a `figcaption`
+- **THEN** the figure has no horizontal margin
+- **AND** the image is no wider than the figure, with its aspect ratio preserved
+- **AND** the caption uses the sans-serif font, a smaller size than body text and the muted text colour
+- **AND** the title keeps its bold weight
+
+#### Scenario: Figure on desktop
+
+- **WHEN** an article containing a `figure` is displayed at a viewport width wider than 768 CSS pixels
+- **THEN** the figure has no horizontal margin
+
+#### Scenario: Image narrower than the column
+
+- **WHEN** a `figure` contains an image whose natural width is less than the reading column
+- **THEN** the image renders at its natural width, centred, and is not enlarged
