@@ -105,64 +105,6 @@ The `initialize` result SHALL include `instructions` that describe Lidora, its i
 - **THEN** the server SHALL store it as pending for ten minutes and serve the consent screen
 
 
-### Requirement: Approval code fallback
-
-When the consent request has no usable connection ID, the consent screen SHALL show an 8-character, single-use approval code with a copy action, and a QR code for scanning. Under Settings → Agents, the app SHALL accept a pasted, typed or scanned code. It SHALL show the client name, redirect host and scopes before approving. When this device has no sync key, looking up a code SHALL turn sync on first. The consent page SHALL poll and redirect once a decision is made.
-
-#### Scenario: Approve by pasted code
-- **WHEN** the user copies the code from the consent page, pastes it into the installed app, and approves
-- **THEN** the consent page SHALL redirect to the client with an authorisation code bound to the app's sync key
-
-#### Scenario: Expired approval code
-- **WHEN** the user enters an approval code more than ten minutes after the request was created
-- **THEN** the app SHALL report that the request has expired
-- **AND** no grant SHALL be issued
-
-#### Scenario: Sync not enabled
-- **WHEN** the consent page has no connection ID and no sync key
-- **THEN** the screen SHALL explain that approval requires Lidora with sync turned on, and SHALL show the approval code
-
-
-### Requirement: Connect an agent screen
-
-Settings SHALL have a dedicated Agents section with a Connect an agent action, a connected-agent list with inline rename and revocation confirmation, and secondary approval-code entry. When this device has no sync key, the section SHALL explain that connecting an agent turns on the server copy of subscriptions and reading progress. It SHALL show loading, empty and retryable error states. It SHALL NOT show sync keys, the plain `/mcp` address, machine-readable document links, or stack dialogs over Settings.
-
-#### Scenario: Connect with sync off
-- **WHEN** a user without a sync key starts agent setup
-- **THEN** the app SHALL turn sync on before creating the connection
-- **AND** if enabling sync fails, it SHALL report the error and leave sync off
-
-#### Scenario: Approval code entry is secondary
-- **WHEN** the user opens the section
-- **THEN** the approval-code field SHALL be hidden until the user taps "Have an approval code?"
-
-#### Scenario: Revoke a connected agent
-- **WHEN** the user confirms revocation in the agent's row
-- **THEN** the grant's access and refresh tokens SHALL stop working immediately
-- **AND** the agent SHALL no longer be listed
-
-#### Scenario: Revoke fails
-- **WHEN** the revoke request fails
-- **THEN** the inline confirmation SHALL remain open with the error shown
-- **AND** the agent SHALL remain listed
-
-#### Scenario: No agents
-- **WHEN** the list loads and no agents are connected
-- **THEN** the section SHALL show "No agents connected"
-
-#### Scenario: List fails to load
-- **WHEN** the connected-agents request fails
-- **THEN** the section SHALL show an error with a Retry action, not an empty list
-
-#### Scenario: New connection appears
-- **WHEN** an agent completes authorisation and the user reopens the Agents section
-- **THEN** the agent SHALL appear in the connected-agents list under its client name
-
-#### Scenario: Expired connection link
-- **WHEN** a connection link has expired
-- **THEN** the section SHALL state that the link has expired and offer Create a new link
-
-
 ### Requirement: Refresh token rotation
 
 `POST /oauth/oauth2/token` SHALL support the `refresh_token` grant. Lidora SHALL grant `offline_access` to every approved connection. Refresh tokens SHALL expire 365 days after issuance and SHALL rotate on every use; each refresh SHALL extend the agent session to the new refresh token's expiry. Presenting an already-rotated refresh token SHALL revoke every token in that grant. `POST /oauth/oauth2/revoke` SHALL revoke a presented refresh token.
@@ -179,19 +121,6 @@ Settings SHALL have a dedicated Agents section with a Connect an agent action, a
 - **WHEN** a refresh token that has already been rotated is presented
 - **THEN** the server SHALL respond `invalid_grant`
 - **AND** SHALL revoke all access and refresh tokens of that grant
-
-
-### Requirement: Client-neutral setup instructions
-
-The setup instructions SHALL describe Lidora as a remote MCP server using the Streamable HTTP transport and OAuth, give the connection URL, ask the agent to add it as a server named "lidora" available across the user's projects and to start the sign-in, and ask agents that cannot change their own configuration to say where the user should add the URL. They SHALL NOT name particular clients or ask the agent to fetch anything.
-
-#### Scenario: Agent with a shell
-- **WHEN** the user pastes the instructions into a coding agent that can manage its MCP configuration
-- **THEN** the instructions SHALL give it everything needed to add the server and start the OAuth sign-in
-
-#### Scenario: Chat-only agent
-- **WHEN** the user pastes the instructions into an agent that cannot change its configuration
-- **THEN** the instructions SHALL ask it to tell the user where to add the URL
 
 
 ### Requirement: Consent page isolation

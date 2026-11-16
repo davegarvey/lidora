@@ -1,12 +1,12 @@
 # agent-connector Specification
 
 ## Purpose
-Define library-managed OAuth for Sift’s MCP connector across Cloudflare Workers and self-hosted deployments, preserving convenient explicit approval and immediate account control.
+Define library-managed OAuth for Lidora’s MCP connector across Cloudflare Workers and self-hosted deployments, preserving convenient explicit approval and immediate account control.
 
 ## Requirements
 
 ### Requirement: Shared library authorization server
-Sift SHALL use Better Auth and its MCP, OAuth provider, JWT and CIMD plugins for authorization protocol processing on Cloudflare Workers with D1 and on Node and Bun with SQLite. Deployments SHALL use the same protocol implementation without a provider-selection environment variable. Only discovery, JWKS, authorization, registration, token and revocation protocol endpoints SHALL be publicly routed; provider account and session APIs SHALL remain internal.
+Lidora SHALL use Better Auth and its MCP, OAuth provider, JWT and CIMD plugins for authorization protocol processing on Cloudflare Workers with D1 and on Node and Bun with SQLite. Deployments SHALL use the same protocol implementation without a provider-selection environment variable. Only discovery, JWKS, authorization, registration, token and revocation protocol endpoints SHALL be publicly routed; provider account and session APIs SHALL remain internal.
 
 #### Scenario: Deployment configuration
 - **WHEN** OAuth is enabled on a supported deployment
@@ -14,10 +14,10 @@ Sift SHALL use Better Auth and its MCP, OAuth provider, JWT and CIMD plugins for
 - **AND** missing secret configuration returns 503 for OAuth without disabling device sync
 
 ### Requirement: Convenient explicit approval
-Sift SHALL preserve ten-minute single-use connection links and explicit consent across browsers. Each link SHALL have its own issuer `/oauth/c/<id>` and resource `/mcp/c/<id>`. The canonical issuer SHALL be `/oauth`. The library SHALL sign the authorization query before Sift accepts an approval request. A connection SHALL identify an account without exposing its sync key. Provider sessions SHALL remain server-side. Approval by a master key or approval code SHALL remain available when the link cannot identify an account automatically.
+Lidora SHALL preserve ten-minute single-use connection links and explicit consent across browsers. Each link SHALL have its own issuer `/oauth/c/<id>` and resource `/mcp/c/<id>`. The canonical issuer SHALL be `/oauth`. The library SHALL sign the authorization query before Lidora accepts an approval request. A connection SHALL identify an account without exposing its sync key. Provider sessions SHALL remain server-side. Approval by a master key or approval code SHALL remain available when the link cannot identify an account automatically.
 
 #### Scenario: Fresh browser
-- **WHEN** a client starts authorization with an unused connection link in a browser without Sift data
+- **WHEN** a client starts authorization with an unused connection link in a browser without Lidora data
 - **THEN** the user can approve once without entering a key or code
 - **AND** concurrent anonymous approvals cannot consume the same connection twice
 
@@ -27,7 +27,7 @@ Sift SHALL preserve ten-minute single-use connection links and explicit consent 
 - **AND** a surviving connection record cannot be rebound to another account
 
 ### Requirement: Library credentials with immediate account control
-The library SHALL issue authorization codes, JWT access tokens and rotating refresh tokens, and validate PKCE and client authentication. Codes SHALL expire after ten minutes and access tokens after one hour. Every approved connection SHALL receive a refresh token: before the library processes an authorization request or client registration that includes `read` or `write` but not `offline_access`, Sift SHALL add `offline_access`. Refresh tokens SHALL expire 365 days after issuance and rotate on every use. Each successful refresh SHALL extend the agent session to the expiry of the new refresh token, so a connection ends only after 365 days without a refresh. Sift SHALL verify signatures, issuer, resource audience, expiry, granted scopes and the active account and grant for every authenticated request. Grant identities SHALL be isolated per approval. Settings revocation, account rotation and account deletion SHALL immediately invalidate both access and refresh credentials. A grant that is older than the authorization-code lifetime and has no unrevoked, unexpired refresh token SHALL stop authenticating and SHALL be omitted from agent listings, and scheduled cleanup SHALL remove it. The protocol revocation endpoint SHALL support refresh tokens. DPoP-bound access tokens SHALL not be advertised or accepted.
+The library SHALL issue authorization codes, JWT access tokens and rotating refresh tokens, and validate PKCE and client authentication. Codes SHALL expire after ten minutes and access tokens after one hour. Every approved connection SHALL receive a refresh token: before the library processes an authorization request or client registration that includes `read` or `write` but not `offline_access`, Lidora SHALL add `offline_access`. Refresh tokens SHALL expire 365 days after issuance and rotate on every use. Each successful refresh SHALL extend the agent session to the expiry of the new refresh token, so a connection ends only after 365 days without a refresh. Lidora SHALL verify signatures, issuer, resource audience, expiry, granted scopes and the active account and grant for every authenticated request. Grant identities SHALL be isolated per approval. Settings revocation, account rotation and account deletion SHALL immediately invalidate both access and refresh credentials. A grant that is older than the authorization-code lifetime and has no unrevoked, unexpired refresh token SHALL stop authenticating and SHALL be omitted from agent listings, and scheduled cleanup SHALL remove it. The protocol revocation endpoint SHALL support refresh tokens. DPoP-bound access tokens SHALL not be advertised or accepted.
 
 #### Scenario: Client requests only resource scopes
 - **WHEN** a client authorises with the client metadata and the `read write` scope used by Codex or ChatGPT, without `offline_access`
@@ -50,7 +50,7 @@ The library SHALL issue authorization codes, JWT access tokens and rotating refr
 #### Scenario: Refresh replay
 - **WHEN** a rotated refresh token is reused
 - **THEN** the library invalidates its family
-- **AND** Sift rejects outstanding access tokens for that grant without affecting other grants
+- **AND** Lidora rejects outstanding access tokens for that grant without affecting other grants
 - **AND** the grant is omitted from the agent listing
 
 #### Scenario: Approval awaiting code exchange
@@ -72,7 +72,7 @@ Migration SHALL remove the superseded custom OAuth tables and credentials and re
 
 ### Requirement: Remote MCP endpoint
 
-The system SHALL serve a stateless Model Context Protocol endpoint at `/mcp`, using the Streamable HTTP transport, on every server adapter with sync storage configured. Each `POST` SHALL receive its JSON-RPC response in the HTTP response. `GET /mcp` SHALL return HTTP 405. Write tools SHALL take effect without any Sift browser tab open.
+The system SHALL serve a stateless Model Context Protocol endpoint at `/mcp`, using the Streamable HTTP transport, on every server adapter with sync storage configured. Each `POST` SHALL receive its JSON-RPC response in the HTTP response. `GET /mcp` SHALL return HTTP 405. Write tools SHALL take effect without any Lidora browser tab open.
 
 #### Scenario: Authenticated tool listing
 - **WHEN** a client sends `tools/list` to `/mcp` with a valid bearer access token
@@ -84,13 +84,13 @@ The system SHALL serve a stateless Model Context Protocol endpoint at `/mcp`, us
 - **AND** SHALL include `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource"`
 
 #### Scenario: No browser tab required
-- **WHEN** an agent calls a write tool while no Sift browser tab is open
+- **WHEN** an agent calls a write tool while no Lidora browser tab is open
 - **THEN** the change SHALL be applied to the sync database
 - **AND** every synced device SHALL receive it on its next pull
 
 ### Requirement: MCP server instructions
 
-The `initialize` result SHALL include `instructions` that describe Sift, its identifier conventions, and the recommended tool sequences for recommending feeds, discovering a site's feed, and summarising recent reading.
+The `initialize` result SHALL include `instructions` that describe Lidora, its identifier conventions, and the recommended tool sequences for recommending feeds, discovering a site's feed, and summarising recent reading.
 
 #### Scenario: Instructions guide discovery
 - **WHEN** a client initialises a session
@@ -146,7 +146,7 @@ The system SHALL provide RFC 7591 registration at `POST /oauth/oauth2/register`.
 
 ### Requirement: Authorisation request validation
 
-`GET /oauth/oauth2/authorize` SHALL require `response_type=code`, a known client, an exactly matching redirect URI (any port for loopback), an S256 `code_challenge`. The effective `resource` SHALL equal the issuer’s MCP resource; routing SHALL supply that resource when omitted. Scopes SHALL be a subset of `read write offline_access`. Client and redirect URI errors SHALL be shown on Sift's page without redirecting. Other errors SHALL redirect with the OAuth error and `state`.
+`GET /oauth/oauth2/authorize` SHALL require `response_type=code`, a known client, an exactly matching redirect URI (any port for loopback), an S256 `code_challenge`. The effective `resource` SHALL equal the issuer’s MCP resource; routing SHALL supply that resource when omitted. Scopes SHALL be a subset of `read write offline_access`. Client and redirect URI errors SHALL be shown on Lidora's page without redirecting. Other errors SHALL redirect with the OAuth error and `state`.
 
 #### Scenario: Missing PKCE
 - **WHEN** an authorisation request omits `code_challenge`
@@ -260,7 +260,7 @@ When the consent request has no usable connection ID, the consent screen SHALL s
 
 ### Requirement: Refresh token rotation
 
-`POST /oauth/oauth2/token` SHALL support the `refresh_token` grant. Sift SHALL grant `offline_access` to every approved connection. Refresh tokens SHALL expire 365 days after issuance and SHALL rotate on every use; each refresh SHALL extend the agent session to the new refresh token's expiry. Presenting an already-rotated refresh token SHALL revoke every token in that grant. `POST /oauth/oauth2/revoke` SHALL revoke a presented refresh token.
+`POST /oauth/oauth2/token` SHALL support the `refresh_token` grant. Lidora SHALL grant `offline_access` to every approved connection. Refresh tokens SHALL expire 365 days after issuance and SHALL rotate on every use; each refresh SHALL extend the agent session to the new refresh token's expiry. Presenting an already-rotated refresh token SHALL revoke every token in that grant. `POST /oauth/oauth2/revoke` SHALL revoke a presented refresh token.
 
 #### Scenario: Refresh
 - **WHEN** a client presents a current refresh token
@@ -411,15 +411,15 @@ Each connected-agent row SHALL show the user's label if set, otherwise the clien
 
 ### Requirement: Consent page isolation
 
-The consent page at `/connect` SHALL be a standalone page. It SHALL NOT start sync, register a sync key, refresh feeds or create IndexedDB databases, local storage entries or service worker registrations in a browser that holds no Sift data.
+The consent page at `/connect` SHALL be a standalone page. It SHALL NOT start sync, register a sync key, refresh feeds or create IndexedDB databases, local storage entries or service worker registrations in a browser that holds no Lidora data.
 
 #### Scenario: Fresh browser
-- **WHEN** the consent page opens in a browser that has never run Sift
-- **THEN** the browser SHALL hold no Sift IndexedDB database afterwards
+- **WHEN** the consent page opens in a browser that has never run Lidora
+- **THEN** the browser SHALL hold no Lidora IndexedDB database afterwards
 
 ### Requirement: Agent connection discovery document
 
-The system SHALL serve `/llms.txt` as a static asset describing Sift, the MCP endpoint, the OAuth metadata URLs, the OpenAPI document, the scopes, and the bearer header for HTTP use.
+The system SHALL serve `/llms.txt` as a static asset describing Lidora, the MCP endpoint, the OAuth metadata URLs, the OpenAPI document, the scopes, and the bearer header for HTTP use.
 
 #### Scenario: Agent reads llms.txt
 - **WHEN** an agent fetches `<origin>/llms.txt`

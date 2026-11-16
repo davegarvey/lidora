@@ -1,7 +1,7 @@
 # storage-retention Specification
 
 ## Purpose
-Define local article retention and browser storage persistence behavior so Sift reduces stored content without discarding starred items or useful reading history.
+Define local article retention and browser storage persistence behavior so Lidora reduces stored content without discarding starred items or useful reading history.
 
 ## Requirements
 

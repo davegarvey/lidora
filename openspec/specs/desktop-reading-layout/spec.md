@@ -105,7 +105,7 @@ The desktop reader toolbar SHALL provide an icon-only focus-mode toggle. When fo
 - **AND** the saved focus-mode preference remains enabled
 
 #### Scenario: Restore focus preference on a later visit
-- **WHEN** the user previously enabled focus mode and returns to Sift on the same device
+- **WHEN** the user previously enabled focus mode and returns to Lidora on the same device
 - **THEN** the desktop reader opens with focus mode enabled until the user disables it
 
 #### Scenario: Focus preference does not alter mobile navigation

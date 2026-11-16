@@ -1,7 +1,7 @@
 # public-site-pages Specification
 
 ## Purpose
-Give visitors clear, crawlable information about Sift and its privacy and usage terms, while keeping those pages available from the hosted reader and installed PWA.
+Give visitors clear, crawlable information about Lidora and its privacy and usage terms, while keeping those pages available from the hosted reader and installed PWA.
 
 ## Requirements
 
@@ -51,7 +51,7 @@ The About section of Settings SHALL link to `/about`, `/privacy` and `/terms`.
 
 ### Requirement: Reader shell is crawlable
 
-The reader's HTML document SHALL contain static content naming Sift, describing it in one sentence and linking to `/about`. The reader SHALL remove this content before mounting. The site SHALL publish `/sitemap.xml` listing `/`, `/about`, `/privacy` and `/terms`, and `robots.txt` SHALL reference it.
+The reader's HTML document SHALL contain static content naming Lidora, describing it in one sentence and linking to `/about`. The reader SHALL remove this content before mounting. The site SHALL publish `/sitemap.xml` listing `/`, `/about`, `/privacy` and `/terms`, and `robots.txt` SHALL reference it.
 
 #### Scenario: Crawler without JavaScript reads the root
 

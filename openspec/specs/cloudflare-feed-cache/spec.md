@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This capability improves feed-cache reuse on Cloudflare Workers without introducing persistent application storage, global coordination, or changes to Sift's browser-local and sync data model.
+This capability improves feed-cache reuse on Cloudflare Workers without introducing persistent application storage, global coordination, or changes to Lidora's browser-local and sync data model.
 
 ## Requirements
 
@@ -40,7 +40,7 @@ The Worker Cache API key SHALL preserve the complete validated upstream feed URL
 
 ### Requirement: Keep internal cache policy separate from browser policy
 
-The representation stored in the Worker Cache API SHALL carry enough metadata to reconstruct `Age`, ETag, Last-Modified and the time at which the representation stops being fresh. Its Cache API lifetime SHALL cover the freshness lifetime plus the 24-hour retention window. The externally returned `/feed` response SHALL retain Sift's `Cache-Control: no-cache, no-store` policy.
+The representation stored in the Worker Cache API SHALL carry enough metadata to reconstruct `Age`, ETag, Last-Modified and the time at which the representation stops being fresh. Its Cache API lifetime SHALL cover the freshness lifetime plus the 24-hour retention window. The externally returned `/feed` response SHALL retain Lidora's `Cache-Control: no-cache, no-store` policy.
 
 #### Scenario: Cache API expiry is independent of browser caching
 
