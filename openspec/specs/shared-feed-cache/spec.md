@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This capability reduces duplicate upstream feed requests through Sift's shared proxy while preserving browser-local parsing, storage, synchronization, and HTTP validator semantics.
+This capability reduces duplicate upstream feed requests through Lidora's shared proxy while preserving browser-local parsing, storage, synchronization, and HTTP validator semantics.
 
 ## Requirements
 
@@ -112,7 +112,7 @@ available, and otherwise the recorded failure status with a `Retry-After` value.
 
 ### Requirement: Expose non-authoritative cache diagnostics
 
-Successful `/feed` responses SHALL expose the cached representation age through the standard `Age` response header, measured from the last upstream `200` or successful `304`. The proxy MAY expose an `X-Sift-Cache` diagnostic header describing whether the response was a cache hit, miss, revalidation or stale representation. A stale representation SHALL include `X-Sift-Retry-After` with the whole seconds until the proxy will next contact the upstream. These headers SHALL not be required for browser refresh correctness.
+Successful `/feed` responses SHALL expose the cached representation age through the standard `Age` response header, measured from the last upstream `200` or successful `304`. The proxy MAY expose an `X-Lidora-Cache` diagnostic header describing whether the response was a cache hit, miss, revalidation or stale representation. A stale representation SHALL include `X-Lidora-Retry-After` with the whole seconds until the proxy will next contact the upstream. These headers SHALL not be required for browser refresh correctness.
 
 #### Scenario: Cache hit reports representation age
 
@@ -123,8 +123,8 @@ Successful `/feed` responses SHALL expose the cached representation age through 
 #### Scenario: Stale representation reports the next upstream attempt
 
 - **WHEN** `/feed` returns a retained representation because the upstream is in cooldown
-- **THEN** the response SHALL include `X-Sift-Cache: stale`
-- **AND** it SHALL include `X-Sift-Retry-After` with the remaining cooldown in seconds
+- **THEN** the response SHALL include `X-Lidora-Cache: stale`
+- **AND** it SHALL include `X-Lidora-Retry-After` with the remaining cooldown in seconds
 
 ### Requirement: Preserve feed proxy and sync boundaries
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Protect Sift's server-side upstream proxy from local and private network
+Protect Lidora's server-side upstream proxy from local and private network
 requests while preserving normal public feed, article, image, and redirect use.
 
 ## Requirements
@@ -118,9 +118,9 @@ requested.
 - **THEN** the server SHALL not request that link
 - **AND** discovery MAY continue with other candidates
 
-### Requirement: Accept proxy requests only from Sift's own origin
+### Requirement: Accept proxy requests only from Lidora's own origin
 
-The `/feed`, `/article` and `/img` endpoints SHALL reject a request whose `Sec-Fetch-Site` header is present and is neither `same-origin` nor `none`, with status `403`, before validating the target or contacting any upstream. A request without the header SHALL NOT be rejected on this basis. The rejection SHALL carry the endpoint's isolation headers, `Cache-Control: no-store` and `X-Sift-Request-Source: same-site-check`.
+The `/feed`, `/article` and `/img` endpoints SHALL reject a request whose `Sec-Fetch-Site` header is present and is neither `same-origin` nor `none`, with status `403`, before validating the target or contacting any upstream. A request without the header SHALL NOT be rejected on this basis. The rejection SHALL carry the endpoint's isolation headers, `Cache-Control: no-store` and `X-Lidora-Request-Source: same-site-check`.
 
 #### Scenario: Cross-site request is rejected
 
@@ -146,7 +146,7 @@ The `/feed`, `/article` and `/img` endpoints SHALL reject a request whose `Sec-F
 
 ### Requirement: Limit proxy requests per client
 
-The `/feed`, `/article` and `/img` endpoints SHALL limit requests per client IP address in fixed 60-second windows. `/feed` and `/article` SHALL share one budget of 2000 requests per window, and `/img` SHALL have a separate budget of 600 requests per window. A request over its budget SHALL receive `429` with `Retry-After`, `Cache-Control: no-store`, `X-Sift-Request-Source: client-limit` and the endpoint's isolation headers. Responses served from the shared feed cache SHALL count towards the budget. The limit SHALL be applied after the same-site check and before target validation, origin governance, cache lookup or any upstream request.
+The `/feed`, `/article` and `/img` endpoints SHALL limit requests per client IP address in fixed 60-second windows. `/feed` and `/article` SHALL share one budget of 2000 requests per window, and `/img` SHALL have a separate budget of 600 requests per window. A request over its budget SHALL receive `429` with `Retry-After`, `Cache-Control: no-store`, `X-Lidora-Request-Source: client-limit` and the endpoint's isolation headers. Responses served from the shared feed cache SHALL count towards the budget. The limit SHALL be applied after the same-site check and before target validation, origin governance, cache lookup or any upstream request.
 
 On Cloudflare Workers the limit SHALL be enforced by Cloudflare's Workers rate limiting binding when it is configured, keyed by the `CF-Connecting-IP` address, without writing to D1. On Node and Bun, and on Workers without the binding, the limit SHALL be enforced by a bounded process-local limiter with the same budgets. If the binding call fails, the process-local limiter SHALL decide instead and the request SHALL NOT fail because of it.
 
@@ -235,13 +235,13 @@ On Node and Bun the client address SHALL be the connection's socket address. `X-
 
 ### Requirement: Isolate proxied responses from the application origin
 
-Every response from the `/feed`, `/article` and `/img` proxy endpoints, including `304`, upstream error and locally generated error responses, SHALL include `X-Content-Type-Options: nosniff` and a `Content-Security-Policy` containing the `sandbox` directive without `allow-scripts` or `allow-same-origin`. `/feed` and `/article` responses SHALL also include `default-src 'none'`. A proxied response opened directly in a browser SHALL NOT run script or gain access to Sift's origin storage.
+Every response from the `/feed`, `/article` and `/img` proxy endpoints, including `304`, upstream error and locally generated error responses, SHALL include `X-Content-Type-Options: nosniff` and a `Content-Security-Policy` containing the `sandbox` directive without `allow-scripts` or `allow-same-origin`. `/feed` and `/article` responses SHALL also include `default-src 'none'`. A proxied response opened directly in a browser SHALL NOT run script or gain access to Lidora's origin storage.
 
 #### Scenario: Proxied article opened directly is sandboxed
 
 - **WHEN** a browser navigates to `/article?url=` for a page containing script
 - **THEN** the response SHALL carry `Content-Security-Policy: default-src 'none'; sandbox`
-- **AND** the document SHALL have an opaque origin with no access to Sift's IndexedDB or localStorage
+- **AND** the document SHALL have an opaque origin with no access to Lidora's IndexedDB or localStorage
 
 #### Scenario: Proxied feed is sandboxed
 
@@ -261,7 +261,7 @@ Every response from the `/feed`, `/article` and `/img` proxy endpoints, includin
 
 ### Requirement: Do not forward upstream headers on proxy errors
 
-When an upstream returns a non-2xx status other than `304`, the proxy SHALL return that status with `Content-Type: text/plain; charset=utf-8` and `Cache-Control: no-store`. It SHALL forward only `Retry-After`, `X-Sift-Retry-After`, `X-Sift-Request-Source` and `X-Sift-Cache`, and SHALL NOT forward any other upstream header, including `Content-Type` and `Set-Cookie`.
+When an upstream returns a non-2xx status other than `304`, the proxy SHALL return that status with `Content-Type: text/plain; charset=utf-8` and `Cache-Control: no-store`. It SHALL forward only `Retry-After`, `X-Lidora-Retry-After`, `X-Lidora-Request-Source` and `X-Lidora-Cache`, and SHALL NOT forward any other upstream header, including `Content-Type` and `Set-Cookie`.
 
 #### Scenario: Upstream HTML error is returned as plain text
 

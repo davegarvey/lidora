@@ -111,7 +111,7 @@ in the existing feed cache rather than D1.
 
 ### Requirement: Apply an origin-wide cooldown to throttling and challenge responses
 
-When any Sift upstream fetch path receives `429` or `419`, the proxy SHALL record a cooldown keyed by the normalized origin as well as preserving the existing URL-level failure state. Requests to any path or query on that origin SHALL not contact the upstream during the origin cooldown. A valid `Retry-After` SHALL be honored without being shortened. A `419` without a valid value SHALL use progressive backoff beginning at no less than six hours and increasing after repeated challenge responses, capped at 24 hours.
+When any Lidora upstream fetch path receives `429` or `419`, the proxy SHALL record a cooldown keyed by the normalized origin as well as preserving the existing URL-level failure state. Requests to any path or query on that origin SHALL not contact the upstream during the origin cooldown. A valid `Retry-After` SHALL be honored without being shortened. A `419` without a valid value SHALL use progressive backoff beginning at no less than six hours and increasing after repeated challenge responses, capped at 24 hours.
 
 When the upstream omits `Retry-After`, the proxy SHALL return a `Retry-After` value for its generated origin cooldown on the initial failure response and during later cooldown responses.
 
@@ -137,7 +137,7 @@ When the upstream omits `Retry-After`, the proxy SHALL return a `Retry-After` va
 
 - **WHEN** an upstream `429` or `419` provides a valid `Retry-After` longer than 24 hours
 - **THEN** the origin cooldown SHALL remain active for at least the upstream-specified delay
-- **AND** Sift SHALL not shorten that delay to its URL-level retry cap
+- **AND** Lidora SHALL not shorten that delay to its URL-level retry cap
 
 ### Requirement: Share hashed origin cooldowns through D1
 
