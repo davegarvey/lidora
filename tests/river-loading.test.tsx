@@ -104,6 +104,7 @@ function makeCtx() {
     closeModal: () => {},
     jumpTo: () => {},
     refreshSelected: async () => {},
+    retryFeed: async () => {},
     refreshFeeds: async () => {},
     saveSettingsPatch: async () => {},
     enableSync: async () => {},
@@ -261,7 +262,7 @@ describe('River loading vs empty state', () => {
     });
     ctxRef.value = m.ctx;
 
-    m.setFeeds([{ id: 'f1', url: 'https://example.com/feed', title: 'Example', tags: ['news'] } as unknown as Feed]);
+    m.setFeeds([{ id: 'f1', url: 'https://example.com/feed', title: 'Example', tags: ['news'], lastFetched: 1 } as unknown as Feed]);
     m.setHydrated(true);
     m.setItems([]);
 
@@ -308,4 +309,86 @@ describe('River loading vs empty state', () => {
     expect(document.body.textContent).not.toContain('You’re caught up');
   });
 
+  const newFeed = (id: string, title: string): Feed => ({ id, url: `https://${id}.example/feed`, title, learnedIntervalMs: 3_600_000, lastFetched: null });
+
+  it('shows the feed being fetched for a feed that has never been fetched', () => {
+    const m = createRoot((d) => { disposeCtx = d; return makeCtx(); });
+    m.ctx.setState({ riverScope: 'f1' });
+    m.setFeeds([newFeed('f1', 'Example')]);
+    m.setHydrated(true);
+    ctxRef.value = m.ctx;
+    dispose = render(() => <River />, document.body);
+    vi.advanceTimersByTime(600);
+    expect(document.body.textContent).toContain('Fetching Example…');
+    expect(document.body.textContent).not.toContain('No items yet');
+  });
+
+  it('shows a combined message for several new feeds, then the items', () => {
+    const m = createRoot((d) => { disposeCtx = d; return makeCtx(); });
+    m.setFeeds([newFeed('f1', 'One'), newFeed('f2', 'Two')]);
+    m.setHydrated(true);
+    ctxRef.value = m.ctx;
+    dispose = render(() => <River />, document.body);
+    vi.advanceTimersByTime(600);
+    expect(document.body.textContent).toContain('Fetching your new feeds…');
+    m.setItems([{ id: 'i1', feedId: 'f1', title: 'Hello', publishedAt: 1, read: false, starred: false } as unknown as Item]);
+    expect(document.body.textContent).toContain('Hello');
+    expect(document.body.textContent).not.toContain('Fetching your new feeds');
+  });
+
+  it('shows a failed first fetch with its error and a Try again button', async () => {
+    const m = createRoot((d) => { disposeCtx = d; return makeCtx(); });
+    m.ctx.setState({ riverScope: 'f1' });
+    m.ctx.feedErrors = () => ({ f1: 'HTTP 404' });
+    const retry = vi.fn<(feedId: string) => Promise<void>>(async () => {});
+    m.ctx.retryFeed = retry;
+    m.setFeeds([newFeed('f1', 'Example')]);
+    m.setHydrated(true);
+    ctxRef.value = m.ctx;
+    dispose = render(() => <River />, document.body);
+    expect(document.body.textContent).toContain('Couldn’t fetch Example');
+    expect(document.body.textContent).toContain('HTTP 404');
+    const button = document.querySelector<HTMLButtonElement>('.empty-state button');
+    expect(button?.textContent).toBe('Try again');
+    button?.click();
+    expect(retry).toHaveBeenCalledWith('f1');
+  });
+
+  it('disables Try again and the empty-state action while a manual refresh runs', () => {
+    const m = createRoot((d) => { disposeCtx = d; return makeCtx(); });
+    const [fetching, setFetching] = createSignal(0);
+    m.ctx.fetching = fetching;
+    m.ctx.setState({ riverScope: 'f1' });
+    m.ctx.feedErrors = () => ({ f1: 'HTTP 404' });
+    m.setFeeds([newFeed('f1', 'Example')]);
+    m.setHydrated(true);
+    ctxRef.value = m.ctx;
+    dispose = render(() => <River />, document.body);
+    const button = () => document.querySelector<HTMLButtonElement>('.empty-state button')!;
+    expect(button().disabled).toBe(false);
+    setFetching(1);
+    expect(button().disabled).toBe(true);
+    expect(button().getAttribute('aria-busy')).toBe('true');
+    expect(button().textContent).toBe('Checking…');
+  });
+
+  it('turns Check for new items into a busy button during a manual refresh', () => {
+    const m = createRoot((d) => { disposeCtx = d; return makeCtx(); });
+    const [fetching, setFetching] = createSignal(0);
+    m.ctx.fetching = fetching;
+    m.setFeeds([{ ...newFeed('f1', 'Example'), lastFetched: 1 }]);
+    m.setHydrated(true);
+    ctxRef.value = m.ctx;
+    dispose = render(() => <River />, document.body);
+    const button = () => document.querySelector<HTMLButtonElement>('.empty-state button')!;
+    expect(button().textContent).toBe('Check for new items');
+    expect(button().disabled).toBe(false);
+    setFetching(1);
+    expect(button().textContent).toBe('Checking…');
+    expect(button().disabled).toBe(true);
+    expect(button().getAttribute('aria-busy')).toBe('true');
+    setFetching(0);
+    expect(button().textContent).toBe('Check for new items');
+    expect(button().disabled).toBe(false);
+  });
 });

@@ -73,7 +73,7 @@ async function getSettings(): Promise<AppSettings> {
 async function saveSettings(settings: AppSettings): Promise<void> {
   await setMeta(SETTINGS_KEY, settings);
 }
-import { refreshStaleFeeds, fetchingState, startScheduler, setOnRefresh, setOnLibraryActivity } from './feeds/scheduler';
+import { refreshStaleFeeds, fetchNewFeeds, fetchingState, startScheduler, setOnRefresh, setOnLibraryActivity } from './feeds/scheduler';
 import { enqueueFlag, clearAllDirty, enqueueStatsIfSync, enqueueReadMarkerIfSync } from './sync/queue';
 import { resetSyncStatus } from './sync/status';
 import { scheduleFlush, flushNow } from './sync/push';
@@ -183,6 +183,7 @@ export interface AppContext {
   jumpTo: (offset: number) => void;
   refreshSelected: () => Promise<void>;
   refreshFeeds: (feedIds: readonly string[]) => Promise<void>;
+  retryFeed: (feedId: string) => Promise<void>;
   saveSettingsPatch: (patch: Partial<AppSettings>) => Promise<void>;
   enableSync: () => Promise<void>;
   disableSync: () => Promise<void>;
@@ -190,7 +191,7 @@ export interface AppContext {
   regenerateSyncKey: () => Promise<void>;
   syncNow: () => Promise<void>;
   syncKey: () => string | null;
-  subscribeFeed: (input: SubscribeInput) => Promise<void>;
+  subscribeFeed: (input: SubscribeInput, options?: { fetchNow?: boolean }) => Promise<void>;
   unsubscribeFeed: (feedId: string) => Promise<void>;
   updateFeedMeta: (feedId: string, meta: { title?: string; tags?: string[] }) => Promise<void>;
   changeFeedUrl: (feedId: string, newUrl: string) => Promise<void>;
@@ -743,7 +744,7 @@ export const AppProvider: ParentComponent = (props) => {
   let activeManualRefresh: Promise<void> | null = null;
   let manualRefreshDepth = 0;
 
-  const performManualRefresh = async (target: ReadonlySet<string>, syncFirst: boolean): Promise<void> => {
+  const performManualRefresh = async (target: ReadonlySet<string>, syncFirst: boolean, ignoreRetry: boolean): Promise<void> => {
     beginLibraryActivity();
     manualRefreshDepth++;
     let refreshError: unknown = null;
@@ -759,7 +760,7 @@ export const AppProvider: ParentComponent = (props) => {
         }
       }
       try {
-        await refreshStaleFeeds({ forceAll: true, target });
+        await refreshStaleFeeds({ forceAll: true, target, ignoreRetry });
       } catch (error) {
         refreshError = error;
         refreshFailed = true;
@@ -787,10 +788,10 @@ export const AppProvider: ParentComponent = (props) => {
     }
   };
 
-  const enqueueManualRefresh = (target: ReadonlySet<string>, syncFirst: boolean, coalesce: boolean): Promise<void> => {
+  const enqueueManualRefresh = (target: ReadonlySet<string>, syncFirst: boolean, coalesce: boolean, ignoreRetry = false): Promise<void> => {
     if (coalesce && activeManualRefresh) return activeManualRefresh;
     setManualFetching((n) => n + 1);
-    const operation = manualRefreshTail.then(() => performManualRefresh(target, syncFirst));
+    const operation = manualRefreshTail.then(() => performManualRefresh(target, syncFirst, ignoreRetry));
     manualRefreshTail = operation.catch(() => {});
     activeManualRefresh = operation;
     void operation.then(
@@ -807,6 +808,8 @@ export const AppProvider: ParentComponent = (props) => {
   );
 
   const refreshFeeds = (feedIds: readonly string[]) => enqueueManualRefresh(new Set(feedIds), false, false);
+
+  const retryFeed = (feedId: string) => enqueueManualRefresh(new Set([feedId]), false, false, true);
 
   const reloadBoth = async () => {
     await reloadFeeds();
@@ -928,10 +931,11 @@ export const AppProvider: ParentComponent = (props) => {
     return isValidSyncKey(k ?? null) ? (k as string) : null;
   };
 
-  const subscribeFeedCtx = async (input: SubscribeInput) => {
+  const subscribeFeedCtx = async (input: SubscribeInput, options: { fetchNow?: boolean } = {}) => {
     await subscribeFeedSvc(input);
     await reloadFeeds();
     await reloadItems();
+    if (options.fetchNow !== false) void fetchNewFeeds().catch(() => undefined);
   };
 
   const unsubscribeFeedCtx = async (feedId: string) => {
@@ -979,6 +983,7 @@ export const AppProvider: ParentComponent = (props) => {
     jumpTo,
     refreshSelected,
     refreshFeeds,
+    retryFeed,
     saveSettingsPatch,
     enableSync,
     disableSync,
@@ -1048,7 +1053,11 @@ export const AppProvider: ParentComponent = (props) => {
     }
     if (readMigrationState() === 'idle') startScheduler();
     setOnRefresh(async () => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && !isIdle()) await reloadBoth(); });
-    setOnSync(async (force) => { if (readMigrationState() === 'idle' && manualRefreshDepth === 0 && (force || !isIdle())) await reloadBoth(); });
+    setOnSync(async (force) => {
+      if (readMigrationState() !== 'idle') return;
+      if (manualRefreshDepth === 0 && (force || !isIdle())) await reloadBoth();
+      void fetchNewFeeds().catch(() => undefined);
+    });
     setOnSyncActivity((active) => { if (active) beginLibraryActivity(); else void endLibraryActivity(); });
     setOnLibraryActivity((active) => { if (active) beginLibraryActivity(); else void endLibraryActivity(); });
     onCatchup(() => { if (readMigrationState() === 'idle') { void pullIfStale(30_000); void reloadItems(true); } });

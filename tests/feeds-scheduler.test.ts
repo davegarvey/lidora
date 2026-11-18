@@ -219,6 +219,36 @@ describe('refreshFeed', () => {
     expect(calls).toBe(0);
   });
 
+  it('lets an explicit retry bypass client backoff except after rate limiting', async () => {
+    const { refreshStaleFeeds } = await import('../src/feeds/scheduler');
+    await upsertFeed({
+      id: 'feed-retry-404',
+      url: 'https://retry-404.example/feed.xml',
+      title: 'Missing',
+      learnedIntervalMs: 3_600_000,
+      lastFetched: null,
+      refreshError: { retryAt: Date.now() + 3_600_000, attempts: 1, lastStatus: 404, lastRetryAfter: null },
+    });
+    await upsertFeed({
+      id: 'feed-retry-429',
+      url: 'https://retry-429.example/feed.xml',
+      title: 'Limited',
+      learnedIntervalMs: 3_600_000,
+      lastFetched: null,
+      refreshError: { retryAt: Date.now() + 3_600_000, attempts: 1, lastStatus: 429, lastRetryAfter: null },
+    });
+    const requested: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      requested.push(String(input));
+      return new Response('', { status: 500 });
+    }) as unknown as typeof globalThis.fetch;
+    await refreshStaleFeeds({ forceAll: true, target: new Set(['feed-retry-404', 'feed-retry-429']) });
+    expect(requested).toHaveLength(0);
+    await refreshStaleFeeds({ forceAll: true, target: new Set(['feed-retry-404', 'feed-retry-429']), ignoreRetry: true });
+    expect(requested).toHaveLength(1);
+    expect(decodeURIComponent(requested[0])).toContain('retry-404.example');
+  });
+
   it('refreshes an error feed once retryAt has passed', async () => {
     const { refreshStaleFeeds } = await import('../src/feeds/scheduler');
     const id = 'feed-id-4';
@@ -602,3 +632,105 @@ describe('refresh status', () => {
   });
 });
 
+
+describe('new feed arrival', () => {
+  it('makes a never-fetched feed due at once without jitter', async () => {
+    const { scheduledFeedDueAt, stableFeedJitter } = await import('../src/feeds/scheduler');
+    const startedAt = 1_000_000;
+    const now = startedAt + 1000;
+    const feed = { id: 'new-feed-due', url: 'https://x.example/feed.xml', title: 'X', learnedIntervalMs: 3_600_000, lastFetched: null };
+    expect(stableFeedJitter(feed.id)).toBeGreaterThan(0);
+    expect(scheduledFeedDueAt(feed, startedAt, now)).toBe(now);
+    expect(scheduledFeedDueAt(feed, null, now)).toBe(now);
+  });
+
+  it('keeps the retry time for a never-fetched feed with a pending retry', async () => {
+    const { scheduledFeedDueAt, stableFeedJitter } = await import('../src/feeds/scheduler');
+    const startedAt = 1_000_000;
+    const retryAt = startedAt + 600_000;
+    const feed = {
+      id: 'new-feed-retry',
+      url: 'https://x.example/feed.xml',
+      title: 'X',
+      learnedIntervalMs: 3_600_000,
+      lastFetched: null,
+      refreshError: { retryAt, attempts: 1, lastStatus: 500, lastRetryAfter: null },
+    };
+    expect(scheduledFeedDueAt(feed, startedAt, startedAt)).toBe(retryAt + stableFeedJitter(feed.id));
+  });
+
+  it('fetches only never-fetched feeds without a pending retry', async () => {
+    const { fetchNewFeeds, fetchingState } = await import('../src/feeds/scheduler');
+    const base = { learnedIntervalMs: 3_600_000 };
+    await upsertFeed({ id: 'arrival-new', url: 'https://new.example/feed.xml', title: 'New', lastFetched: null, ...base });
+    await upsertFeed({ id: 'arrival-fetched', url: 'https://fetched.example/feed.xml', title: 'Fetched', lastFetched: Date.now(), ...base });
+    await upsertFeed({
+      id: 'arrival-retry',
+      url: 'https://retry.example/feed.xml',
+      title: 'Retry',
+      lastFetched: null,
+      refreshError: { retryAt: Date.now() - 1000, attempts: 1, lastStatus: 500, lastRetryAfter: null },
+      ...base,
+    });
+    await upsertFeed({ id: 'arrival-removed', url: 'https://removed.example/feed.xml', title: 'Removed', lastFetched: null, removedAt: 1, ...base });
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      calls.push(String(input));
+      return new Response(rssWithItems(['one']), { status: 200 });
+    }) as unknown as typeof globalThis.fetch;
+
+    await fetchNewFeeds();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain(encodeURIComponent('https://new.example/feed.xml'));
+    expect((await getFeed('arrival-new'))?.lastFetched).toBeTypeOf('number');
+    expect(fetchingState.inFlight()).toBe(0);
+
+    await fetchNewFeeds();
+    expect(calls).toHaveLength(1);
+  });
+
+  it('reloads the library through the refresh callback', async () => {
+    const { fetchNewFeeds, setOnRefresh } = await import('../src/feeds/scheduler');
+    await upsertFeed({ id: 'arrival-reload', url: 'https://reload.example/feed.xml', title: 'Reload', learnedIntervalMs: 3_600_000, lastFetched: null });
+    stubFetch(200, rssWithItems(['one']));
+    const callback = vi.fn();
+    setOnRefresh(callback);
+    try {
+      await fetchNewFeeds();
+    } finally {
+      setOnRefresh(null);
+    }
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fetch a feed twice when arrival overlaps another refresh', async () => {
+    const { fetchNewFeeds, refreshStaleFeeds } = await import('../src/feeds/scheduler');
+    await upsertFeed({ id: 'arrival-overlap', url: 'https://overlap.example/feed.xml', title: 'Overlap', learnedIntervalMs: 3_600_000, lastFetched: null });
+    let calls = 0;
+    let release: (() => void) | undefined;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    globalThis.fetch = (async () => {
+      calls++;
+      await blocked;
+      return new Response(rssWithItems(['one']), { status: 200 });
+    }) as unknown as typeof globalThis.fetch;
+
+    const arrival = fetchNewFeeds();
+    const manual = refreshStaleFeeds({ forceAll: true, target: new Set(['arrival-overlap']) });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    release!();
+    await Promise.all([arrival, manual]);
+
+    expect(calls).toBe(1);
+  });
+
+  it('records a first-fetch failure for display', async () => {
+    const { fetchNewFeeds, fetchingState } = await import('../src/feeds/scheduler');
+    await upsertFeed({ id: 'arrival-fail', url: 'https://fail.example/feed.xml', title: 'Fail', learnedIntervalMs: 3_600_000, lastFetched: null });
+    stubFetch(404, 'nope');
+    await fetchNewFeeds();
+    expect(fetchingState.feedErrors()['arrival-fail']).toBeTypeOf('string');
+    expect((await getFeed('arrival-fail'))?.refreshError).toBeTruthy();
+  });
+});
