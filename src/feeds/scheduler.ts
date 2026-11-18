@@ -18,6 +18,7 @@ import { enqueueStatsIfSync } from '../sync/queue';
 import { runStorageRetention } from '../db/storage-retention';
 
 const TICK_MS = 5 * 60 * 1000;
+const RATE_LIMIT_STATUSES = new Set([419, 429]);
 const QUIET_FAILURE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRANSIENT_FAILURE_STATUSES = new Set([0, 408, 419, 425, 429]);
 const FEED_JITTER_WINDOW_MS = 15 * 60 * 1000;
@@ -70,32 +71,45 @@ export const fetchingState = {
 export interface RefreshOptions {
   forceAll?: boolean;
   target?: RefreshTarget;
+  ignoreRetry?: boolean;
 }
 
 export async function refreshStaleFeeds(options: RefreshOptions = {}): Promise<void> {
   const forceAll = options.forceAll ?? false;
   const target = options.target;
+  const ignoreRetry = options.ignoreRetry ?? false;
   const feeds = await listFeeds();
   const now = Date.now();
   const stale = feeds.filter((f) => {
     if (!f.url) return false;
     if (f.removedAt != null) return false;
     if (target !== undefined && !target.has(f.id)) return false;
-    if (f.refreshError && f.refreshError.retryAt > now) return false;
+    if (f.refreshError && f.refreshError.retryAt > now && !(ignoreRetry && !RATE_LIMIT_STATUSES.has(f.refreshError.lastStatus ?? 0))) return false;
     if (forceAll) return true;
     return scheduledFeedDueAt(f, schedulerEpoch, now) <= now;
   });
-  if (stale.length > 0) onLibraryActivity?.(true);
+  await runRefresh(stale, { reload: !forceAll });
+  void scheduleAutomaticRun();
+}
+
+export async function fetchNewFeeds(): Promise<void> {
+  const feeds = await listFeeds();
+  const pending = feeds.filter((f) => Boolean(f.url) && f.removedAt == null && f.lastFetched == null && !f.refreshError);
+  await runRefresh(pending, { reload: true });
+  void scheduleAutomaticRun();
+}
+
+async function runRefresh(feeds: Feed[], options: { reload: boolean }): Promise<void> {
+  if (feeds.length > 0) onLibraryActivity?.(true);
   try {
-    await mapConcurrent(stale, (f) => refreshFeed(f), 4);
+    await mapConcurrent(feeds, (f) => refreshFeed(f), 4);
     await runStorageRetention().catch(() => undefined);
-    if (!forceAll && stale.length > 0 && onRefresh && !isIdle()) {
+    if (options.reload && feeds.length > 0 && onRefresh && !isIdle()) {
       await onRefresh();
     }
   } finally {
-    if (stale.length > 0) onLibraryActivity?.(false);
+    if (feeds.length > 0) onLibraryActivity?.(false);
   }
-  void scheduleAutomaticRun();
 }
 
 export function stableFeedJitter(feedId: string): number {
@@ -108,8 +122,10 @@ export function stableFeedJitter(feedId: string): number {
 }
 
 export function scheduledFeedDueAt(feed: Feed, startedAt: number | null, now = Date.now()): number {
-  const cadenceAt = feed.refreshError?.retryAt
-    ?? (feed.lastFetched == null ? (startedAt ?? now) : feed.lastFetched + feed.learnedIntervalMs);
+  if (feed.lastFetched == null && !feed.refreshError) return now;
+  const cadenceAt = feed.refreshError
+    ? feed.refreshError.retryAt
+    : (feed.lastFetched ?? now) + feed.learnedIntervalMs;
   const startupFloor = startedAt ?? cadenceAt;
   return Math.max(cadenceAt, startupFloor) + (startedAt === null ? 0 : stableFeedJitter(feed.id));
 }
