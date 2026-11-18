@@ -74,13 +74,13 @@ export function SettingsView() {
           fallback={
             <header class="settings-header">
               <Show when={narrow()}>
-                <button type="button" class="settings-back" aria-label="Close settings" onClick={() => ctx.closeSettings()}>
+                <button type="button" class="settings-back" title="Close settings" aria-label="Close settings" onClick={() => ctx.closeSettings()}>
                   <ChevronLeft size={16} />
                 </button>
               </Show>
               <h1>Settings</h1>
               <Show when={!narrow()}>
-                <button type="button" class="settings-close" aria-label="Close settings" onClick={() => ctx.closeSettings()}>
+                <button type="button" class="settings-close" title="Close settings (Esc)" aria-label="Close settings" onClick={() => ctx.closeSettings()}>
                   <X size={16} />
                 </button>
               </Show>

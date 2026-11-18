@@ -219,7 +219,8 @@ export function ReadingView() {
               href={currentItem()?.link ?? '#'}
               target="_blank"
               rel="noopener noreferrer"
-              title="Open"
+              title="Open original (o)"
+              aria-label="Open original"
             >
               <ExternalLink size={16} />
             </a>
@@ -247,6 +248,8 @@ export function ReadingView() {
                     href={currentItem()!.link ?? '#'}
                     target="_blank"
                     rel="noopener noreferrer"
+                    title="Open original (o)"
+                    aria-label="Open original"
                   >
                     <ExternalLink size={16} />
                   </a>
@@ -304,7 +307,7 @@ export function ReadingView() {
             href={currentItem()?.link ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
-            title="Open"
+            title="Open original (o)"
             aria-label="Open original"
           >
             <ExternalLink size={16} />
@@ -328,6 +331,7 @@ export function ReadingView() {
           class="reading-zone reading-zone-prev desktop-only"
           classList={{ ghosted: !hasPrev() }}
           onClick={() => hasPrev() && navigate(-1)}
+          title={hasPrev() ? 'Previous article (k)' : undefined}
         >
           <ChevronLeft size={16} />
         </div>
@@ -335,6 +339,7 @@ export function ReadingView() {
           class="reading-zone reading-zone-next desktop-only"
           classList={{ ghosted: !hasNext() }}
           onClick={() => hasNext() && navigate(1)}
+          title={hasNext() ? 'Next article (j)' : undefined}
         >
           <ChevronRight size={16} />
         </div>

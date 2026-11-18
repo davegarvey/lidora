@@ -65,6 +65,7 @@ export function ArticleListPane() {
           class="article-list-resizer desktop-only"
           role="separator"
           aria-label="Resize article list"
+          title="Drag to resize"
           aria-controls="article-list"
           aria-orientation="vertical"
           aria-valuemin={ARTICLE_LIST_WIDTH_MIN}

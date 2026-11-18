@@ -306,12 +306,14 @@ export function PanelButton(props: {
   openOnly?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
+  title?: string;
 }) {
   const row = useContext(RowContext);
   return (
     <button
       type="button"
       class={`btn${props.variant && props.variant !== 'default' ? ` ${props.variant}` : ''}`}
+      title={props.title}
       aria-label={props.ariaLabel}
       ref={props.panel.triggerRef}
       aria-expanded={props.panel.expanded()}

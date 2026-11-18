@@ -119,6 +119,7 @@ export function JoinForm(props: JoinFormProps) {
           <button
             type="button"
             class="btn btn--icon"
+            title={camera() === false ? 'No camera found' : 'Scan a QR code'}
             aria-label="Scan a QR code"
             disabled={busy() || camera() === false}
             onClick={openScanner}

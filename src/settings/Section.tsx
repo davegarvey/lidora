@@ -18,7 +18,7 @@ export function Section(props: { title: string; children: JSX.Element }) {
       <section class="settings-section" aria-labelledby="settings-section-heading">
         <div class="settings-section__head">
           <Show when={layout?.narrow()}>
-            <button type="button" class="settings-back" aria-label="Back to settings" onClick={() => layout?.back()}>
+            <button type="button" class="settings-back" title="Back to settings" aria-label="Back to settings" onClick={() => layout?.back()}>
               <ChevronLeft size={16} />
             </button>
           </Show>

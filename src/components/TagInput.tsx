@@ -49,6 +49,7 @@ export function TagInput(props: TagInputProps) {
               <button
                 class="tag-chip-remove"
                 onClick={() => removeTag(idx())}
+                title={`Remove tag ${tag}`}
                 aria-label={`Remove tag ${tag}`}
                 type="button"
               >

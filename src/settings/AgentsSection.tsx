@@ -168,6 +168,7 @@ function ConnectCard() {
             type="button"
             class="agent-link__copy"
             onClick={() => void copy(connectUrl()!, setCopiedUrl)}
+            title={copiedUrl() ? 'Copied' : 'Copy connection link'}
             aria-label="Copy connection link"
           >
             {copiedUrl() ? <Check size={16} /> : <Copy size={16} />}
@@ -307,17 +308,17 @@ function AgentRow(props: { token: AgentTokenInfo; reload: () => Promise<void>; o
                 onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setRenaming(false); } }}
                 ref={(el) => queueMicrotask(() => el.focus())}
               />
-              <button class="btn" type="submit" aria-label="Save name"><Check size={16} /></button>
-              <button class="btn subtle" type="button" aria-label="Cancel rename" onClick={() => setRenaming(false)}><X size={16} /></button>
+              <button class="btn" type="submit" title="Save name" aria-label="Save name"><Check size={16} /></button>
+              <button class="btn subtle" type="button" title="Cancel" aria-label="Cancel rename" onClick={() => setRenaming(false)}><X size={16} /></button>
             </form>
           </Show>
           <div class="agent-row__detail">{detailOf(props.token)}</div>
         </div>
         <div class="agent-row__actions">
-          <button type="button" class="btn subtle" aria-label={`Rename ${titleOf(props.token)}`} onClick={startRename}>
+          <button type="button" class="btn subtle" title="Rename" aria-label={`Rename ${titleOf(props.token)}`} onClick={startRename}>
             <Pencil size={16} />
           </button>
-          <PanelButton panel={panel} variant="subtle" openOnly ariaLabel={`Revoke ${titleOf(props.token)}`}>
+          <PanelButton panel={panel} variant="subtle" openOnly title="Revoke access" ariaLabel={`Revoke ${titleOf(props.token)}`}>
             <Trash2 size={16} />
           </PanelButton>
         </div>
@@ -430,7 +431,7 @@ function ApprovalCode() {
             data-autofocus=""
           />
           <button type="submit" class="btn" disabled={busy() || !codeInput().trim()}>Look up</button>
-          <button type="button" class="btn btn--icon" aria-label="Scan a QR code" disabled={busy()} onClick={() => setScanning(true)}>
+          <button type="button" class="btn btn--icon" title="Scan a QR code" aria-label="Scan a QR code" disabled={busy()} onClick={() => setScanning(true)}>
             <ScanLine size={16} />
           </button>
         </form>
