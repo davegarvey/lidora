@@ -1,4 +1,4 @@
-import { For, Show, createSignal, createMemo, createEffect, onCleanup } from 'solid-js';
+import { For, Show, Switch, Match, createSignal, createMemo, createEffect, onCleanup } from 'solid-js';
 import { useApp } from '../state';
 import { refreshTargetForSelection } from '../feeds/scope';
 import type { Item } from '../db/types';
@@ -7,6 +7,7 @@ import { relativeTime } from '../util/time';
 import { Star, CircleCheck, ThumbsDown, ThumbsUp, Plus, Sparkles, FileUp } from 'lucide-solid';
 import { CircleIcon, CircleCheckIcon } from './Icons';
 import { RiverHeader } from './RiverHeader';
+import { riverListState, sameRiverListState, type RiverListState } from './river-state';
 
 export function River() {
   const ctx = useApp();
@@ -143,14 +144,14 @@ export function River() {
   // transition fires when `hydrated` flips even if the (empty) list identity
   // stays the same — an inline expression in <For fallback> only re-evaluates
   // when the list changes and would stick on "Loading…" for an empty boot.
-  const listState = createMemo<'loading' | 'empty' | 'items'>(() => {
-    if (visibleItems().length > 0) return 'items';
-    if (!ctx.hydrated()) return 'loading';
-    if (ctx.feeds().length === 0) return 'empty';
-    const fetching = ctx.fetchingFeeds();
-    const scope = refreshTargetForSelection(ctx.feeds(), ctx.state.riverScope, ctx.state.activeTags);
-    return [...scope].some((id) => fetching.has(id)) ? 'loading' : 'empty';
-  });
+  const listState = createMemo<RiverListState>(() => riverListState({
+    itemCount: visibleItems().length,
+    hydrated: ctx.hydrated(),
+    feeds: ctx.feeds(),
+    scope: refreshTargetForSelection(ctx.feeds(), ctx.state.riverScope, ctx.state.activeTags),
+    fetching: ctx.fetchingFeeds(),
+    feedErrors: ctx.feedErrors(),
+  }), { kind: 'loading' }, { equals: sameRiverListState });
   const [dbStatus, setDbStatus] = createSignal(getDbStatus());
   onCleanup(onDbStatusChange(() => setDbStatus(getDbStatus())));
   const loadingMessage = () => {
@@ -166,7 +167,19 @@ export function River() {
     <main class="river" id="article-list" ref={containerRef} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)} onMouseLeave={() => ctx.setState({ focusedIndex: -1 })} onMouseMove={() => { mouseMoved = true; lastMouseMoveTime = performance.now(); }}>
       <RiverHeader scrolled={scrolled()} />
       <div class="river-inner">
-        <Show when={listState() === 'items'} fallback={listState() === 'loading' ? <LoadingMessage message={loadingMessage()} /> : <EmptyState />}>
+        <Show when={listState().kind === 'items'} fallback={
+          <Switch fallback={<EmptyState />}>
+            <Match when={listState().kind === 'loading'}>
+              <LoadingMessage message={loadingMessage()} />
+            </Match>
+            <Match when={asState(listState(), 'fetching-new')}>
+              {(state) => <LoadingMessage message={state().message} />}
+            </Match>
+            <Match when={asState(listState(), 'first-fetch-failed')}>
+              {(state) => <FirstFetchFailed feedId={state().feedId} feedTitle={state().feedTitle} error={state().error} />}
+            </Match>
+          </Switch>
+        }>
           <For each={visibleItems()}>
             {(item, idx) => (
             <div class="swipe-container">
@@ -268,6 +281,28 @@ export function River() {
   );
 }
 
+function asState<K extends RiverListState['kind']>(state: RiverListState, kind: K): Extract<RiverListState, { kind: K }> | false {
+  return state.kind === kind ? (state as Extract<RiverListState, { kind: K }>) : false;
+}
+
+function FirstFetchFailed(props: { feedId: string; feedTitle: string; error: string }) {
+  const ctx = useApp();
+  return (
+    <div class="empty-state">
+      <div class="headline">Couldn’t fetch {props.feedTitle}</div>
+      <p class="detail">{props.error}</p>
+      <button
+        class="btn subtle"
+        disabled={ctx.fetching() > 0}
+        aria-busy={ctx.fetching() > 0}
+        onClick={() => void ctx.retryFeed(props.feedId)}
+      >
+        {ctx.fetching() > 0 ? 'Checking…' : 'Try again'}
+      </button>
+    </div>
+  );
+}
+
 function LoadingMessage(props: { message: string }) {
   const [show, setShow] = createSignal(false);
   createEffect(() => {
@@ -366,13 +401,14 @@ function EmptyState() {
     <Show when={caughtUp()} fallback={
     <div class="empty-state">
       <div class="headline">No items yet.</div>
-      <a
-        class="link"
-        href="/"
-        onClick={(e) => { e.preventDefault(); void ctx.refreshSelected(); }}
+      <button
+        class="btn subtle"
+        disabled={ctx.fetching() > 0}
+        aria-busy={ctx.fetching() > 0}
+        onClick={() => void ctx.refreshSelected()}
       >
-        Check for new items
-      </a>
+        {ctx.fetching() > 0 ? 'Checking…' : 'Check for new items'}
+      </button>
     </div>}>
       <div class="empty-state">
         <div class="headline">You’re caught up</div>

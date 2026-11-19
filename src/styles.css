@@ -2272,6 +2272,12 @@ a:hover { text-decoration: underline; }
   margin-bottom: 8px;
 }
 
+.empty-state .detail {
+  margin: 0 0 16px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .empty-state .link {
   font-size: 13px;
   color: var(--accent-text);

@@ -64,19 +64,17 @@ export function AddFeedModal() {
   const subscribe = async () => {
     const d = discovered();
     if (!d) return;
-    await ctx.subscribeFeed({ url: d.url, title: d.title, htmlUrl: d.parsed.htmlUrl, tags: tags() });
+    await ctx.subscribeFeed({ url: d.url, title: d.title, htmlUrl: d.parsed.htmlUrl, tags: tags() }, { fetchNow: false });
     const feed = ctx.feeds().find((f) => f.url === d.url);
     if (!feed) return;
     const items = parsedToItems(d.parsed, feed.id);
-    if (items.length > 0) {
-      await bulkUpsertItems(items);
-      const lastPublished = Math.max(...items.map((i) => i.publishedAt));
-      await upsertFeed({
-        ...feed,
-        lastFetched: Date.now(),
-        lastItemPublishedAt: lastPublished ?? null,
-      });
-    }
+    if (items.length > 0) await bulkUpsertItems(items);
+    await upsertFeed({
+      ...feed,
+      lastFetched: Date.now(),
+      lastItemPublishedAt: items.length > 0 ? Math.max(...items.map((i) => i.publishedAt)) : null,
+    });
+    await ctx.reloadFeeds();
     ctx.closeModal();
     void ctx.reloadItems();
   };
