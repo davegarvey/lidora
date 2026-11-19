@@ -158,6 +158,7 @@ export function Stats() {
                       <button
                         class="stats-definitions-close"
                         type="button"
+                        title="Close"
                         aria-label="Close stats explanation"
                         onClick={closeDefinitions}
                       >
@@ -271,6 +272,7 @@ export function Stats() {
                                 classList={{ active: isActiveSortColumn(column.column) }}
                                 type="button"
                                 data-sort-column={column.column}
+                                title={sortButtonLabel(column)}
                                 aria-label={sortButtonLabel(column)}
                                 onClick={() => toggleSortColumn(column.column)}
                               >

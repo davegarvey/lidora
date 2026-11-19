@@ -209,6 +209,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
           class="sidebar-resizer desktop-only"
           role="separator"
           aria-label="Resize feeds sidebar"
+          title="Drag to resize"
           aria-orientation="vertical"
           aria-valuemin={SIDEBAR_WIDTH_MIN}
           aria-valuemax={SIDEBAR_WIDTH_MAX}
@@ -225,7 +226,7 @@ export function Sidebar(props: { onNavigate?: () => void }) {
       </Show>
 
       <div class="collapsed-rail" onClick={onCollapsedRailClick}>
-          <div class="collapsed-brand" data-updating={ctx.libraryUpdating() ? 'true' : undefined}>
+          <div class="collapsed-brand" title="Open sidebar" data-updating={ctx.libraryUpdating() ? 'true' : undefined}>
             <Show when={ctx.libraryUpdating()} fallback={<LidoraMark class="lidora-mark" size={20} />}>
               <LibraryActivity />
             </Show>

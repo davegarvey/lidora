@@ -133,6 +133,7 @@ export function QrScannerOverlay(props: { onClose: (paired?: boolean) => void; o
       <button
         class="scanner-close"
         onClick={() => props.onClose(false)}
+        title="Close scanner"
         aria-label="Close scanner"
       >
         <X size={16} />
