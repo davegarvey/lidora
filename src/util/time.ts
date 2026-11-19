@@ -32,9 +32,8 @@ export function countdownLabel(remainingMs: number): string {
 }
 
 /** Format a Date as human-readable relative time with decaying precision.
- *  "2h ago" → "Wednesday" → "last month" → "Jun 2026" */
-export function humanRelativeTime(date: Date): string {
-  const now = Date.now();
+ *  "2h ago" → "Wednesday" → "23 Oct" → "23 Oct 2025" */
+export function humanRelativeTime(date: Date, now: number = Date.now()): string {
   const ts = date.getTime();
   if (ts <= 0 || now - ts < 0) return 'unknown';
   const diffMs = now - ts;
@@ -50,10 +49,12 @@ export function humanRelativeTime(date: Date): string {
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return dayNames[date.getDay()];
   }
-  if (diffDays < 60) {
-    const diffMonths = Math.round(diffDays / 30);
-    return diffMonths < 2 ? 'last month' : `${diffMonths} months ago`;
-  }
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  const dayMonth = `${date.getDate()} ${months[date.getMonth()]}`;
+  return date.getFullYear() === new Date(now).getFullYear() ? dayMonth : `${dayMonth} ${date.getFullYear()}`;
+}
+
+/** Format a Date as a full local date and time for tooltips. */
+export function fullTimestamp(date: Date): string {
+  return date.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
 }
