@@ -734,3 +734,96 @@ describe('new feed arrival', () => {
     expect((await getFeed('arrival-fail'))?.refreshError).toBeTruthy();
   });
 });
+
+describe('server coverage', () => {
+  it('skips covered feeds in automatic refreshes but not manual or first fetches', async () => {
+    const { refreshStaleFeeds } = await import('../src/feeds/scheduler');
+    const { setServerCoverage, clearServerCoverage } = await import('../src/sync/coverage');
+    const old = Date.now() - 3 * 60 * 60_000;
+    await upsertFeed({ id: 'covered', url: 'https://covered.example/feed.xml', title: 'C', learnedIntervalMs: 3_600_000, lastFetched: old });
+    await upsertFeed({ id: 'uncovered', url: 'https://uncovered.example/feed.xml', title: 'U', learnedIntervalMs: 3_600_000, lastFetched: old });
+    await upsertFeed({ id: 'covered-new', url: 'https://covered-new.example/feed.xml', title: 'N', learnedIntervalMs: 3_600_000, lastFetched: null });
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      calls.push(decodeURIComponent(String(input)));
+      return new Response(null, { status: 304 });
+    }) as unknown as typeof globalThis.fetch;
+    setServerCoverage(['covered', 'covered-new']);
+    try {
+      await refreshStaleFeeds();
+      expect(calls.some((url) => url.includes('https://covered.example/'))).toBe(false);
+      expect(calls.some((url) => url.includes('https://uncovered.example/'))).toBe(true);
+      expect(calls.some((url) => url.includes('https://covered-new.example/'))).toBe(true);
+
+      calls.length = 0;
+      await refreshStaleFeeds({ forceAll: true, target: new Set(['covered']) });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toContain('https://covered.example/');
+    } finally {
+      clearServerCoverage();
+    }
+  });
+
+  it('refreshes covered feeds again once coverage expires', async () => {
+    const { refreshStaleFeeds } = await import('../src/feeds/scheduler');
+    const { setServerCoverage, clearServerCoverage, COVERAGE_VALIDITY_MS } = await import('../src/sync/coverage');
+    await upsertFeed({ id: 'lapsed', url: 'https://lapsed.example/feed.xml', title: 'L', learnedIntervalMs: 3_600_000, lastFetched: Date.now() - 3 * 60 * 60_000 });
+    let calls = 0;
+    globalThis.fetch = (async () => { calls++; return new Response(null, { status: 304 }); }) as unknown as typeof globalThis.fetch;
+    setServerCoverage(['lapsed'], Date.now() - COVERAGE_VALIDITY_MS);
+    try {
+      await refreshStaleFeeds();
+      expect(calls).toBe(1);
+    } finally {
+      clearServerCoverage();
+    }
+  });
+});
+
+describe('automatic work while idle', () => {
+  it('runs the scheduled sync only on active, visible ticks', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'setTimeout', 'Date'] });
+    const { startScheduler, stopScheduler, setOnScheduledSync } = await import('../src/feeds/scheduler');
+    const { markActive } = await import('../src/util/idle');
+    let syncs = 0;
+    setOnScheduledSync(async () => { syncs++; });
+    globalThis.fetch = (async () => new Response(null, { status: 304 })) as unknown as typeof globalThis.fetch;
+    try {
+      markActive();
+      startScheduler();
+      await vi.advanceTimersByTimeAsync(4 * 60_000);
+      markActive();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(syncs).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      expect(syncs).toBe(1);
+
+      document.dispatchEvent(new Event('mousemove'));
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      expect(syncs).toBe(2);
+    } finally {
+      stopScheduler();
+      setOnScheduledSync(null);
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not refresh due feeds while the user is idle', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'setTimeout', 'Date'] });
+    const { startScheduler, stopScheduler } = await import('../src/feeds/scheduler');
+    const { markActive } = await import('../src/util/idle');
+    await upsertFeed({ id: 'idle-due', url: 'https://idle-due.example/feed.xml', title: 'I', learnedIntervalMs: 3_600_000, lastFetched: Date.now() - 50 * 60_000 });
+    let calls = 0;
+    globalThis.fetch = (async () => { calls++; return new Response(null, { status: 304 }); }) as unknown as typeof globalThis.fetch;
+    try {
+      markActive();
+      startScheduler();
+      await vi.advanceTimersByTimeAsync(40 * 60_000);
+      expect(calls).toBe(0);
+    } finally {
+      stopScheduler();
+      vi.useRealTimers();
+    }
+  });
+});

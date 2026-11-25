@@ -434,7 +434,20 @@
                       }
                     },
                     "cursor": { "type": "integer", "description": "Pass as `after` on the next request." },
-                    "more": { "type": "boolean", "description": "True when another page is available." }
+                    "more": { "type": "boolean", "description": "True when another page is available." },
+                    "covered": {
+                      "type": "array",
+                      "description": "Present only when `more` is false. The caller's feeds whose last server poll succeeded and whose next poll is at most an hour overdue.",
+                      "items": {
+                        "type": "object",
+                        "required": ["feed_id", "polled_at", "next_poll_at"],
+                        "properties": {
+                          "feed_id": { "type": "string" },
+                          "polled_at": { "type": "integer", "description": "Milliseconds since the epoch when the last poll outcome was recorded." },
+                          "next_poll_at": { "type": "integer", "description": "Milliseconds since the epoch of the next scheduled poll." }
+                        }
+                      }
+                    }
                   }
                 }
               }

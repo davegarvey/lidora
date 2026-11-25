@@ -45,6 +45,7 @@ function hostOfUrl(url: string | null): string | null {
 const PAIRING_TTL_SECONDS = 5 * 60;
 const MAX_USERS = 100_000;
 const ITEMS_PAGE_SIZE = 200;
+const COVERAGE_OVERDUE_GRACE_MS = 60 * 60_000;
 const ACTIVITY_WRITE_INTERVAL_SECONDS = 60 * 60;
 
 interface StatsPayload {
@@ -134,6 +135,25 @@ export interface SyncRoutesOptions {
   nowSeconds?: () => number;
   /** Poll database; server-side feed polling and /sync/items are enabled only when present. */
   pollDb?: D1Database;
+}
+
+async function coveredFeeds(
+  pollDb: D1Database,
+  feedIdByUrl: Map<string, string>,
+  nowMs: number,
+): Promise<Array<{ feed_id: string; polled_at: number; next_poll_at: number }>> {
+  const res = await pollDb
+    .prepare(
+      `SELECT feed_url, updated_at, next_poll_at FROM polled_feeds
+       WHERE feed_url IN (SELECT value FROM json_each(?))
+         AND failures = 0 AND last_status IN (200, 304) AND next_poll_at >= ?`,
+    )
+    .bind(JSON.stringify([...feedIdByUrl.keys()]), nowMs - COVERAGE_OVERDUE_GRACE_MS)
+    .all<{ feed_url: string; updated_at: number; next_poll_at: number }>();
+  return res.results.flatMap((row) => {
+    const feedId = feedIdByUrl.get(row.feed_url);
+    return feedId ? [{ feed_id: feedId, polled_at: row.updated_at, next_poll_at: row.next_poll_at }] : [];
+  });
 }
 
 function parseCursor(raw: string | undefined): number | null {
@@ -735,7 +755,7 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
     for (const row of feedsRes.results) {
       if (!feedIdByUrl.has(row.feed_url)) feedIdByUrl.set(row.feed_url, row.feed_id);
     }
-    if (feedIdByUrl.size === 0) return c.json({ items: [], cursor: maxSeq, more: false });
+    if (feedIdByUrl.size === 0) return c.json({ items: [], cursor: maxSeq, more: false, covered: [] });
 
     const from = after > maxSeq ? 0 : after;
     const res = await pollDb
@@ -751,7 +771,9 @@ export function createSyncRoutes(db: D1Database, opts: SyncRoutesOptions = {}): 
     const items = res.results.map(({ feed_url: feedUrl, ...item }) => ({ ...item, feed_id: feedIdByUrl.get(feedUrl) }));
     const more = items.length === ITEMS_PAGE_SIZE;
     const cursor = more ? items[items.length - 1].seq : maxSeq;
-    return c.json({ items, cursor, more });
+    if (more) return c.json({ items, cursor, more });
+    const covered = await coveredFeeds(pollDb, feedIdByUrl, now() * 1000);
+    return c.json({ items, cursor, more, covered });
   });
 
   return app;

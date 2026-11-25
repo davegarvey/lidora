@@ -16,6 +16,7 @@ import { ensureFeedStats, getFeedStats } from '../db/stats';
 import { adoptFeedUrl } from './service';
 import { enqueueStatsIfSync } from '../sync/queue';
 import { runStorageRetention } from '../db/storage-retention';
+import { isServerCovered } from '../sync/coverage';
 
 const TICK_MS = 5 * 60 * 1000;
 const RATE_LIMIT_STATUSES = new Set([419, 429]);
@@ -33,6 +34,7 @@ let dueTimer: ReturnType<typeof setTimeout> | null = null;
 let schedulerEpoch: number | null = null;
 let onRefresh: (() => void | Promise<void>) | null = null;
 let onLibraryActivity: ((active: boolean) => void) | null = null;
+let onScheduledSync: (() => Promise<void>) | null = null;
 
 export function setOnRefresh(fn: (() => void | Promise<void>) | null): void {
   onRefresh = fn;
@@ -42,13 +44,26 @@ export function setOnLibraryActivity(fn: ((active: boolean) => void) | null): vo
   onLibraryActivity = fn;
 }
 
+export function setOnScheduledSync(fn: (() => Promise<void>) | null): void {
+  onScheduledSync = fn;
+}
+
+function automaticWorkPaused(): boolean {
+  return document.visibilityState === 'hidden' || isIdle();
+}
+
+async function runScheduledTick(): Promise<void> {
+  if (automaticWorkPaused()) return;
+  await onScheduledSync?.().catch(() => undefined);
+  await refreshStaleFeeds();
+}
+
 export function startScheduler(): void {
   if (tickTimer) return;
   schedulerEpoch = Date.now();
   void refreshStaleFeeds();
   tickTimer = setInterval(() => {
-    if (document.visibilityState === 'hidden') return;
-    void refreshStaleFeeds();
+    void runScheduledTick();
   }, TICK_MS);
   void scheduleAutomaticRun();
 }
@@ -86,6 +101,7 @@ export async function refreshStaleFeeds(options: RefreshOptions = {}): Promise<v
     if (target !== undefined && !target.has(f.id)) return false;
     if (f.refreshError && f.refreshError.retryAt > now && !(ignoreRetry && !RATE_LIMIT_STATUSES.has(f.refreshError.lastStatus ?? 0))) return false;
     if (forceAll) return true;
+    if (f.lastFetched != null && isServerCovered(f.id, now)) return false;
     return scheduledFeedDueAt(f, schedulerEpoch, now) <= now;
   });
   await runRefresh(stale, { reload: !forceAll });
@@ -135,12 +151,12 @@ async function scheduleAutomaticRun(): Promise<void> {
   if (dueTimer) clearTimeout(dueTimer);
   const feeds = await listFeeds();
   const nextAt = feeds
-    .filter((feed) => Boolean(feed.url) && feed.removedAt == null)
+    .filter((feed) => Boolean(feed.url) && feed.removedAt == null && !(feed.lastFetched != null && isServerCovered(feed.id)))
     .reduce((earliest, feed) => Math.min(earliest, scheduledFeedDueAt(feed, schedulerEpoch)), Number.POSITIVE_INFINITY);
   if (!Number.isFinite(nextAt)) return;
   dueTimer = setTimeout(() => {
     dueTimer = null;
-    if (document.visibilityState !== 'hidden') {
+    if (!automaticWorkPaused()) {
       void refreshStaleFeeds();
     }
   }, Math.max(0, nextAt - Date.now()));

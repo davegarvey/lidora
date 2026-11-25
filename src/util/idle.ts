@@ -2,16 +2,15 @@ const ACTIVITY_TIMEOUT_MS = 5 * 60_000;
 
 let lastActivity = Date.now();
 let wasEverActive = false;
-let catchupFns: Array<() => void> = [];
+const catchupFns = new Set<() => void>();
 
-export function onCatchup(fn: () => void): void {
-  catchupFns.push(fn);
+export function onCatchup(fn: () => void): () => void {
+  catchupFns.add(fn);
+  return () => catchupFns.delete(fn);
 }
 
 function fireCatchup(): void {
-  const fns = catchupFns;
-  catchupFns = [];
-  for (const fn of fns) fn();
+  for (const fn of [...catchupFns]) fn();
 }
 
 export function isIdle(): boolean {

@@ -1,10 +1,11 @@
-import { listFeeds } from '../db/feeds';
+import { listFeeds, updateFeed } from '../db/feeds';
 import { bulkUpsertItems, listItems } from '../db/items';
 import { getItemFlags, type ItemFlag } from '../db/flags';
 import { getFeedStats, listFeedStats, listPendingReadMarkers, applyRemoteStatistics } from '../db/stats';
 import { enqueueFeed, enqueueFlag, enqueueStats, enqueueReadMarker, enqueueStatsIfSync, clearAllDirty } from './queue';
 import { flushNow, scheduleFlush } from './push';
-import { pullItemsAfter, pullSince, pullStatsSince, register, type PullPayload, type StatsPullPayload } from './client';
+import { pullItemsAfter, pullSince, pullStatsSince, register, type CoveredFeed, type PullPayload, type StatsPullPayload } from './client';
+import { setServerCoverage } from './coverage';
 import { applyRemoteState, canonicalizeLocalFeedIds, type RemotePayload, type RemoteFeed, type RemoteFlag } from './apply';
 import {
   getStoredLastItemsCursor,
@@ -177,7 +178,10 @@ export async function runItemsPull(afterOverride?: number): Promise<number> {
     }
     cursor = result.cursor;
     await setStoredLastItemsCursor(cursor);
-    if (!result.more) break;
+    if (!result.more) {
+      await applyCoverage(result.covered ?? [], feedsById);
+      break;
+    }
   }
   for (const feedId of touched) {
     const feed = feedsById.get(feedId);
@@ -191,6 +195,22 @@ export async function runItemsPull(afterOverride?: number): Promise<number> {
   }
   if (touched.size > 0) scheduleFlush();
   return inserted;
+}
+
+async function applyCoverage(covered: CoveredFeed[], feedsById: ReadonlyMap<string, Feed>): Promise<void> {
+  const ids: string[] = [];
+  for (const entry of covered) {
+    const feed = feedsById.get(entry.feed_id);
+    if (!feed) continue;
+    ids.push(feed.id);
+    if (feed.lastFetched == null || entry.polled_at <= feed.lastFetched) continue;
+    await updateFeed(feed.id, {
+      lastFetched: entry.polled_at,
+      sourceFetchedAt: entry.polled_at,
+      nextCheckAt: entry.next_poll_at,
+    });
+  }
+  setServerCoverage(ids);
 }
 
 async function pullItemsAndNotify(afterOverride?: number, force = false): Promise<void> {
