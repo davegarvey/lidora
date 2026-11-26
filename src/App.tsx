@@ -170,17 +170,10 @@ function Shell() {
         }
       });
 
-      // Hourly SW update check — falls back to the browser's natural
-      // navigation-triggered checks for long-running sessions.
       navigator.serviceWorker.ready.then((reg) => {
-        const swUrl = reg.active?.scriptURL ?? '/sw.js';
-        const swInterval = setInterval(async () => {
-          if (reg.installing || !navigator.onLine) return;
-          const resp = await fetch(swUrl, {
-            cache: 'no-store',
-            headers: { 'cache-control': 'no-cache' },
-          });
-          if (resp.ok) await reg.update();
+        const swInterval = setInterval(() => {
+          if (reg.installing || !navigator.onLine || document.visibilityState === 'hidden') return;
+          void reg.update().catch(() => undefined);
         }, 3_600_000);
         onCleanup(() => clearInterval(swInterval));
       });

@@ -8,7 +8,8 @@ provides multi-device sync and AI agent integration.
 
 - **Local-only**: subscriptions, items, read/starred state, and lifetime reading statistics live in IndexedDB.
 - **Multi-device sync**: optional D1-backed sync via Cloudflare Workers (pairing-code based), including exact group read-once deduplication and approximate observed volume. You can delete your server-side sync data from Settings → Server data.
-- **Server-side polling**: on Workers, synced subscriptions are polled every 30 minutes, so items published while no device is open still arrive.
+- **Server-side polling**: on Workers, synced subscriptions are polled every 30 minutes, so items published while no device is open still arrive. Synced devices then leave the feeds the server is polling successfully to the server and pull its entries every 15 minutes while in use, rather than fetching each feed themselves.
+- **Refresh while in use**: automatic refreshes pause when the page is hidden or after 5 minutes without input, and catch up on the next interaction.
 - **Quiet library updates**: one neutral header spinner covers fetching, processing and applying updates; refresh buttons and individual feed rows stay still. Background arrivals stay out of the current article order until you choose `Show N new` (or `Show updates`). Turn on **Automatically show new articles** in Appearance to apply them as they arrive; this preference is local to each device. Explicit refreshes and new filters still apply immediately.
 - **AI agent connector**: a remote MCP server with OAuth lets chat and coding agents read subscriptions, statistics and recent articles, and manage subscriptions, after one approval. An OpenAPI document describes the sync API for other tools.
 - **Portable**: export/import subscriptions as OPML, or create a full-library backup for recovery.
@@ -292,7 +293,10 @@ were first seen, and polling state is deleted once no group subscribes to
 the URL. `/sync/pull` records when a group was last active, at most once an
 hour, whether or not polling is enabled; polling and account retention both
 use it. Devices fetch these entries with `/sync/items` and keep only entries
-they do not already hold. The full feed URL is stored in `POLL_DB`, including
+they do not already hold. The final page of `/sync/items` also lists the
+caller's feeds whose last poll succeeded and whose next poll is no more than
+an hour overdue; for 45 minutes after that report, a device does not refresh
+those feeds automatically, though manual refresh still fetches them. The full feed URL is stored in `POLL_DB`, including
 any access token embedded in a private-feed URL. `/sync/items` returns entries
 only to accounts that currently subscribe to that exact URL. Enable polling
 only if you are comfortable storing those URLs and feed entries on the server.

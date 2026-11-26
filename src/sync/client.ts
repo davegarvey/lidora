@@ -38,10 +38,17 @@ export interface StatsPullPayload {
   markers: unknown[];
 }
 
+export interface CoveredFeed {
+  feed_id: string;
+  polled_at: number;
+  next_poll_at: number;
+}
+
 export interface ItemsPage {
   items: unknown[];
   cursor: number;
   more: boolean;
+  covered?: CoveredFeed[];
 }
 
 export const KEY_REJECTED_MESSAGE =

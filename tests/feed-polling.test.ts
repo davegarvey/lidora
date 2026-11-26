@@ -89,6 +89,7 @@ interface ItemsPage {
   items: Array<{ seq: number; feed_id: string; guid: string; html: string | null; published_at: number | null }>;
   cursor: number;
   more: boolean;
+  covered?: Array<{ feed_id: string; polled_at: number; next_poll_at: number }>;
 }
 
 async function items(mf: Miniflare, key: string, after = 0): Promise<ItemsPage> {
@@ -515,9 +516,11 @@ describe('server feed polling', () => {
       const first = await items(mf, key);
       expect(first.items).toHaveLength(200);
       expect(first.more).toBe(true);
+      expect(first).not.toHaveProperty('covered');
       const second = await items(mf, key, first.cursor);
       expect(second.items).toHaveLength(100);
       expect(second.more).toBe(false);
+      expect(second.covered?.map((entry) => entry.feed_id).sort()).toEqual(['f0', 'f1', 'f2']);
 
       const all = [...first.items, ...second.items];
       expect(new Set(all.map((i) => i.seq)).size).toBe(300);
@@ -527,6 +530,40 @@ describe('server feed polling', () => {
       await mf.dispose();
     }
   }, 30_000);
+
+  it('reports only feeds the server is polling successfully as covered', async () => {
+    const upstream: Upstream = {
+      requests: [],
+      respond: (url) => url.pathname.endsWith('/broken.xml')
+        ? new Response('nope', { status: 500 })
+        : new Response(rss([{ guid: url.pathname }])),
+    };
+    const mf = await createMf(upstream);
+    try {
+      const key = makeSyncKey('coverage');
+      await register(mf, key);
+      for (const name of ['ok', 'broken', 'deferred', 'overdue']) {
+        await subscribe(mf, key, name, `http://93.184.216.34/${name}.xml`);
+      }
+      await pull(mf, key);
+      const before = Date.now();
+      await runCron(mf);
+      await subscribe(mf, key, 'fresh', 'http://93.184.216.34/fresh.xml');
+      const db = await pollDb(mf);
+      await db.prepare('UPDATE polled_feeds SET last_status = 429 WHERE feed_url = ?').bind('http://93.184.216.34/deferred.xml').run();
+      await db.prepare('UPDATE polled_feeds SET next_poll_at = ? WHERE feed_url = ?')
+        .bind(Date.now() - 2 * 60 * 60_000, 'http://93.184.216.34/overdue.xml').run();
+
+      const page = await items(mf, key);
+      expect(page.more).toBe(false);
+      expect(page.covered?.map((entry) => entry.feed_id)).toEqual(['ok']);
+      const [ok] = page.covered ?? [];
+      expect(ok.polled_at).toBeGreaterThanOrEqual(before);
+      expect(ok.next_poll_at).toBeGreaterThan(ok.polled_at);
+    } finally {
+      await mf.dispose();
+    }
+  });
 
   it('advances the cursor past items for feeds the caller does not follow', async () => {
     const upstream: Upstream = { requests: [], respond: () => new Response(rss([{ guid: 'a' }])) };

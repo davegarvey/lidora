@@ -4,14 +4,15 @@ import { convertV4MiniflareOptions, Miniflare } from 'miniflare';
 import * as esbuild from 'esbuild';
 import path from 'path';
 import { getDb } from '../src/db/open';
-import { upsertFeed } from '../src/db/feeds';
+import { getFeed, upsertFeed } from '../src/db/feeds';
 import { getItem, getItemBody, updateItem } from '../src/db/items';
 import { getFeedStats } from '../src/db/stats';
 import { setStoredSyncKey, setStoredLastSyncAt, getStoredLastItemsCursor, setStoredLastItemsCursor } from '../src/sync/key';
 import { triggerFirstTime } from '../src/sync/init';
 import { runPull, toServerItems } from '../src/sync/merge';
 import { enqueueFlag, clearAllDirty } from '../src/sync/queue';
-import { flushNow } from '../src/sync/push';
+import { flushNow, stopScheduledFlush } from '../src/sync/push';
+import { clearServerCoverage, isServerCovered } from '../src/sync/coverage';
 import { applyPollMigration } from './poll-db';
 
 const FEED_URL = 'http://93.184.216.34/items-e2e.xml';
@@ -56,6 +57,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  stopScheduledFlush();
+  await withMfFetch(() => flushNow().catch(() => undefined));
   await mf.dispose();
 });
 
@@ -135,6 +138,42 @@ describe('server-polled item sync', () => {
     const one = await getItem(`${feedId}::one`);
     expect(one?.title).toBe('Local copy');
     expect((await getItemBody(`${feedId}::one`))?.html).toBe('<p>local</p>');
+  });
+});
+
+describe('server coverage', () => {
+  afterEach(() => clearServerCoverage());
+
+  it('records covered feeds and stamps their poll time', async () => {
+    const key = 'itemsCoverxxxxxxxxxxxx';
+    const feedId = crypto.randomUUID();
+    const freshId = crypto.randomUUID();
+    const lastFetched = Date.now() - 3 * 60 * 60_000;
+    await upsertFeed({ id: feedId, url: FEED_URL, title: 'Feed', learnedIntervalMs: 3_600_000, lastFetched });
+    await setStoredSyncKey(key);
+    await setStoredLastSyncAt(null);
+    await withMfFetch(async () => {
+      await triggerFirstTime();
+      await poll();
+      await upsertFeed({ id: freshId, url: 'http://93.184.216.34/fresh.xml', title: 'Fresh', learnedIntervalMs: 3_600_000, lastFetched: null });
+      await runPull();
+
+      expect(isServerCovered(feedId)).toBe(true);
+      expect(isServerCovered(freshId)).toBe(false);
+      const stamped = await getFeed(feedId);
+      expect(stamped?.lastFetched).toBeGreaterThan(lastFetched);
+      expect(stamped?.sourceFetchedAt).toBe(stamped?.lastFetched);
+      expect(stamped?.nextCheckAt).toBeGreaterThan(Date.now());
+    });
+  });
+
+  it('expires coverage after 45 minutes', async () => {
+    const { setServerCoverage, COVERAGE_VALIDITY_MS } = await import('../src/sync/coverage');
+    const now = Date.now();
+    setServerCoverage(['a'], now);
+    expect(isServerCovered('a', now + COVERAGE_VALIDITY_MS - 1)).toBe(true);
+    expect(isServerCovered('a', now + COVERAGE_VALIDITY_MS)).toBe(false);
+    expect(isServerCovered('b', now)).toBe(false);
   });
 });
 

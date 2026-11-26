@@ -73,7 +73,8 @@ async function getSettings(): Promise<AppSettings> {
 async function saveSettings(settings: AppSettings): Promise<void> {
   await setMeta(SETTINGS_KEY, settings);
 }
-import { refreshStaleFeeds, fetchNewFeeds, fetchingState, startScheduler, setOnRefresh, setOnLibraryActivity } from './feeds/scheduler';
+import { refreshStaleFeeds, fetchNewFeeds, fetchingState, startScheduler, setOnRefresh, setOnLibraryActivity, setOnScheduledSync } from './feeds/scheduler';
+import { clearServerCoverage } from './sync/coverage';
 import { enqueueFlag, clearAllDirty, enqueueStatsIfSync, enqueueReadMarkerIfSync } from './sync/queue';
 import { resetSyncStatus } from './sync/status';
 import { scheduleFlush, flushNow } from './sync/push';
@@ -93,6 +94,7 @@ import { stopScheduledFlush } from './sync/push';
 type ViewKind = 'river' | 'reading' | 'stats' | 'settings';
 
 const OPEN_SETTINGS_STATE = { settingsFromApp: true } as const;
+const SCHEDULED_PULL_INTERVAL_MS = 15 * 60_000;
 
 function historyFlag(name: 'settingsFromApp' | 'settingsListBelow'): boolean {
   const current: unknown = history.state;
@@ -335,6 +337,8 @@ export const AppProvider: ParentComponent = (props) => {
         if (disposed) return;
         if (!idleAtHide) {
           await pullIfStale(30_000);
+          if (disposed) return;
+          void refreshStaleFeeds();
         }
       }
     }
@@ -342,8 +346,11 @@ export const AppProvider: ParentComponent = (props) => {
   const onOnline = () => {
     if (!disposed && readMigrationState() === 'idle') void pullIfStale(120_000);
   };
+  let stopCatchup: (() => void) | null = null;
   onCleanup(() => {
     disposed = true;
+    stopCatchup?.();
+    setOnScheduledSync(null);
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibilityChange);
     if (typeof window !== 'undefined') window.removeEventListener('online', onOnline);
   });
@@ -864,6 +871,7 @@ export const AppProvider: ParentComponent = (props) => {
 
   const disableSync = async () => {
     await updateSettingsWith({ syncKey: null, lastSyncAt: null, lastStatsSyncAt: null, lastItemsCursor: null, serverOffset: null });
+    clearServerCoverage();
     await clearPendingRotation();
     clearAllDirty();
     resetSyncStatus();
@@ -909,6 +917,7 @@ export const AppProvider: ParentComponent = (props) => {
     }
     await settlePulls();
     await updateSettingsWith({ syncKey: newKey, lastSyncAt: null, lastStatsSyncAt: null, lastItemsCursor: null, serverOffset: null });
+    clearServerCoverage();
     await clearPendingRotation();
     clearAllDirty();
     resetSyncStatus();
@@ -1060,7 +1069,16 @@ export const AppProvider: ParentComponent = (props) => {
     });
     setOnSyncActivity((active) => { if (active) beginLibraryActivity(); else void endLibraryActivity(); });
     setOnLibraryActivity((active) => { if (active) beginLibraryActivity(); else void endLibraryActivity(); });
-    onCatchup(() => { if (readMigrationState() === 'idle') { void pullIfStale(30_000); void reloadItems(true); } });
+    setOnScheduledSync(async () => { if (readMigrationState() === 'idle') await pullIfStale(SCHEDULED_PULL_INTERVAL_MS); });
+    stopCatchup = onCatchup(() => {
+      if (readMigrationState() !== 'idle') return;
+      void (async () => {
+        await pullIfStale(30_000).catch(() => undefined);
+        if (disposed) return;
+        await refreshStaleFeeds();
+      })();
+      void reloadItems(true);
+    });
 
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('online', onOnline);
