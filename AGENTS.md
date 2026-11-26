@@ -12,7 +12,7 @@ Lidora — a simple, slick, browser-first RSS reader.
 - `npm test` — `vitest run`
 - `npm run test:conformance` — official MCP conformance suite against a local Node server (runs in CI)
 - `npm run spec:validate` — strict validation of the main specs in `openspec/specs/` (runs in CI)
-- `npm run deploy` — `git pull --ff-only && vite build && wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && wrangler deploy` (always deploy via this script — it pulls the latest before building and applies both D1 databases' migrations before the deploy). `npm run deploy:ci` applies the migrations and deploys without `git pull` or a build, retrying `wrangler deploy` once; it is the Workers Builds deploy command, which runs after the `npm run build` build command.
+- `npm run deploy` — `git pull --ff-only && vite build && wrangler d1 migrations apply sift-sync --remote && wrangler d1 migrations apply sift-poll --remote && wrangler deploy` (always deploy via this script — it pulls the latest before building and applies both D1 databases' migrations before the deploy). `npm run deploy:ci` applies the migrations and deploys without `git pull` or a build; it is the Workers Builds deploy command, which runs after the `npm run build` build command.
 
 ## Architecture
 
